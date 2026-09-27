@@ -20,10 +20,11 @@ import { submitPlaygroundProject } from './playground-submit';
  * The "Open in StackBlitz" affordance shown under a docs example.
  *
  * Rendered by `docs-example-container`, which is the single call site every
- * example already flows through, so one component reaches all 474 of them.
+ * example already flows through, so one component reaches all 479 of them.
  *
  * It renders **nothing** for an example that cannot be lifted out of the docs
- * app — five of them import docs-local code, which is not published. A button
+ * app — thirteen of them import docs-local code (in TypeScript or in their
+ * stylesheet), which is not published. A button
  * that opened a project failing to compile would be worse than no button, and
  * the check is derived from the source rather than a list, so an example that
  * becomes non-portable loses its button on the same commit.

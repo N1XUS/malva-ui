@@ -138,7 +138,7 @@ apps/docs/
     playground-manifest.ts       # Resolves playground versions/peers from the ROOT package.json
     generate-playground-versions.ts  # docs:generate-playground-versions CLI
     playground-corpus.ts         # Reads docs examples off disk (shared: sweep + writer)
-    playground-corpus.spec.ts    # Sweeps all 474 examples through the payload builder
+    playground-corpus.spec.ts    # Sweeps all 479 examples through the payload builder
     write-playground-project.ts  # docs:write-playground-project CLI (materialises one to disk)
                                  #   --allow-unpublished for the networked CI legs
   src/generated/                 # GIT-IGNORED — produced by docs:extract-api / :generate-playground-versions
@@ -819,7 +819,7 @@ on screen, above everything else; only the source files are tabbed:
 - Each pane carries its own hover-revealed `<docs-copy-source>`, absolutely positioned against `.example-container__source` — the box that holds that pane's code.
 - **Highlighting stays lazy, and is now per open tab.** It runs when the panel opens, again on a tab switch, and again on a page theme change — never for a pane that is not in the DOM. `_activeFile()` mirrors `mlv-tab-group`'s own "fall back to the first tab" rule so the first open starts tokenizing immediately instead of waiting for the group to write `activeTab` back. Shiki output lives in a separate `_highlighted` record rather than inside `resolvedFiles`, so the effect can write a finished file without invalidating its own dependencies, and switching back to a tab already rendered costs nothing. Source imports still resolve up front, because the playground button needs them to decide whether the example is portable.
 - When `fullExampleRoute` is non-null it renders a Malva button-style `RouterLink` labeled **Open full example**; when `null`, no expansion control. Complex examples must open through this routed link; never add a browser-native fullscreen control or call the Fullscreen API in the docs application.
-- `<docs-open-in-playground>` keeps its place in the toolbar — still the single call site through which all 474 examples get their "Open in StackBlitz" button (see §5b). It carries **no margin of its own**, and neither does the **Open full example** link beside it: `mlv-toolbar` supplies the row's `gap` and `.example-container__toolbar` the band's padding, so a margin on either would push it out of line with the other and grow the band.
+- `<docs-open-in-playground>` keeps its place in the toolbar — still the single call site through which all 479 examples get their "Open in StackBlitz" button (see §5b). It carries **no margin of its own**, and neither does the **Open full example** link beside it: `mlv-toolbar` supplies the row's `gap` and `.example-container__toolbar` the band's padding, so a margin on either would push it out of line with the other and grow the band.
 - It sets **`ViewEncapsulation.None`**, one of a handful of docs components that do (`docs-toc`, `docs-inspector` and `docs-api-viewer` are the others). Its reason is Shiki: that markup is bound with `[innerHTML]`, so it carries no `_ngcontent` attribute and emulated encapsulation would never reach the `<pre>` / `<code>` it produces.
 - **`overflow: clip`, never `hidden`, on `.example-container`.** Both round the corners, but `hidden` is a scroll container: every `position: sticky` example pinned to a box that never scrolls. The editor's Layout example (`/editor` example 12, #416) is the one that needs it. Checked when switching: a sweep of all 94 docs routes found no sticky element whose nearest scroll container was `.example-container`.
 
@@ -902,8 +902,8 @@ Swapping the SDK in is a one-file change in `playground-submit.ts`.
 `docs:generate-playground-versions` writes `src/generated/playground-versions.ts`
 (`PLAYGROUND_VERSIONS` + `PLAYGROUND_PEERS`) using the same placeholder table
 `scripts/publish.mjs` resolves from, and `nx.json` → `release.version` already
-makes the root manifest the canonical version of every published project. When
-`0.2.0` ships, the next docs build emits `0.2.0` with no edit anywhere. The
+makes the root manifest the canonical version of every published project. After
+a release the next docs build emits the new version with no edit anywhere. The
 peer graph is read from each published `libs/*/package.json`, so
 `@malva-ui/editor`'s twelve Tiptap peers land in the generated project without a
 hand-written companion list.
@@ -922,31 +922,58 @@ The example's own files keep their names (`src/example/index.ts` / `.html` /
 `.scss`), so `templateUrl: './index.html'` needs no rewriting and what the
 evaluator opens is byte-identical to what the docs page showed.
 
-**Twenty-one examples get no button**, for two unrelated reasons.
+**Thirteen examples get no button**, for two unrelated reasons (the second has
+no member today).
 
-_Five import docs-local code that is not published:_ `autocomplete/4`,
-`checkbox/1`, `combobox/10` reach outside their own directory; `select/8` and
-`tile/5` import a sibling file the `docsExample` pipe does not resolve. The check
-is derived from the source text, not a list, so an example that becomes
-non-portable loses its button on the same commit.
+_Thirteen import docs-local code that is not published:_
 
-_Sixteen import a package npm has never seen_ — all eight `scheduler/*` and all
-eight `taskboard/*`. Being in `nx.json` → `release.projects` means "will be
-published at the next release", not "is on npm now": both landed after `v0.1.15`
-and neither has shipped, so `npm install @malva-ui/scheduler@0.1.15` 404s. The
-networked workflow already skipped its own install for these; the button had no
-equivalent guard, so a visitor got a WebContainer that died during install.
-`UNPUBLISHED_PACKAGES` in `playground-project.ts` is that guard, and it is
-**temporary and pinned twice** so it cannot outlive its reason:
-`tools/playground-corpus.spec.ts` fails as soon as the root manifest moves off
-`UNPUBLISHED_VERIFIED_AT` (publication can only change at a release, and
-`scripts/publish.mjs` already ships `@malva-ui/scheduler`), and
-`.github/workflows/playground.yml` fails if `npm view` resolves any name in the
-list. Either failure means delete the entry.
+- `autocomplete/4`, `checkbox/1`, `combobox/10` reach outside their own
+  directory; `select/8` and `tile/5` import a sibling file the `docsExample`
+  pipe does not resolve.
+- All eight `taskboard/*` stylesheets `@use '../ticket'` (the shared
+  `taskboard/examples/_ticket.scss`). The builder counts every stylesheet
+  `@use` / `@forward` / `@import` other than a `sass:` module as docs-local
+  (`collectStylesheetLoads()`, #594). Before #594 it read only TypeScript
+  imports; these hid behind the unpublished-package block, and their projects
+  fail `ng build` ("Can't find stylesheet to import", measured on 0.2.0).
+- The check is derived from the source text, not a list, so an example that
+  becomes non-portable loses its button on the same commit.
 
-`tools/playground-corpus.spec.ts` asserts the blocked set is _exactly_ those
-twenty-one, each for the reason its own list exists for, so a twenty-second fails
-the suite instead of vanishing quietly.
+**An imported package that ships no types gets its `@types/*`.** The generated
+tsconfig is `strict`, so an untyped import fails `ng build` with TS7016. The
+builder adds `@types/<name>` (`@types/scope__name` for a scoped package) to
+`devDependencies` whenever the version table knows it — the table gets it from
+`EXTRA_PLAYGROUND_PACKAGES` in `tools/playground-manifest.ts`. Today that is
+`@types/sortablejs`, for `scheduler/6` (#594; TS7016 measured on 0.2.0 before
+it). All eight `scheduler/*` projects compile against the published 0.2.0.
+
+_An example importing a package npm has never seen_ — none today:
+
+- Being in `nx.json` → `release.projects` means "will be published at the next
+  release", not "is on npm now". A package that joins the set between releases
+  404s on install until the next release ships it.
+- `UNPUBLISHED_PACKAGES` in `playground-project.ts` is the guard: the builder
+  refuses every example importing a listed package. Add an entry on the commit
+  that adds a package to the release set, with `UNPUBLISHED_VERIFIED_AT` set to
+  the current root version; list the blocked examples in the corpus spec's
+  `UNPUBLISHED_EXAMPLES`.
+- **Empty since `0.2.0`** (#594). `@malva-ui/scheduler` and `@malva-ui/taskboard`
+  were its entries from their landing until `0.2.0` first published both; the
+  eight `scheduler/*` examples got their button back then (the eight
+  `taskboard/*` stay blocked, as docs-local code).
+- **An entry is pinned twice** so it cannot outlive its reason:
+  `tools/playground-corpus.spec.ts` fails once the root manifest moves off
+  `UNPUBLISHED_VERIFIED_AT` **while the list names anything**
+  (`unpublishedRecheckReason()`; publication can only change at a release), and
+  `.github/workflows/playground.yml` fails if `npm view` resolves any listed
+  name. Either failure means: re-check and delete what resolves.
+- An empty list arms neither pin, so a release with nothing listed stays green.
+  Before #594 the offline pin compared versions unconditionally.
+
+`tools/playground-corpus.spec.ts` asserts the blocked set is _exactly_
+`NON_PORTABLE` + `UNPUBLISHED_EXAMPLES` (thirteen today), each for the reason its
+own list exists for, so a fourteenth fails the suite instead of vanishing
+quietly.
 
 **The mounted tag is read from code, not from text.** `parseBootstrapSelector`
 scans a `maskNonCode()` copy of the example — comment bodies, string bodies and
@@ -962,7 +989,7 @@ builder's own regex, so "the builder agrees with itself" is not what is being
 asserted.
 
 **Two checks, and they prove different things.** `tools/playground-corpus.spec.ts`
-runs in `docs:test` and sweeps all 474 examples offline: every one builds a
+runs in `docs:test` and sweeps all 479 examples offline: every one builds a
 project or is a named exception, every imported package is declared with a
 version, every declared `templateUrl` / `styleUrl` exists, and the version table
 is a fresh derivation of the root manifest rather than a copy. It proves nothing
@@ -974,8 +1001,10 @@ declares is not on npm, which covers both a release window and a package that
 has never been published; a second step fails outright if a package in
 `UNPUBLISHED_PACKAGES` _has_ since been published. It writes its project with
 `--allow-unpublished`, because materialising a project and deciding whether npm
-can install it are separate jobs — that is what keeps the `scheduler` leg
-running and ready to start proving something the day the package ships.
+can install it are separate jobs — that is what kept the `scheduler` leg
+running before `0.2.0` shipped it, and does the same for the next listed
+package. With the list empty the flag changes nothing, the writer prints a bare
+`malva-ui-unpublished=` line, and the workflow skips its `npm view` check.
 
 Every value its `run:` blocks read arrives through `env:`, never a `${{ }}`
 interpolation into shell.
@@ -1418,7 +1447,7 @@ the client, mirroring the MDX transform.
 | `tools/playground-manifest.ts`           | Resolves the playground's npm versions and peer graph from the workspace root `package.json`. Pure, unit-tested through the corpus spec.                                                                                                   |
 | `tools/generate-playground-versions.ts`  | CLI run by `docs:generate-playground-versions`. Writes `src/generated/playground-versions.ts`. Side-effecting.                                                                                                                             |
 | `tools/playground-corpus.ts`             | Reads docs examples off disk in the shape the runtime hands the payload builder. Shared by the sweep and the disk writer.                                                                                                                  |
-| `tools/playground-corpus.spec.ts`        | Sweeps all 474 examples through `createPlaygroundProject`; asserts the blocked set is exactly twenty-one, that each mounts the selector the TypeScript parser reads off its default export, and that the version table is freshly derived. |
+| `tools/playground-corpus.spec.ts`        | Sweeps all 479 examples through `createPlaygroundProject`; asserts the blocked set is exactly the named lists, that each mounts the selector the TypeScript parser reads off its default export, and the version table is freshly derived. |
 | `tools/write-playground-project.ts`      | CLI run by `docs:write-playground-project`. Materialises one example's project for the networked CI job. Side-effecting.                                                                                                                   |
 | `src/app/shared/api-viewer/api.types.ts` | The `ApiEntry` / `ApiSymbol` / `ApiMember` / `ApiMethod` contract shared with the viewer (Phase E).                                                                                                                                        |
 | `src/generated/api/<name>.json`          | **Git-ignored.** One `ApiEntry` per documented library.                                                                                                                                                                                    |

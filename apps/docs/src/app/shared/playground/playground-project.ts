@@ -88,39 +88,83 @@ const SOURCE_FILE_NAME: Readonly<Record<string, string>> = {
 const PROJECT_NAME = 'malva-ui-playground';
 
 /**
- * Packages the version table names but npm has never seen.
+ * Packages the version table names but npm has never seen. Empty while every
+ * package in the release set is on npm.
  *
  * `nx.json` → `release.projects` is what the version table is derived from, and
  * being in it means "will be published at the next release", not "is on npm
- * now". Both of these landed after `v0.1.15` and neither has had a release
- * since, so `npm install @malva-ui/scheduler@0.1.15` 404s — a WebContainer that
- * fails on install is exactly the broken button this builder exists to withhold.
+ * now". A package that joins the release set between two releases therefore
+ * resolves to a version that 404s on install until the next release ships it —
+ * and a WebContainer that fails on install is exactly the broken button this
+ * builder exists to withhold. Add such a package here on the commit that adds it
+ * to the release set, and every example importing it loses its button until it
+ * is published.
  *
- * The networked workflow already skips its own install for these, loudly and by
- * name; this is the same knowledge on the browser side, where there is no
- * network to ask at build time.
+ * The last two entries were `@malva-ui/scheduler` and `@malva-ui/taskboard`:
+ * both joined the release set after `v0.1.15` and were first published at
+ * `0.2.0` (#594).
  *
- * **This list is temporary and is pinned twice so it cannot outlive its reason:**
- * `playground-corpus.spec.ts` fails the moment the root manifest moves off
- * {@link UNPUBLISHED_VERIFIED_AT} (publication status can only change at a
- * release, and `scripts/publish.mjs` already publishes `@malva-ui/scheduler`),
+ * The networked workflow already skips its own install for a package npm does
+ * not have, loudly and by name; this is the same knowledge on the browser side,
+ * where there is no network to ask at build time.
+ *
+ * **An entry is pinned twice so it cannot outlive its reason:**
+ * `playground-corpus.spec.ts` fails once the root manifest moves off
+ * {@link UNPUBLISHED_VERIFIED_AT} while this list names anything (publication
+ * status can only change at a release; see {@link unpublishedRecheckReason}),
  * and `.github/workflows/playground.yml` fails if `npm view` resolves any name
- * here. Either failure means: delete the entry.
+ * here. Either failure means: check `npm view` and delete every entry that
+ * resolves. An empty list arms neither pin, so a release with nothing listed
+ * stays green.
  */
-export const UNPUBLISHED_PACKAGES: readonly string[] = [
-  '@malva-ui/scheduler',
-  '@malva-ui/taskboard',
-];
+export const UNPUBLISHED_PACKAGES: readonly string[] = [];
 
 /**
  * The workspace root version at which {@link UNPUBLISHED_PACKAGES} was last
  * checked against npm by hand.
  *
- * Asserted equal to the root manifest's `version` by `playground-corpus.spec.ts`,
- * so the first release after this lands turns the suite red and forces the list
- * to be re-checked rather than assumed.
+ * Asserted equal to the root manifest's `version` by `playground-corpus.spec.ts`
+ * only while the list names a package, so the first release after an entry
+ * lands turns the suite red and forces the list to be re-checked rather than
+ * assumed. Set it to the current root version when adding an entry: an entry
+ * added under an older value fails the suite on that same commit. While the
+ * list is empty it asserts nothing and keeps the version the list was last
+ * checked at.
  */
-export const UNPUBLISHED_VERIFIED_AT = '0.1.15';
+export const UNPUBLISHED_VERIFIED_AT = '0.2.0';
+
+/**
+ * Why {@link UNPUBLISHED_PACKAGES} is owed a fresh check against npm, or `null`
+ * when it is not.
+ *
+ * Owed only while the list names a package **and** the root manifest has moved
+ * off the version it was last checked at. Publication status can only change
+ * at a release, so a release is what makes an entry doubtful; an empty list
+ * claims nothing a release could make wrong, so it owes nothing — otherwise the
+ * pin would turn `docs:test` red at every release after the last entry left
+ * (#594). The first entry added re-arms it.
+ *
+ * Pure, so the rule is unit-tested apart from whatever the list holds today;
+ * `playground-corpus.spec.ts` applies it to the real list and root manifest.
+ *
+ * @param packages The list to judge.
+ * @param verifiedAt The root version it was last checked at.
+ * @param rootVersion The workspace root manifest's current `version`.
+ */
+export function unpublishedRecheckReason(
+  packages: readonly string[],
+  verifiedAt: string,
+  rootVersion: string,
+): string | null {
+  if (packages.length === 0 || verifiedAt === rootVersion) return null;
+
+  return (
+    `UNPUBLISHED_PACKAGES (${packages.join(', ')}) was last checked against ` +
+    `npm at ${verifiedAt}, but the root manifest is ${rootVersion}. Run ` +
+    '`npm view <name> version` for each entry, delete every one that now ' +
+    `resolves, and set UNPUBLISHED_VERIFIED_AT to ${rootVersion}.`
+  );
+}
 
 /**
  * The stylesheet `libs/core/schematics/ng-add` adds to a consumer's build
@@ -230,9 +274,12 @@ export function createPlaygroundProject(
   }
 
   const specifiers = collectImportSpecifiers(typescript);
-  const local = specifiers.filter(
-    (specifier) => specifier.startsWith('.') || specifier.startsWith('/'),
-  );
+  const local = [
+    ...specifiers.filter(
+      (specifier) => specifier.startsWith('.') || specifier.startsWith('/'),
+    ),
+    ...collectStylesheetLoads(sources),
+  ];
   if (local.length > 0) {
     return {
       project: null,
@@ -286,8 +333,16 @@ export function createPlaygroundProject(
     };
   }
 
+  const typings = imported
+    .map(typingsPackageOf)
+    .filter((name) => name in input.versions);
+
   const files: Record<string, string> = {
-    'package.json': renderPackageJson(closure.versions, input.versions),
+    'package.json': renderPackageJson(
+      closure.versions,
+      input.versions,
+      typings,
+    ),
     'angular.json': renderAngularJson(),
     'tsconfig.json': renderTsConfig(),
     '.stackblitzrc': `${JSON.stringify(
@@ -527,17 +582,73 @@ function resolveDependencyClosure(
 }
 
 /**
+ * The URLs an example stylesheet loads through an `@use`, `@forward` or
+ * `@import` rule, other than a Sass built-in module such as `sass:map`.
+ *
+ * Each one counts as docs-local code: the generated project carries only the
+ * example's own `index.*` files and the published stylesheet, so a partial
+ * beside the example fails `ng build` with "Can't find stylesheet to import".
+ * All eight `taskboard/*` examples `@use '../ticket'` (#594). A bare
+ * `@use 'partial'` is included too, because Sass resolves it against the
+ * file's own directory first.
+ *
+ * Matched, case-insensitively: a quoted URL with or without whitespace after
+ * the keyword (`@use '../x'`, `@use"../x"`), an unquoted one after whitespace,
+ * and `url(…)` with or without quotes (`@import url('../x.css')`,
+ * `@import url(../x.css)`). **Not** detected: `meta.load-css('../x')`, or a
+ * URL built by interpolation. Like {@link collectImportSpecifiers} it is a
+ * regex, so a false positive (a rule in a comment) only withholds a button,
+ * while a form it does not match gets one whose project fails to build.
+ *
+ * @param sources The example's resolved sources, keyed by file name.
+ */
+function collectStylesheetLoads(
+  sources: ReadonlyMap<string, string>,
+): string[] {
+  const found = new Set<string>();
+  for (const name of ['index.scss', 'index.css']) {
+    const source = sources.get(name) ?? '';
+    for (const match of source.matchAll(
+      /@(?:use|forward|import)(?:\s*url\(\s*['"]?|\s*['"]|\s+)([^'")\s;,]+)/gi,
+    )) {
+      if (!match[1].startsWith('sass:')) found.add(match[1]);
+    }
+  }
+  return [...found];
+}
+
+/**
+ * The DefinitelyTyped package that carries a package's types:
+ * `sortablejs` → `@types/sortablejs`, `@scope/name` → `@types/scope__name`.
+ *
+ * Declared only when the version table knows it (see
+ * `EXTRA_PLAYGROUND_PACKAGES` in `apps/docs/tools/playground-manifest.ts`),
+ * because the generated tsconfig is `strict`: an import of a package that ships
+ * no types fails `ng build` with TS7016 — `scheduler/examples/6` importing
+ * `sortablejs` did (#594).
+ *
+ * @param name An npm package name.
+ */
+function typingsPackageOf(name: string): string {
+  return `@types/${name.startsWith('@') ? name.slice(1).replace('/', '__') : name}`;
+}
+
+/**
  * Renders `package.json` for the generated project.
  *
  * @param dependencies The resolved runtime dependency closure.
  * @param versions The generated version table, for the dev dependencies.
+ * @param typings `@types/*` packages the example's imports need.
  */
 function renderPackageJson(
   dependencies: Record<string, string>,
   versions: PlaygroundVersions,
+  typings: readonly string[],
 ): string {
   const devDependencies: Record<string, string> = {};
-  for (const name of DEV_DEPENDENCIES) devDependencies[name] = versions[name];
+  for (const name of [...DEV_DEPENDENCIES, ...typings].sort()) {
+    devDependencies[name] = versions[name];
+  }
 
   return `${JSON.stringify(
     {

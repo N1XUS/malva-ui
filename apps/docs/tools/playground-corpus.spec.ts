@@ -24,6 +24,7 @@ import {
   collectImportSpecifiers,
   UNPUBLISHED_PACKAGES,
   UNPUBLISHED_VERIFIED_AT,
+  unpublishedRecheckReason,
 } from '../src/app/shared/playground/playground-project';
 import {
   PLAYGROUND_PEERS,
@@ -44,7 +45,7 @@ const repoRoot = path.resolve(toolsDir, '..', '..', '..');
 /**
  * The docs examples that cannot be lifted into a standalone project.
  *
- * All five import code that is not published, in two shapes:
+ * All thirteen import code that is not published, in three shapes:
  *
  * - Reaching *outside* their own directory — `checkbox/1` projects the shared
  *   `DocsInspectorComponent`; `autocomplete/4` and `combobox/10` both reuse
@@ -58,35 +59,23 @@ const repoRoot = path.resolve(toolsDir, '..', '..', '..');
  *   `pages/` as text — well past the docs bundle's 3mb initial budget. Carrying
  *   them needs a generated per-example sibling manifest, which is out of scope
  *   for #25.
+ * - A *stylesheet* reaching outside its directory — all eight `taskboard/*`
+ *   examples `@use '../ticket'`, the card-body partial
+ *   `taskboard/examples/_ticket.scss` shares between them. Hidden until #594:
+ *   they were blocked as unpublished first, and the builder checked only
+ *   TypeScript imports, so emptying `UNPUBLISHED_PACKAGES` would have given
+ *   them a button whose project fails `ng build` ("Can't find stylesheet to
+ *   import", measured on 0.2.0). Carrying the partial is the sibling-manifest
+ *   problem above.
  *
- * The list is asserted to be exact, so a sixth non-portable example does not
- * silently lose its button — it fails this spec until someone decides.
+ * The list is asserted to be exact, so a fourteenth non-portable example does
+ * not silently lose its button — it fails this spec until someone decides.
  */
 const NON_PORTABLE: readonly string[] = [
   'autocomplete/examples/4',
   'checkbox/examples/1',
   'combobox/examples/10',
   'select/examples/8',
-  'tile/examples/5',
-];
-
-/**
- * The docs examples blocked because they import a package that is in the
- * release set but has never reached npm — see `UNPUBLISHED_PACKAGES`.
- *
- * Enumerated rather than derived from that constant so the *blast radius* is
- * visible: sixteen examples, two whole pages, lose their button. When the two
- * packages ship, this list and the constant are deleted together.
- */
-const UNPUBLISHED_EXAMPLES: readonly string[] = [
-  'scheduler/examples/1',
-  'scheduler/examples/2',
-  'scheduler/examples/3',
-  'scheduler/examples/4',
-  'scheduler/examples/5',
-  'scheduler/examples/6',
-  'scheduler/examples/7',
-  'scheduler/examples/8',
   'taskboard/examples/1',
   'taskboard/examples/2',
   'taskboard/examples/3',
@@ -95,7 +84,22 @@ const UNPUBLISHED_EXAMPLES: readonly string[] = [
   'taskboard/examples/6',
   'taskboard/examples/7',
   'taskboard/examples/8',
+  'tile/examples/5',
 ];
+
+/**
+ * The docs examples blocked because they import a package that is in the
+ * release set but has never reached npm — see `UNPUBLISHED_PACKAGES`.
+ *
+ * Enumerated rather than derived from that constant so the *blast radius* is
+ * visible: an entry there takes the button away from every example listed
+ * here, and the exact-set assertion below fails until both lists agree. Empty
+ * while `UNPUBLISHED_PACKAGES` is: its last two entries were first published at
+ * `0.2.0` (#594), which gave the eight `scheduler/*` examples their button
+ * back; the eight `taskboard/*` ones stay in `NON_PORTABLE` for their
+ * stylesheet.
+ */
+const UNPUBLISHED_EXAMPLES: readonly string[] = [];
 
 /** Absolute path of the directory holding this spec file. */
 function dirnameOfThisFile(): string {
@@ -273,6 +277,36 @@ describe('the docs example corpus', () => {
     );
   });
 
+  // #594. `scheduler/examples/6` imports `sortablejs`, which ships no types, so
+  // under the generated `strict` tsconfig its project failed `ng build` with
+  // TS7016 until the typings were declared (measured on 0.2.0). Hidden while
+  // scheduler was unpublished. Pinned to the real example, premise asserted.
+  it('declares the typings of an untyped package an example imports', () => {
+    const entry = portable.find(
+      ({ example }) => example.id === 'scheduler/examples/6',
+    );
+
+    expect(`scheduler/examples/6 is portable: ${entry !== undefined}`).toBe(
+      'scheduler/examples/6 is portable: true',
+    );
+    if (!entry) throw new Error('scheduler/examples/6 is not portable');
+
+    expect(
+      collectImportSpecifiers(entry.example.source).map(packageRootOf),
+    ).toContain('sortablejs');
+
+    // First, or the comparison below would pass as `undefined === undefined`.
+    expect(PLAYGROUND_VERSIONS['@types/sortablejs']).toBeTruthy();
+
+    const { devDependencies } = JSON.parse(
+      entry.project.files['package.json'],
+    ) as { devDependencies: Record<string, string> };
+
+    expect(`@types/sortablejs: ${devDependencies['@types/sortablejs']}`).toBe(
+      `@types/sortablejs: ${PLAYGROUND_VERSIONS['@types/sortablejs']}`,
+    );
+  });
+
   it('mounts the selector the exported component really declares', () => {
     for (const { example, project } of portable) {
       const tag = /<([a-z][a-z0-9-]*)><\/\1>/.exec(
@@ -352,20 +386,25 @@ describe('the packages npm has not seen yet', () => {
     }
   });
 
-  it('was last checked against npm at the version still in the root manifest', () => {
+  it('was last checked against npm at the version still in the root manifest, while it names anything', () => {
     // The offline half of the pin. Publication status can only change at a
-    // release, and `scripts/publish.mjs` already ships `@malva-ui/scheduler`, so
-    // the first release after this lands makes the list wrong — and this line
-    // red. The fix is to re-check `npm view` and delete whatever now resolves,
-    // never to bump the constant without looking.
+    // release, so the first release after an entry lands may make it wrong —
+    // and turns this line red. The fix is to re-check `npm view` and delete
+    // whatever now resolves, never to bump the constant without looking.
+    //
+    // An empty list claims nothing and asserts nothing, so a release with
+    // nothing listed stays green (#594); the rule itself is unit-tested in
+    // `playground-project.spec.ts`.
     //
     // The online half is in `.github/workflows/playground.yml`, which fails if
     // `npm view` resolves any name in `UNPUBLISHED_PACKAGES`.
     expect(
-      `UNPUBLISHED_PACKAGES verified at ${UNPUBLISHED_VERIFIED_AT}, root manifest is ${rootVersion}`,
-    ).toBe(
-      `UNPUBLISHED_PACKAGES verified at ${rootVersion}, root manifest is ${rootVersion}`,
-    );
+      unpublishedRecheckReason(
+        UNPUBLISHED_PACKAGES,
+        UNPUBLISHED_VERIFIED_AT,
+        rootVersion,
+      ),
+    ).toBeNull();
   });
 });
 
