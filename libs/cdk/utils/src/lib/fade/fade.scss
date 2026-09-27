@@ -1,107 +1,130 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-fade;
+  $block: mlv-fade;
 
-$overlap: 0.0625rem;
+  $overlap: 0.0625rem;
 
-.#{$block} {
-  scrollbar-width: none;
-  transition-property: mask-position;
-  transition: mask-position var(--mlv-duration-slow) var(--mlv-ease-out);
-  mask-repeat: no-repeat;
-  overflow: auto;
-  text-overflow: unset !important;
-  flex-shrink: 1;
+  // ── Inline-axis geometry (rtl.md) ────────────────────────────────────────────
+  // `mask-position` and a gradient's direction have no logical keywords, so the
+  // two horizontal edge layers are placed by the direction sign instead of by
+  // `left` / `right`. With `d` = `--mlv-inline-direction` (1 LTR, -1 RTL), an
+  // image anchored to the inline-start edge sits at `50% - 50% * d` (0% in LTR,
+  // 100% in RTL) and one anchored to the inline-end edge at `50% + 50% * d`; a
+  // hidden layer is parked a further `$fade-reach` outside its edge. The token
+  // is re-declared on every `[dir]`, so this follows a scoped `[dir="rtl"]` at
+  // any depth, and at d = 1 every value resolves to exactly the old LTR one.
+  $dir: var(--mlv-inline-direction);
+  $fade-reach: calc(
+    var(--mlv-fade-size) + var(--mlv-fade-offset) - #{$overlap}
+  );
+  $start-shown: calc(50% - 50% * #{$dir});
+  $start-hidden: calc(50% - (50% + #{$fade-reach}) * #{$dir});
+  $end-shown: calc(50% + 50% * #{$dir});
+  $end-hidden: calc(50% + (50% + #{$fade-reach}) * #{$dir});
 
-  &:not([data-orientation='vertical']) {
-    overflow-y: hidden;
-    mask-image:
-      linear-gradient(
-        to right,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      ),
-      linear-gradient(
-        to left,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      ),
-      linear-gradient(#000, #000);
-    mask-position:
-      calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $overlap) bottom,
-      calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap)
-        bottom,
-      top;
-    mask-size:
-      calc(51% + var(--mlv-fade-size) + var(--mlv-fade-offset))
-        var(--mlv-line-height, 100%),
-      calc(50% + var(--mlv-fade-size) + var(--mlv-fade-offset))
-        var(--mlv-line-height, 100%),
-      100% calc(100% - var(--mlv-line-height, 100%));
+  .#{$block} {
+    scrollbar-width: none;
+    transition-property: mask-position;
+    transition: mask-position var(--mlv-duration-slow) var(--mlv-ease-out);
+    mask-repeat: no-repeat;
+    overflow: auto;
+    text-overflow: unset !important;
+    flex-shrink: 1;
 
-    &.#{$block}--start {
+    &:not([data-orientation='vertical']) {
+      overflow-y: hidden;
+      // Layer 1 fades the inline-start edge (transparent at that edge), layer 2
+      // the inline-end edge; `90deg` is `to right`, so the sign reverses both.
+      mask-image:
+        linear-gradient(
+          mixins.inline-distance(90deg),
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        ),
+        linear-gradient(
+          mixins.inline-distance(-90deg),
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        ),
+        linear-gradient(#000, #000);
       mask-position:
-        left bottom,
-        calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap)
-          bottom,
+        $start-hidden bottom,
+        $end-hidden bottom,
         top;
+      mask-size:
+        calc(51% + var(--mlv-fade-size) + var(--mlv-fade-offset))
+          var(--mlv-line-height, 100%),
+        calc(50% + var(--mlv-fade-size) + var(--mlv-fade-offset))
+          var(--mlv-line-height, 100%),
+        100% calc(100% - var(--mlv-line-height, 100%));
+
+      &.#{$block}--start {
+        mask-position:
+          $start-shown bottom,
+          $end-hidden bottom,
+          top;
+      }
+
+      &.#{$block}--end {
+        mask-position:
+          $start-hidden bottom,
+          $end-shown bottom,
+          top;
+      }
+
+      &.#{$block}--start.#{$block}--end {
+        mask-position:
+          $start-shown bottom,
+          $end-shown bottom,
+          top;
+      }
     }
 
-    &.#{$block}--end {
-      mask-position:
-        calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $overlap)
-          bottom,
-        right bottom,
-        top;
-    }
-
-    &.#{$block}--start.#{$block}--end {
-      mask-position:
-        left bottom,
-        right bottom,
-        top;
-    }
-  }
-
-  &[data-orientation='vertical'] {
-    overflow-x: hidden;
-    mask-image:
-      linear-gradient(
-        to bottom,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      ),
-      linear-gradient(
-        to top,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      );
-    mask-position:
-      left calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $overlap),
-      left calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap);
-    mask-size: 100% calc(51% + var(--mlv-fade-size) + var(--mlv-fade-offset));
-
-    &.#{$block}--start {
-      mask-position:
-        left top,
-        left
-          calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap);
-    }
-
-    &.#{$block}--end {
+    // Block axis: the images are as wide as the box, so the `left` x keyword
+    // resolves to a 0 offset in either direction — nothing here is inline-axis.
+    &[data-orientation='vertical'] {
+      overflow-x: hidden;
+      mask-image:
+        linear-gradient(
+          to bottom,
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        ),
+        linear-gradient(
+          to top,
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        );
       mask-position:
         left calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $overlap),
-        left bottom;
-    }
+        left
+          calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap);
+      mask-size: 100% calc(51% + var(--mlv-fade-size) + var(--mlv-fade-offset));
 
-    &.#{$block}--start.#{$block}--end {
-      mask-position:
-        left top,
-        left bottom;
+      &.#{$block}--start {
+        mask-position:
+          left top,
+          left
+            calc(
+              100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $overlap
+            );
+      }
+
+      &.#{$block}--end {
+        mask-position:
+          left
+            calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $overlap),
+          left bottom;
+      }
+
+      &.#{$block}--start.#{$block}--end {
+        mask-position:
+          left top,
+          left bottom;
+      }
     }
   }
-}
 
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

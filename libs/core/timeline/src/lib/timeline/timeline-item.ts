@@ -64,11 +64,12 @@ export class MlvTimelineItem {
   readonly tone = input<MlvTimelineItemTone>('default');
 
   /**
-   * MlvLayout direction for this item.
-   * - `'right'` (default): node circle on the left, content on the right.
-   * - `'left'`: content on the left, node circle on the right.
+   * Side of the spine this item's content sits on — a **logical alias** that
+   * mirrors in RTL (see {@link MlvTimelineItemDirection}).
+   * - `'right'` (default): content on the inline-end side of the node circle.
+   * - `'left'`: content on the inline-start side of the node circle.
    *
-   * Allows alternating left-right layouts within a single timeline.
+   * Allows alternating layouts within a single timeline.
    */
   readonly direction = input<MlvTimelineItemDirection>('right');
 

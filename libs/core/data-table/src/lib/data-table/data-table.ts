@@ -2071,10 +2071,17 @@ export class MlvDataTable {
   trackByRow = (_index: number, row: MlvDataRow): unknown => row;
 
   /**
-   * Inline `[style]` object (width / min-width, plus sticky offsets for pinned columns)
-   * for a column's header and body cells. Reads a memoized per-column map, so the
-   * returned reference is stable across change-detection cycles (no per-cell
-   * allocation).
+   * Inline `[style]` object (width / min-width, plus `position: sticky`, `z-index` and
+   * the sticky offset for pinned columns) for a column's header and body cells. Reads a
+   * memoized per-column map, so the returned reference is stable across
+   * change-detection cycles (no per-cell allocation).
+   *
+   * The offset is **not** a physical inset: it arrives as the custom property
+   * `--mlv-dt-pinned-inset`, and the stylesheet puts it on `left` or `right` from the
+   * cell's `:dir()` through the `mlv-data-table__cell--pinned-left` /
+   * `mlv-data-table__cell--pinned-right` classes. An element of your own styled with
+   * this object needs the matching class too, or it is sticky with no offset — in LTR
+   * as well (see `docs/migrations/2026-09-data-table-pinned-inset.md`).
    *
    * Every column passed to {@link columns} is in that map, visible or not, so no cell
    * this table renders can miss. The on-the-fly fallback is reachable only for a column

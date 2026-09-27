@@ -1304,11 +1304,11 @@ describe('MlvDataTable — column resize', () => {
       .visibleColumns()
       .find((column) => column.key === 'name');
     if (!nameColumn) throw new Error('name column not found');
-    expect(table().getCellStyle(idColumn())['left']).toContain(
-      '--mlv-dt-pinned-left-correction',
+    expect(table().getCellStyle(idColumn())['--mlv-dt-pinned-inset']).toContain(
+      '--mlv-dt-pinned-start-correction',
     );
-    expect(table().getCellStyle(nameColumn)['right']).toContain(
-      '--mlv-dt-pinned-right-correction',
+    expect(table().getCellStyle(nameColumn)['--mlv-dt-pinned-inset']).toContain(
+      '--mlv-dt-pinned-end-correction',
     );
 
     dispatchResizeKey('Enter');

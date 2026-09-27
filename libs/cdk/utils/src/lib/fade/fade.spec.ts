@@ -1,11 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { renderApplication } from '@angular/platform-server';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { MlvResizeObserverService } from '../observers/resize-observer.service';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+import type { MlvOrientation } from './fade';
 import { MlvFade } from './fade';
 
 describe('MlvFade', () => {
@@ -63,6 +64,189 @@ describe('MlvFade', () => {
 
     expect(html).toContain('mlv-fade');
     expect(subscriptions).toBe(0);
+  });
+});
+
+@Component({
+  selector: 'mlv-fade-metrics-host',
+  imports: [MlvFade],
+  template: `<div class="scope">
+    <div [mlvFade]="orientation()" class="fade">Overflowing content</div>
+  </div>`,
+})
+class FadeMetricsHost {
+  readonly orientation = signal<MlvOrientation | ''>('horizontal');
+}
+
+/** Scroll metrics a test sets on the fade element; jsdom does no layout. */
+interface FadeMetrics {
+  scrollLeft: number;
+  scrollTop: number;
+  scrollWidth: number;
+  clientWidth: number;
+  scrollHeight: number;
+  clientHeight: number;
+}
+
+/** Resolves after the next animation frame, where `MlvFade` measures. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+/**
+ * Behaviour with scroll metrics. The resize observer is a subject the test
+ * drives, and the element's metrics are instance getters over `metrics`, so a
+ * measurement is exactly: set the metrics, emit, wait a frame, render.
+ */
+describe('MlvFade scroll state', () => {
+  let fixture: ComponentFixture<FadeMetricsHost>;
+  let resize$: Subject<ResizeObserverEntry[]>;
+  let fade: HTMLElement;
+  let metrics: FadeMetrics;
+
+  beforeEach(async () => {
+    resize$ = new Subject<ResizeObserverEntry[]>();
+    await TestBed.configureTestingModule({
+      imports: [FadeMetricsHost],
+      providers: [
+        {
+          provide: MlvResizeObserverService,
+          useValue: { observe: () => resize$ },
+        },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(FadeMetricsHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fade = (fixture.nativeElement as HTMLElement).querySelector(
+      '.fade',
+    ) as HTMLElement;
+
+    metrics = {
+      scrollLeft: 0,
+      scrollTop: 0,
+      scrollWidth: 0,
+      clientWidth: 200,
+      scrollHeight: 20,
+      clientHeight: 20,
+    };
+    for (const key of Object.keys(metrics) as (keyof FadeMetrics)[]) {
+      Object.defineProperty(fade, key, {
+        configurable: true,
+        get: () => metrics[key],
+      });
+    }
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  /** Emits a resize, lets the rAF measurement run and renders its result. */
+  async function measure(): Promise<void> {
+    resize$.next([]);
+    await nextFrame();
+    await fixture.whenStable();
+  }
+
+  it('reads an RTL subpixel offset at the start as "at the start" (#341)', async () => {
+    // RTL `scrollLeft` runs 0 → negative. A fractional offset a hair past the
+    // start used to floor to -1 and switch the start fade on.
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('.scope')
+      ?.setAttribute('dir', 'rtl');
+    Object.assign(metrics, { scrollWidth: 600, scrollLeft: -0.4 });
+    await measure();
+
+    expect(fade.classList.contains('mlv-fade--start')).toBe(false);
+    expect(fade.classList.contains('mlv-fade--end')).toBe(true);
+
+    metrics.scrollLeft = -120;
+    await measure();
+    expect(fade.classList.contains('mlv-fade--start')).toBe(true);
+    expect(fade.classList.contains('mlv-fade--end')).toBe(true);
+
+    // Scrolled to the RTL end: `scrollLeft` is -(scrollWidth - clientWidth).
+    metrics.scrollLeft = -400;
+    await measure();
+    expect(fade.classList.contains('mlv-fade--start')).toBe(true);
+    expect(fade.classList.contains('mlv-fade--end')).toBe(false);
+  });
+
+  it('keeps the mask transition off until the first measurement has painted (#341)', async () => {
+    // Before the first real measurement the mask sits in its rest position;
+    // the measurement then moves it to the overflow edge. That move is not a
+    // user scroll and must not slide in over `--mlv-duration-slow`.
+    expect(fade.style.transition).toBe('none');
+
+    // What the element looked like each time its style was read — the read is
+    // what forces the browser to resolve the class change before the
+    // transition comes back.
+    const flushes: { end: boolean; transition: string }[] = [];
+    const original = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation(
+      (element, pseudo) => {
+        if (element === fade) {
+          flushes.push({
+            end: fade.classList.contains('mlv-fade--end'),
+            transition: fade.style.transition,
+          });
+        }
+        return original(element, pseudo);
+      },
+    );
+
+    metrics.scrollWidth = 600;
+    await measure();
+    // Rendered separately from the class change, one more pass may be pending.
+    await fixture.whenStable();
+
+    expect(fade.classList.contains('mlv-fade--end')).toBe(true);
+    // The style was flushed with the class applied and the transition still
+    // off, so the browser jumps the mask instead of animating it…
+    expect(flushes).toContainEqual({ end: true, transition: 'none' });
+    // …and only afterwards does the stylesheet's transition apply again.
+    expect(fade.style.transition).toBe('');
+
+    // From here on a boundary change is a real scroll and animates.
+    metrics.scrollLeft = 120;
+    await measure();
+    expect(fade.classList.contains('mlv-fade--start')).toBe(true);
+    expect(fade.style.transition).toBe('');
+  });
+
+  it('stays settled when the first measurement changes nothing', async () => {
+    metrics.scrollWidth = 200;
+    await measure();
+    await fixture.whenStable();
+
+    expect(fade.classList.contains('mlv-fade--end')).toBe(false);
+    expect(fade.style.transition).toBe('');
+  });
+
+  it('does not settle on a box that has no size yet', async () => {
+    // A hidden fade (display: none, a closed panel) measures zero; settling
+    // there would let its first real measurement animate.
+    resize$.next([]);
+    await nextFrame();
+    await fixture.whenStable();
+
+    expect(fade.style.transition).toBe('none');
+  });
+
+  it('re-evaluates when the orientation changes, without a scroll or resize (#341)', async () => {
+    // One line, overflowing horizontally only.
+    metrics.scrollWidth = 600;
+    await measure();
+    expect(fade.classList.contains('mlv-fade--end')).toBe(true);
+
+    // Vertically there is nothing to scroll, so the end fade has to go — and
+    // nothing but the input changed: no scroll event, no resize.
+    fixture.componentInstance.orientation.set('vertical');
+    fixture.detectChanges();
+    await nextFrame();
+    await fixture.whenStable();
+    expect(fade.getAttribute('data-orientation')).toBe('vertical');
+    expect(fade.classList.contains('mlv-fade--end')).toBe(false);
   });
 });
 

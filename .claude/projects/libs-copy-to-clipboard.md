@@ -142,6 +142,7 @@ The component follows Emil Kowalski's motion principles:
 - **Press feedback.** `:active` applies `transform: scale(0.97)` so the entire inline chunk depresses slightly on click.
 - **Custom easing.** Uses `var(--mlv-ease-out-strong)` (`cubic-bezier(0.23, 1, 0.32, 1)`) for every transition (no `transition: all`, no `ease-in`).
 - **Reduced motion.** Under `@media (prefers-reduced-motion: reduce)` the scale and blur transforms drop out, leaving only opacity crossfade.
+- **Content fade follows the indicator in RTL** (#341). The indicator sits at the inline end (`inset-inline-end`), and so does the `__content` mask that fades text under it on hover / focus / copied. `mask-position` and gradient direction have no logical keywords, so both edge layers are placed by the sign `d` = `--mlv-inline-direction` (inline-end revealed at `calc(50% + (50% + var(--mlv-copy-to-clipboard-fade-extension)) * d)`) and the gradients use `mixins.inline-distance(±90deg)` — the `mlv-fade` technique. Before, the fade stayed on the physical right while the RTL indicator sat on the left. LTR values unchanged; `copy-to-clipboard-styles.spec.ts` evaluates both directions per state. `dir="auto"` is transparent to `--mlv-inline-direction` (`.claude/rules/rtl.md`), so under a `dir="auto"` that resolves to RTL the fade still sits at the physical right while the `inset-inline-end` indicator moves to the left.
 
 ---
 
@@ -198,4 +199,5 @@ libs/core/copy-to-clipboard/src/
       copy-to-clipboard.html                   — template
       copy-to-clipboard.scss                   — BEM styles, hover reveal, blur crossfade
       copy-to-clipboard.spec.ts                — unit tests
+      copy-to-clipboard-styles.spec.ts         — compiled-CSS mask geometry, LTR + RTL
 ```

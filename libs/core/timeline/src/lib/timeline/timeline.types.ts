@@ -12,9 +12,15 @@ import type { MlvTone } from '@malva-ui/cdk/utils';
 export type MlvTimelineItemTone = MlvTone | 'default';
 
 /**
- * MlvLayout direction for a timeline item.
+ * Side of the spine a timeline item's content sits on.
  *
- * - `'right'` — node on the left, content on the right (default)
- * - `'left'` — node on the right, content on the left
+ * A **logical alias** that mirrors in RTL: the item is a grid whose tracks
+ * follow the inline axis, so `'right'` means the inline-end side and `'left'`
+ * the inline-start side. Under a `[dir="rtl"]` ancestor a `'right'` item
+ * renders its content on the left. The names predate RTL support and are kept
+ * for compatibility.
+ *
+ * - `'right'` — node at inline-start, content at inline-end (default)
+ * - `'left'` — content at inline-start, node at inline-end
  */
 export type MlvTimelineItemDirection = 'left' | 'right';

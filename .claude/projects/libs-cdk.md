@@ -50,7 +50,7 @@ Exported from `libs/cdk/src/index.ts`:
 
 ### `MlvFade`
 
-**File:** `libs/cdk/src/lib/fade/fade.ts`
+**File:** `libs/cdk/utils/src/lib/fade/fade.ts`
 
 **Selector:** `[mlvFade]` (attribute selector — applied to any existing element)
 
@@ -58,12 +58,12 @@ Exported from `libs/cdk/src/index.ts`:
 
 #### Inputs
 
-| Input           | Type                   | Default        | Description                                                                                                                                                                         |
-| --------------- | ---------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mlvFade`       | `MlvOrientation \| ''` | `'horizontal'` | Orientation of the fade effect. Set to `'vertical'` for vertically-scrolling containers. An empty string disables axis-specific behavior.                                           |
-| `mlvFadeHeight` | `string \| null`       | `null`         | Explicit line-height value applied to both the `line-height` CSS property and the `--mlv-line-height` CSS custom property. Controls the height of the fade mask in horizontal mode. |
-| `mlvFadeSize`   | `string`               | `'1.5em'`      | Size of the fade gradient. Mapped to `--mlv-fade-size`.                                                                                                                             |
-| `mlvFadeOffset` | `string`               | `'0em'`        | Offset of the fade gradient from the edge. Mapped to `--mlv-fade-offset`.                                                                                                           |
+| Input           | Type                   | Default        | Description                                                                                                                                                                                                                                             |
+| --------------- | ---------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mlvFade`       | `MlvOrientation \| ''` | `'horizontal'` | Overflow axis. `'horizontal'` fades the inline-start / inline-end edges and mirrors under any `[dir="rtl"]` ancestor; `'vertical'` fades top / bottom. The bare attribute binds `''`, which behaves as `'horizontal'`. A change re-measures on its own. |
+| `mlvFadeHeight` | `string \| null`       | `null`         | Explicit line-height value applied to both the `line-height` CSS property and the `--mlv-line-height` CSS custom property. Controls the height of the fade mask in horizontal mode.                                                                     |
+| `mlvFadeSize`   | `string`               | `'1.5em'`      | Size of the fade gradient. Mapped to `--mlv-fade-size`.                                                                                                                                                                                                 |
+| `mlvFadeOffset` | `string`               | `'0em'`        | Offset of the fade gradient from the edge. Mapped to `--mlv-fade-offset`.                                                                                                                                                                               |
 
 #### Outputs
 
@@ -76,16 +76,17 @@ Inline: `<ng-content />` — renders host element content as-is; all visual beha
 
 #### Host Bindings
 
-| Binding                     | Value                                                           |
-| --------------------------- | --------------------------------------------------------------- |
-| `class`                     | `mlv-fade` (always)                                             |
-| `[class.mlv-fade--end]`     | `isEnd()` signal — truthy when content overflows toward the end |
-| `[class.mlv-fade--start]`   | `isStart()` signal — truthy when scrolled away from the start   |
-| `[attr.data-orientation]`   | Value of `mlvFade()` input — drives CSS selector targeting      |
-| `[style.line-height]`       | `mlvFadeHeight()`                                               |
-| `[style.--mlv-line-height]` | `mlvFadeHeight()`                                               |
-| `[style.--mlv-fade-size]`   | `mlvFadeSize()`                                                 |
-| `[style.--mlv-fade-offset]` | `mlvFadeOffset()`                                               |
+| Binding                     | Value                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `class`                     | `mlv-fade` (always)                                                                            |
+| `[class.mlv-fade--end]`     | `_isEnd()` signal — truthy when content overflows toward the end                               |
+| `[class.mlv-fade--start]`   | `_isStart()` signal — truthy when scrolled away from the start                                 |
+| `[attr.data-orientation]`   | Value of `mlvFade()` input — drives CSS selector targeting                                     |
+| `[style.line-height]`       | `mlvFadeHeight()`                                                                              |
+| `[style.--mlv-line-height]` | `mlvFadeHeight()`                                                                              |
+| `[style.--mlv-fade-size]`   | `mlvFadeSize()`                                                                                |
+| `[style.--mlv-fade-offset]` | `mlvFadeOffset()`                                                                              |
+| `[style.transition]`        | `'none'` until the first measurement of a laid-out box has painted (`_settling()`), else unset |
 
 #### Resize lifecycle
 
@@ -93,10 +94,23 @@ Inline: `<ng-content />` — renders host element content as-is; all visual beha
   `isPlatformBrowser()` is true.
 - Scroll and resize events retain the existing animation-frame coalescing and
   are torn down with the component.
+- A change of `mlvFade` schedules one measurement (an `effect`), so switching
+  axis updates the classes without a scroll or resize.
+- `--start` reads `Math.abs(scrollLeft)`: RTL `scrollLeft` runs `0 → negative`,
+  and a subpixel offset at the start floors to 0 in both directions.
+- **Mount does not slide** (#341). The mask starts in its rest position and the
+  first measurement usually moves it to an overflow edge, which is not a scroll.
+  The host carries an inline `transition: none` until that measurement is
+  painted; when it changed a class, an `afterNextRender` `earlyRead` flushes
+  style before the `write` removes it, so both changes never share one style
+  recalc. A zero-size box (not laid out, `display: none`) does not settle — its
+  first real measurement still jumps. Chromium resets `scrollLeft` to 0 and fires
+  `scroll` when an ancestor's `dir` flips on a scrolled box (probed), so the
+  classes stay right without a direction dependency.
 
 #### CSS / Styling
 
-**File:** `libs/cdk/src/lib/fade/fade.scss`
+**File:** `libs/cdk/utils/src/lib/fade/fade.scss`
 
 - Block class: `mlv-fade`
 - `ViewEncapsulation.None` — styles are global.
@@ -104,7 +118,10 @@ Inline: `<ng-content />` — renders host element content as-is; all visual beha
 - Uses CSS `mask-image` with three gradients (start fade, end fade, content fill) positioned via `mask-position`. CSS transitions animate the mask position.
 - `data-orientation` attribute controls whether horizontal or vertical overflow mode is active.
 - Modifier classes `mlv-fade--start` and `mlv-fade--end` shift the relevant mask gradient to the edge, revealing or hiding the fade.
-- Relies on CSS custom properties: `--mlv-fade-size`, `--mlv-fade-offset`, `--mlv-line-height`, `--mlv-duration-m`, `--mlv-easing`.
+- **Horizontal mode mirrors in RTL** (#341): `mask-position` and gradient direction have no logical keywords, so both edge layers are placed by the sign `d` = `--mlv-inline-direction` — inline-start image at `calc(50% - 50% * d)`, inline-end image at `calc(50% + 50% * d)`, a hidden layer a further `size + offset - 1px` outside its edge — and the gradients use `mixins.inline-distance(±90deg)`. Follows a scoped `[dir]` at any depth; LTR values are unchanged (`fade-styles.spec.ts` evaluates both). Vertical mode is block-axis and untouched.
+- `dir="auto"` is transparent to `--mlv-inline-direction` (`.claude/rules/rtl.md`), so under a `dir="auto"` that resolves to RTL the fade still points LTR and masks the reader's first letters.
+- **Known cosmetic:** `_settling` covers mount only. A direction flip on a mounted, scrolled fade changes `--mlv-inline-direction`, and the mask position animates across the box once over `--mlv-duration-slow` (e.g. toggling Direction in the docs preferences with an avatar label or the editor toolbar scrolled). Accepted; re-arming `_settling` on an `elementDirection(host)` change would remove it.
+- Relies on CSS custom properties: `--mlv-fade-size`, `--mlv-fade-offset`, `--mlv-line-height`, `--mlv-inline-direction`, `--mlv-duration-slow`, `--mlv-ease-out`.
 
 ---
 
