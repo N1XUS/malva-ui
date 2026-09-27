@@ -106,12 +106,12 @@ A single content column is rendered and moved between grid tracks by the `direct
 
 #### Inputs
 
-| Name        | Type                       | Default     | Required | Description                                                                                                          |
-| ----------- | -------------------------- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `title`     | `string`                   | —           | Yes      | Heading text for this timeline event.                                                                                |
-| `timestamp` | `string`                   | `''`        | No       | Date/time string rendered in a `<time>` element. Use ISO 8601 for machine-readable precision.                        |
-| `tone`      | `MlvTimelineItemTone`      | `'default'` | No       | Accent colour of the node circle.                                                                                    |
-| `direction` | `MlvTimelineItemDirection` | `'right'`   | No       | Which column shows the content. `'right'` = node left, content right (default). `'left'` = content left, node right. |
+| Name        | Type                       | Default     | Required | Description                                                                                                                                            |
+| ----------- | -------------------------- | ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`     | `string`                   | —           | Yes      | Heading text for this timeline event.                                                                                                                  |
+| `timestamp` | `string`                   | `''`        | No       | Date/time string rendered in a `<time>` element. Use ISO 8601 for machine-readable precision.                                                          |
+| `tone`      | `MlvTimelineItemTone`      | `'default'` | No       | Accent colour of the node circle.                                                                                                                      |
+| `direction` | `MlvTimelineItemDirection` | `'right'`   | No       | Which column shows the content — a logical alias that mirrors in RTL. `'right'` = content at inline-end (default). `'left'` = content at inline-start. |
 
 #### Outputs
 
@@ -238,7 +238,7 @@ Controls the node circle accent colour via BEM modifier and CSS custom property 
 type MlvTimelineItemDirection = 'left' | 'right';
 ```
 
-Controls which column (left or right of the centre spine) shows the event content.
+Controls which column of the centre spine shows the event content. A **logical alias**: the grid tracks follow the inline axis, so `'right'` is the inline-end column and `'left'` the inline-start column — under a `[dir="rtl"]` ancestor a `'right'` item renders its content on the left. The names predate RTL support.
 
 | Value               | Content column | BEM modifier                         |
 | ------------------- | -------------- | ------------------------------------ |

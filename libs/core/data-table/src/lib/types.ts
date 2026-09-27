@@ -30,9 +30,26 @@ export interface MlvColumnFilterConfig {
 }
 
 export type MlvColumnResponsive = Record<string | number, 'hidden' | 'visible'>;
+/**
+ * Horizontal alignment of a column's header and body cells.
+ *
+ * A **logical alias** that mirrors in RTL: `'left'` aligns to the inline-start
+ * edge (`text-align: start`) and `'right'` to the inline-end edge
+ * (`text-align: end`), so under a `[dir="rtl"]` ancestor `'left'` renders on
+ * the right. The names predate the table's RTL support and are kept for
+ * compatibility.
+ */
 export type MlvColumnAlign = 'left' | 'center' | 'right';
 
-/** Side a column can be pinned to. */
+/**
+ * Side a column can be pinned to.
+ *
+ * A **logical alias** that mirrors in RTL: `'left'` pins to the inline-start
+ * edge and `'right'` to the inline-end edge, so under a `[dir="rtl"]` ancestor
+ * a `'left'` column is rendered first — on the right — and sticks to the
+ * scroller's right edge. The names predate the table's RTL support and are
+ * kept for compatibility.
+ */
 export type MlvPinSide = 'left' | 'right';
 
 /**
@@ -128,9 +145,15 @@ export interface MlvDataTablePresentationState {
   readonly sort: MlvSortState | null;
   /** Visible column keys in their declaration order. */
   readonly visibleColumnKeys: readonly string[];
-  /** Effectively left-pinned column keys in their declaration order. */
+  /**
+   * Keys of the columns effectively pinned to the inline-start edge
+   * (`pinSide: 'left'`), in their declaration order.
+   */
   readonly pinnedStartColumnKeys: readonly string[];
-  /** Effectively right-pinned column keys in their declaration order. */
+  /**
+   * Keys of the columns effectively pinned to the inline-end edge
+   * (`pinSide: 'right'`), in their declaration order.
+   */
   readonly pinnedEndColumnKeys: readonly string[];
   /** Committed user width overrides in CSS pixels, keyed by column. */
   readonly columnWidths: Readonly<Record<string, number>>;

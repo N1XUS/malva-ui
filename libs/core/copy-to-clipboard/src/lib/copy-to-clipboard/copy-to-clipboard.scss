@@ -1,233 +1,256 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
 @layer mlv.components {
-$block: mlv-copy-to-clipboard;
-$fade-overlap: 0.0625rem;
+  $block: mlv-copy-to-clipboard;
+  $fade-overlap: 0.0625rem;
 
-@mixin fade-end-mask {
-  mask-position:
-    calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $fade-overlap)
-      bottom,
-    calc(100% + var(--mlv-copy-to-clipboard-fade-extension)) bottom,
-    top;
-}
+  // ── Inline-axis mask geometry (rtl.md) ───────────────────────────────────────
+  // The indicator sits at the inline end (`inset-inline-end`), so the fade it
+  // covers must too. `mask-position` has no logical keywords, so both edge
+  // layers are placed by the direction sign `d` = `--mlv-inline-direction`
+  // (1 LTR, -1 RTL), the `compare.scss` technique: an image anchored to the
+  // inline-start edge sits at `50% - 50% * d`, one anchored to the inline-end
+  // edge at `50% + 50% * d`, and a hidden layer is parked a further
+  // `$fade-reach` outside its edge. At d = 1 every value is the old LTR one.
+  $dir: var(--mlv-inline-direction);
+  $fade-reach: calc(
+    var(--mlv-fade-size) + var(--mlv-fade-offset) - #{$fade-overlap}
+  );
+  $start-hidden: calc(50% - (50% + #{$fade-reach}) * #{$dir});
+  $end-hidden: calc(50% + (50% + #{$fade-reach}) * #{$dir});
+  // Pulled `--mlv-copy-to-clipboard-fade-extension` (negative) inside the
+  // inline-end edge, under the indicator.
+  $end-revealed: calc(
+    50% + (50% + var(--mlv-copy-to-clipboard-fade-extension)) * #{$dir}
+  );
 
-.#{$block} {
-  box-sizing: border-box;
-  position: relative;
-  display: inline-flex;
-  align-items: baseline;
-  border-radius: var(--mlv-radius-s);
-  background-color: transparent;
-  cursor: pointer;
-  vertical-align: baseline;
-  font: inherit;
-  color: inherit;
-
-  * {
-    box-sizing: border-box;
-  }
-
-  &__content {
-    display: inline-block;
-    color: var(--mlv-copy-to-clipboard-content-color, inherit);
-    --mlv-fade-size: 1.5em;
-    --mlv-fade-offset: 0.1875rem;
-    --mlv-copy-to-clipboard-fade-extension: -0.5rem;
-    mask-image:
-      linear-gradient(
-        to right,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      ),
-      linear-gradient(
-        to left,
-        transparent var(--mlv-fade-offset),
-        #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
-      ),
-      linear-gradient(#000, #000);
+  @mixin fade-end-mask {
     mask-position:
-      calc(-1 * var(--mlv-fade-size) - var(--mlv-fade-offset) + $fade-overlap)
-        bottom,
-      calc(100% + var(--mlv-fade-size) + var(--mlv-fade-offset) - $fade-overlap)
-        bottom,
+      $start-hidden bottom,
+      $end-revealed bottom,
       top;
-    mask-repeat: no-repeat;
-    mask-size:
-      calc(
-          var(--mlv-copy-to-clipboard-mask-leading-width, 51%) +
-            var(--mlv-fade-size) + var(--mlv-fade-offset)
-        )
-        100%,
-      calc(
-          var(--mlv-copy-to-clipboard-mask-trailing-width, 50%) +
-            var(--mlv-fade-size) + var(--mlv-fade-offset)
-        )
-        100%,
-      100% 0;
-    transition:
-      mask-position var(--mlv-duration-slow) var(--mlv-ease-out),
-      mask-size var(--mlv-duration-slow) var(--mlv-ease-out);
   }
 
-  // ── Indicator — icon only; the content receives the clipped end fade. ─────
-  &__indicator {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    inset-inline-end: -0.5rem;
+  .#{$block} {
+    box-sizing: border-box;
+    position: relative;
     display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    width: 2.25rem;
-    padding-inline-end: 0.25rem;
-    color: var(
-      --mlv-copy-to-clipboard-indicator-color,
-      var(--mlv-copy-to-clipboard-content-color, inherit)
-    );
-    pointer-events: none;
-    opacity: 0;
+    align-items: baseline;
     border-radius: var(--mlv-radius-s);
-    background: transparent;
-    transition: opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong);
-  }
-
-  // ── Icon wrappers — stacked, slide + blur crossfade ────────────────────────
-  &__icon {
-    position: absolute;
-    z-index: 1;
-    inset-inline-end: 0.25rem;
-    top: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    background-color: transparent;
+    cursor: pointer;
+    vertical-align: baseline;
+    font: inherit;
     color: inherit;
-    transition:
-      opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
-      filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
 
-    svg {
-      display: block;
-      transition: transform var(--mlv-duration-fast) var(--mlv-ease-out-strong);
+    * {
+      box-sizing: border-box;
     }
 
-    &--idle {
-      opacity: 1;
-      transform: translateY(-50%);
-      filter: none;
+    &__content {
+      display: inline-block;
+      color: var(--mlv-copy-to-clipboard-content-color, inherit);
+      --mlv-fade-size: 1.5em;
+      --mlv-fade-offset: 0.1875rem;
+      --mlv-copy-to-clipboard-fade-extension: -0.5rem;
+      // Layer 1 fades the inline-start edge, layer 2 the inline-end edge;
+      // `90deg` is `to right`, so the sign reverses both.
+      mask-image:
+        linear-gradient(
+          mixins.inline-distance(90deg),
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        ),
+        linear-gradient(
+          mixins.inline-distance(-90deg),
+          transparent var(--mlv-fade-offset),
+          #000 calc(var(--mlv-fade-size) + var(--mlv-fade-offset))
+        ),
+        linear-gradient(#000, #000);
+      mask-position:
+        $start-hidden bottom,
+        $end-hidden bottom,
+        top;
+      mask-repeat: no-repeat;
+      mask-size:
+        calc(
+            var(--mlv-copy-to-clipboard-mask-leading-width, 51%) +
+              var(--mlv-fade-size) + var(--mlv-fade-offset)
+          )
+          100%,
+        calc(
+            var(--mlv-copy-to-clipboard-mask-trailing-width, 50%) +
+              var(--mlv-fade-size) + var(--mlv-fade-offset)
+          )
+          100%,
+        100% 0;
+      transition:
+        mask-position var(--mlv-duration-slow) var(--mlv-ease-out),
+        mask-size var(--mlv-duration-slow) var(--mlv-ease-out);
     }
 
-    &--success {
+    // ── Indicator — icon only; the content receives the clipped end fade. ─────
+    &__indicator {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      inset-inline-end: -0.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      width: 2.25rem;
+      padding-inline-end: 0.25rem;
+      color: var(
+        --mlv-copy-to-clipboard-indicator-color,
+        var(--mlv-copy-to-clipboard-content-color, inherit)
+      );
+      pointer-events: none;
       opacity: 0;
-      transform: translateY(calc(-50% - 40%));
-      // blur radius kept in px: a rem-scaled blur is not meaningful and would
-      // grow with the root font-size, distorting the crossfade bridge.
-      filter: blur(3px);
-      color: var(--mlv-text-positive);
-    }
-  }
-
-  // ── Visually-hidden live region ────────────────────────────────────────────
-  &__live {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-    padding: 0;
-    margin: -1px;
-  }
-
-  // ── Hover reveal (gated for fine pointers) ─────────────────────────────────
-  @media (hover: hover) and (pointer: fine) {
-    &:hover .#{$block}__indicator {
-      opacity: 1;
-    }
-
-    &:hover .#{$block}__content {
-      @include fade-end-mask;
-    }
-  }
-
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: var(--mlv-focus-ring-offset);
-
-    .#{$block}__indicator {
-      opacity: 1;
-    }
-
-    .#{$block}__content {
-      @include fade-end-mask;
-    }
-  }
-
-  // ── Press feedback — scale the copy svg only, not the host ─────────────────
-  &:active .#{$block}__icon--idle svg {
-    transform: scale(0.9);
-  }
-
-  // ── Copied state — slide + blur crossfade ──────────────────────────────────
-  &--copied {
-    .#{$block}__indicator {
-      opacity: 1;
-    }
-
-    .#{$block}__content {
-      @include fade-end-mask;
-    }
-
-    .#{$block}__icon--idle {
-      opacity: 0;
-      transform: translateY(calc(-50% + 40%));
-      // blur radius kept in px (see note above): rem-scaling a blur is not meaningful.
-      filter: blur(3px);
-    }
-
-    .#{$block}__icon--success {
-      opacity: 1;
-      transform: translateY(-50%);
-      filter: none;
-    }
-  }
-
-  // ── Disabled state ─────────────────────────────────────────────────────────
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
-    cursor: not-allowed;
-    pointer-events: none;
-  }
-
-  // ── Reduced motion fallback ────────────────────────────────────────────────
-  @media (prefers-reduced-motion: reduce) {
-    .#{$block}__indicator {
-      transition: opacity var(--mlv-duration-fast) var(--mlv-ease-out-strong);
-    }
-
-    .#{$block}__icon {
+      border-radius: var(--mlv-radius-s);
+      background: transparent;
       transition: opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+    }
 
-      &--idle,
-      &--success {
+    // ── Icon wrappers — stacked, slide + blur crossfade ────────────────────────
+    &__icon {
+      position: absolute;
+      z-index: 1;
+      inset-inline-end: 0.25rem;
+      top: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      transition:
+        opacity var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        transform var(--mlv-duration-normal) var(--mlv-ease-out-strong),
+        filter var(--mlv-duration-normal) var(--mlv-ease-out-strong);
+
+      svg {
+        display: block;
+        transition: transform var(--mlv-duration-fast)
+          var(--mlv-ease-out-strong);
+      }
+
+      &--idle {
+        opacity: 1;
         transform: translateY(-50%);
         filter: none;
       }
 
-      svg {
-        transition: none;
+      &--success {
+        opacity: 0;
+        transform: translateY(calc(-50% - 40%));
+        // blur radius kept in px: a rem-scaled blur is not meaningful and would
+        // grow with the root font-size, distorting the crossfade bridge.
+        filter: blur(3px);
+        color: var(--mlv-text-positive);
       }
     }
 
-    &:active .#{$block}__icon--idle svg {
-      transform: none;
+    // ── Visually-hidden live region ────────────────────────────────────────────
+    &__live {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+      padding: 0;
+      margin: -1px;
     }
 
-    &--copied .#{$block}__icon--idle {
-      transform: translateY(-50%);
-      filter: none;
+    // ── Hover reveal (gated for fine pointers) ─────────────────────────────────
+    @media (hover: hover) and (pointer: fine) {
+      &:hover .#{$block}__indicator {
+        opacity: 1;
+      }
+
+      &:hover .#{$block}__content {
+        @include fade-end-mask;
+      }
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+
+      .#{$block}__indicator {
+        opacity: 1;
+      }
+
+      .#{$block}__content {
+        @include fade-end-mask;
+      }
+    }
+
+    // ── Press feedback — scale the copy svg only, not the host ─────────────────
+    &:active .#{$block}__icon--idle svg {
+      transform: scale(0.9);
+    }
+
+    // ── Copied state — slide + blur crossfade ──────────────────────────────────
+    &--copied {
+      .#{$block}__indicator {
+        opacity: 1;
+      }
+
+      .#{$block}__content {
+        @include fade-end-mask;
+      }
+
+      .#{$block}__icon--idle {
+        opacity: 0;
+        transform: translateY(calc(-50% + 40%));
+        // blur radius kept in px (see note above): rem-scaling a blur is not meaningful.
+        filter: blur(3px);
+      }
+
+      .#{$block}__icon--success {
+        opacity: 1;
+        transform: translateY(-50%);
+        filter: none;
+      }
+    }
+
+    // ── Disabled state ─────────────────────────────────────────────────────────
+    &--disabled {
+      opacity: var(--mlv-disabled-opacity);
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    // ── Reduced motion fallback ────────────────────────────────────────────────
+    @media (prefers-reduced-motion: reduce) {
+      .#{$block}__indicator {
+        transition: opacity var(--mlv-duration-fast) var(--mlv-ease-out-strong);
+      }
+
+      .#{$block}__icon {
+        transition: opacity var(--mlv-duration-normal)
+          var(--mlv-ease-out-strong);
+
+        &--idle,
+        &--success {
+          transform: translateY(-50%);
+          filter: none;
+        }
+
+        svg {
+          transition: none;
+        }
+      }
+
+      &:active .#{$block}__icon--idle svg {
+        transform: none;
+      }
+
+      &--copied .#{$block}__icon--idle {
+        transform: translateY(-50%);
+        filter: none;
+      }
     }
   }
-}
 }

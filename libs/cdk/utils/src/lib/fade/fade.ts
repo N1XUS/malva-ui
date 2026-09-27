@@ -3,12 +3,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
+  Injector,
   input,
   NgZone,
   PLATFORM_ID,
   signal,
+  untracked,
   ViewEncapsulation,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -39,12 +42,36 @@ const BUFFER = 1; // buffer for rounding issues
     '[style.--mlv-line-height]': 'mlvFadeHeight()',
     '[style.--mlv-fade-size]': 'mlvFadeSize()',
     '[style.--mlv-fade-offset]': 'mlvFadeOffset()',
+    '[style.transition]': '_settling() ? "none" : null',
   },
 })
 export class MlvFade {
+  /**
+   * Line height of a horizontal fade, written to both `line-height` and
+   * `--mlv-line-height`. In horizontal mode the edge fades cover only the last
+   * line box, so a wrapping label fades where it is clipped. `null` (the
+   * default) leaves the inherited line height and fades the full box height.
+   */
   public readonly mlvFadeHeight = input<string | null>(null);
+
+  /**
+   * Length of each fade gradient along the overflow axis (`--mlv-fade-size`).
+   * Any CSS length; the default is `1.5em`.
+   */
   public readonly mlvFadeSize = input('1.5em');
+
+  /**
+   * Fully transparent band between the edge and the start of the gradient
+   * (`--mlv-fade-offset`). Any CSS length; the default is `0em`.
+   */
   public readonly mlvFadeOffset = input('0em');
+
+  /**
+   * Overflow axis the fades follow. `'horizontal'` (the default) fades the
+   * inline-start and inline-end edges, so they mirror under a `[dir="rtl"]`
+   * ancestor at any depth; `'vertical'` fades the top and bottom. The bare
+   * attribute (`<div mlvFade>`) binds `''`, which behaves as `'horizontal'`.
+   */
   public readonly mlvFade = input<MlvOrientation | ''>('horizontal');
 
   /** @protected Whether the content is scrolled to (or overflowing toward) the end edge. */
@@ -52,8 +79,20 @@ export class MlvFade {
   /** @protected Whether the content is scrolled away from the start edge. */
   protected readonly _isStart = signal(false);
 
-  /** @private Host element reference used to read scroll metrics and toggle the transition. */
+  /**
+   * @protected `true` until the first measurement of a laid-out box has been
+   * painted; binds an inline `transition: none` meanwhile. The mask starts in
+   * its rest position and that measurement usually moves it to an overflow
+   * edge — which is not a scroll, so it must jump rather than slide in over
+   * `--mlv-duration-slow` on every mount.
+   */
+  protected readonly _settling = signal(true);
+
+  /** @private Host element reference used to read scroll metrics and flush its style. */
   private readonly _elementRef = inject(ElementRef);
+
+  /** @private Injector for the one `afterNextRender` that ends {@link _settling}. */
+  private readonly _injector = inject(Injector);
 
   /** @private Shared resize observer, subscribed only in a browser. */
   private readonly _resizeObserver = inject(MlvResizeObserverService);
@@ -72,9 +111,14 @@ export class MlvFade {
 
   constructor() {
     if (!this._isBrowser) return;
-    afterNextRender(() =>
-      this._elementRef.nativeElement.style.setProperty('transition', ''),
-    );
+
+    // `_computeIsEnd` reads the orientation, but only when a scroll or resize
+    // schedules a measurement — so a changed input re-measures on its own.
+    // The first run coalesces with the stream's `startWith` below.
+    effect(() => {
+      this.mlvFade();
+      untracked(() => this._scheduleEvaluate());
+    });
 
     // Scroll/resize fire far more often than the fade state actually flips.
     // Run the stream outside Angular so raw events don't each schedule a
@@ -115,13 +159,49 @@ export class MlvFade {
    */
   private _evaluateFadeState(): void {
     const el = this._elementRef.nativeElement;
+    // A box with no size (not yet laid out, `display: none`) has nothing to
+    // measure, and settling on it would let its first real measurement slide.
+    if (!el.scrollWidth) return;
     const nextEnd = this._computeIsEnd();
-    const nextStart = !!Math.floor(el.scrollLeft) || !!Math.floor(el.scrollTop);
-    if (nextEnd === this._isEnd() && nextStart === this._isStart()) return;
+    // `scrollLeft` runs 0 → negative in RTL; a subpixel offset at the start
+    // must floor to 0 there too, not to -1.
+    const nextStart =
+      !!Math.floor(Math.abs(el.scrollLeft)) || !!Math.floor(el.scrollTop);
+    if (nextEnd === this._isEnd() && nextStart === this._isStart()) {
+      this._settle(false);
+      return;
+    }
     this._ngZone.run(() => {
       this._isEnd.set(nextEnd);
       this._isStart.set(nextStart);
     });
+    this._settle(true);
+  }
+
+  /**
+   * @private Ends {@link _settling} after the first measurement. When that
+   * measurement changed a boundary class, the transition may come back only
+   * once the browser has resolved the new mask position with it still off, so
+   * the next render forces a style flush first — otherwise both changes land
+   * in one style recalc and the mask animates anyway.
+   */
+  private _settle(classesChanged: boolean): void {
+    if (!this._settling()) return;
+    const done = () => this._ngZone.run(() => this._settling.set(false));
+    if (!classesChanged) {
+      done();
+      return;
+    }
+    afterNextRender(
+      {
+        earlyRead: () =>
+          getComputedStyle(this._elementRef.nativeElement).getPropertyValue(
+            'mask-position',
+          ),
+        write: done,
+      },
+      { injector: this._injector },
+    );
   }
 
   /** @private Computes whether the content is scrolled to (or overflowing toward) the end edge. */

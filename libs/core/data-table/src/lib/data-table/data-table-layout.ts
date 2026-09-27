@@ -124,7 +124,20 @@ export function columnWidthStyles(
   return styles;
 }
 
-/** Adds sticky pin offsets to the base column width styles. */
+/**
+ * Adds the sticky pin offset to the base column width styles.
+ *
+ * `pinSide` is a logical alias (see `MlvPinSide`): `'left'` pins to the
+ * inline-start edge, `'right'` to the inline-end edge. The offset is a running
+ * sum of logical widths from that edge, so it is emitted as
+ * `--mlv-dt-pinned-inset` and never as a physical inset — `left: X` on a
+ * start-pinned cell constrains the scroll-*end* side of an RTL scroller, and
+ * the column scrolls out of view. `data-table.scss` writes the property to the
+ * physical side the cell's own `:dir()` resolves to — physical because
+ * `.claude/rules/rtl.md`'s sticky row forbids a logical sticky inline inset;
+ * see `data-table.scss`. `offsets` is keyed `<key>_left` /
+ * `<key>_right` after the same alias, as `MlvDataTable.columnOffsets` builds it.
+ */
 export function columnCellStyles(
   column: MlvColumnState,
   offsets: Map<string, string>,
@@ -133,9 +146,10 @@ export function columnCellStyles(
   if (!column.pinned) return styles;
   styles['position'] = 'sticky';
   styles['z-index'] = '2';
-  const side = column.pinSide === 'right' ? 'right' : 'left';
-  const offset = offsets.get(`${column.key}_${side}`) ?? '0px';
-  styles[side] =
-    `calc(${offset} + var(--mlv-dt-pinned-${side}-correction, 0px))`;
+  const end = column.pinSide === 'right';
+  const offset =
+    offsets.get(`${column.key}_${end ? 'right' : 'left'}`) ?? '0px';
+  styles['--mlv-dt-pinned-inset'] =
+    `calc(${offset} + var(--mlv-dt-pinned-${end ? 'end' : 'start'}-correction, 0px))`;
   return styles;
 }

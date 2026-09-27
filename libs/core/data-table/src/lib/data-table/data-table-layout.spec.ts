@@ -109,9 +109,53 @@ describe('data-table layout helpers', () => {
         'max-width': '180px',
         position: 'sticky',
         'z-index': '2',
-        right: 'calc(12px + var(--mlv-dt-pinned-right-correction, 0px))',
+        '--mlv-dt-pinned-inset':
+          'calc(12px + var(--mlv-dt-pinned-end-correction, 0px))',
       },
     );
+  });
+
+  // The offset is a running sum of logical widths from the pinned edge, so it
+  // must not be written to a physical inset: `left: X` on a start-pinned cell
+  // is the scroll-end side of an RTL scroller and the cell scrolls away (#341).
+  // The stylesheet puts the custom property on the physical side the cell's
+  // own `:dir()` resolves to (see `data-table-pinned-rtl.spec.ts`).
+  it.each([
+    ['left', 'name_left', 'start'],
+    ['right', 'name_right', 'end'],
+    [undefined, 'name_left', 'start'],
+  ] as const)(
+    'emits a direction-free sticky offset for pinSide %s',
+    (pinSide, offsetKey, edge) => {
+      const column: MlvColumnState = {
+        key: 'name',
+        label: 'Name',
+        pinned: true,
+        pinSide,
+      };
+
+      const styles = columnCellStyles(column, new Map([[offsetKey, '40px']]));
+
+      expect(styles['--mlv-dt-pinned-inset']).toBe(
+        `calc(40px + var(--mlv-dt-pinned-${edge}-correction, 0px))`,
+      );
+      for (const inset of [
+        'left',
+        'right',
+        'inset-inline-start',
+        'inset-inline-end',
+      ]) {
+        expect(Object.keys(styles)).not.toContain(inset);
+      }
+    },
+  );
+
+  it('writes no sticky offset for an unpinned column', () => {
+    const column: MlvColumnState = { key: 'name', label: 'Name' };
+
+    expect(
+      Object.keys(columnCellStyles(column, new Map([['name_left', '40px']]))),
+    ).not.toContain('--mlv-dt-pinned-inset');
   });
 
   it('parses only complete CSS pixel widths', () => {
