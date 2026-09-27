@@ -159,7 +159,7 @@ export class MlvEditorImageUpload {
       if (
         !this._context.disabled() &&
         trigger.isConnected &&
-        document.activeElement !== trigger
+        trigger.ownerDocument.activeElement !== trigger
       ) {
         trigger.focus();
       }

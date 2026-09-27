@@ -2,6 +2,7 @@ import type { ElementRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
+  DOCUMENT,
   computed,
   effect,
   forwardRef,
@@ -96,6 +97,13 @@ export class MlvDayPicker<D = Date>
   protected override _externalLabelStrategy(): MlvFormControlLabelStrategy {
     return 'aria';
   }
+
+  /**
+   * @private The document the popup renders into — the injected `DOCUMENT`,
+   * never the ambient global, which is a different object under server
+   * rendering and in an isolated document.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   /** @private Active date adapter — injected token, falling back to the native adapter. */
   private readonly _dateAdapter =
@@ -215,7 +223,7 @@ export class MlvDayPicker<D = Date>
    * calendar dialog so keyboard users land inside the modal surface.
    */
   protected _onPopupOpened(): void {
-    const panel = document.getElementById(this.popupId());
+    const panel = this._document.getElementById(this.popupId());
     // The sheet's roving day tab stop is the meaningful landing spot; without
     // this the generic scan would stop on the year strip's listbox instead.
     const target =

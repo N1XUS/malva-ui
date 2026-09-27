@@ -92,8 +92,8 @@ describe('MlvColorPicker — touched timing (#347)', () => {
       const pointer = (type: string, x: number): MouseEvent =>
         new MouseEvent(type, { bubbles: true, clientX: x, clientY: 50 });
       canvas().dispatchEvent(pointer('pointerdown', 20));
-      window.dispatchEvent(pointer('pointermove', 60));
-      window.dispatchEvent(pointer('pointerup', 60));
+      document.dispatchEvent(pointer('pointermove', 60));
+      document.dispatchEvent(pointer('pointerup', 60));
       fixture.detectChanges();
       await fixture.whenStable();
     }

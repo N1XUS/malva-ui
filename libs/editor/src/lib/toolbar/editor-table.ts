@@ -9,6 +9,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DOCUMENT,
   ElementRef,
   effect,
   inject,
@@ -107,6 +108,12 @@ export class MlvEditorTable {
 
   /** @private Detached popup ownership for composite editor focus. */
   private readonly _overlays = inject(MLV_EDITOR_OVERLAY_REGISTRY);
+
+  /**
+   * @private The document the menu panel is portaled into — the injected
+   * `DOCUMENT`, never the ambient global.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   /** @private Optional localized editor copy. */
   private readonly _i18n = inject(MLV_EDITOR_I18N, { optional: true });
@@ -395,7 +402,7 @@ export class MlvEditorTable {
     queueMicrotask(() => {
       const menu = this._menu();
       if (!this._menuOpen || !menu) return;
-      const panel = document.getElementById(menu.panelId);
+      const panel = this._document.getElementById(menu.panelId);
       if (!panel) return;
       this._unregisterMenu?.();
       this._unregisterMenu = this._overlays.register(panel, () => menu.close());

@@ -9,7 +9,9 @@ import type {
 import {
   ApplicationRef,
   Component,
+  DOCUMENT,
   Injectable,
+  PLATFORM_ID,
   signal,
   viewChild,
 } from '@angular/core';
@@ -18,7 +20,7 @@ import type {
   OverlayRef,
   PositionStrategy,
 } from '@angular/cdk/overlay';
-import { OverlayContainer, OverlayModule } from '@angular/cdk/overlay';
+import { Overlay, OverlayContainer, OverlayModule } from '@angular/cdk/overlay';
 import { A11yModule } from '@angular/cdk/a11y';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { firstValueFrom } from 'rxjs';
@@ -974,5 +976,141 @@ describe('MlvOverlayServiceBase accessibility', () => {
     expect(results.violations.map((violation) => violation.id)).toContain(
       'aria-dialog-name',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Injected DOCUMENT and server platform (#337)
+// ---------------------------------------------------------------------------
+
+/**
+ * A second document whose `activeElement` is `trigger`.
+ *
+ * jsdom moves no focus inside a document made by `createHTMLDocument()` —
+ * `trigger.focus()` there leaves `activeElement` on `<body>` (measured) — so
+ * the getter is stubbed. What the specs below pin is which document the
+ * overlay asks, and a stub answers that exactly: the ambient `document` still
+ * reports its own `<body>`, so code reading the global captures the wrong
+ * element and restores focus to it.
+ */
+function isolatedDocumentFocusing(title: string): {
+  isolated: Document;
+  trigger: HTMLButtonElement;
+} {
+  const isolated = document.implementation.createHTMLDocument(title);
+  const trigger = isolated.createElement('button');
+  trigger.textContent = 'Open';
+  isolated.body.appendChild(trigger);
+  Object.defineProperty(isolated, 'activeElement', {
+    configurable: true,
+    get: () => trigger,
+  });
+  return { isolated, trigger };
+}
+
+describe('MlvOverlayHostBase — injected DOCUMENT', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('captures the trigger from the injected document and restores focus to it', async () => {
+    const { isolated, trigger } = isolatedDocumentFocusing('overlay-host');
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent],
+      providers: [{ provide: DOCUMENT, useValue: isolated }],
+    }).compileComponents();
+    const focus = vi.spyOn(trigger, 'focus');
+    const bodyFocus = vi.spyOn(document.body, 'focus');
+
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.opened.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const panel = isolated.querySelector('.test-panel');
+    expect(panel).not.toBeNull();
+
+    fixture.componentInstance.opened.set(false);
+    fixture.detectChanges();
+    panel?.dispatchEvent(new Event('animationend'));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.animationState()).toBe('idle');
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(bodyFocus).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+});
+
+describe('MlvOverlayServiceBase — injected DOCUMENT', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('restores focus to the element active in the injected document', async () => {
+    const { isolated, trigger } = isolatedDocumentFocusing('overlay-service');
+    TestBed.configureTestingModule({
+      providers: [
+        TestOverlayService,
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    });
+    const focus = vi.spyOn(trigger, 'focus');
+    const bodyFocus = vi.spyOn(document.body, 'focus');
+
+    const ref = TestBed.inject(TestOverlayService).open(TestContentComponent);
+    const closed = firstValueFrom(ref.afterClosed());
+    const panel = isolated.querySelector('.test-svc-panel');
+    expect(panel).not.toBeNull();
+    ref.close();
+    panel?.dispatchEvent(new Event('animationend'));
+    await closed;
+
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(bodyFocus).not.toHaveBeenCalled();
+  });
+});
+
+describe('MlvOverlayHostBase — server platform', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent],
+      providers: [{ provide: PLATFORM_ID, useValue: 'server' }],
+    }).compileComponents();
+  });
+
+  /**
+   * View effects run during server change detection, so an initially-open
+   * host reached `_createOverlay()` on every server render: it read the
+   * ambient `document` (a `ReferenceError` under Node) and, where a global
+   * `document` exists, built a CDK overlay into the server document. The
+   * client opens it after hydration; the server builds nothing.
+   */
+  it('builds no overlay and emits nothing while opened on the server', async () => {
+    const fixture = TestBed.createComponent(TestHostComponent);
+    const opened = vi.fn();
+    fixture.componentInstance.afterOpened.subscribe(opened);
+    const create = vi.spyOn(TestBed.inject(Overlay), 'create');
+
+    fixture.componentInstance.opened.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(document.querySelector('.test-panel')).toBeNull();
+    expect(opened).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.animationState()).toBe('idle');
+
+    // Closing a host that never built an overlay is a no-op, not a leave.
+    fixture.componentInstance.opened.set(false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.animationState()).toBe('idle');
   });
 });

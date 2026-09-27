@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
-import { Component } from '@angular/core';
+import { Component, DOCUMENT } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MlvColorPicker } from './color-picker';
 import {
@@ -521,7 +521,7 @@ describe('MlvColorPicker', () => {
     expect(fillRectCalls).toBeGreaterThan(before);
   });
 
-  it('removes the window pointer listeners after each canvas drag (no leak across drags)', () => {
+  it('removes the document pointer listeners after each canvas drag (no leak across drags)', () => {
     const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector(
       '.mlv-color-picker__canvas',
     );
@@ -532,20 +532,20 @@ describe('MlvColorPicker', () => {
     const pointer = (type: string, init: MouseEventInit = {}): MouseEvent =>
       new MouseEvent(type, { bubbles: true, ...init });
 
-    const addSpy = vi.spyOn(window, 'addEventListener');
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    const addSpy = vi.spyOn(document, 'addEventListener');
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
 
     const drag = (): void => {
       canvas.dispatchEvent(pointer('pointerdown', { clientX: 5, clientY: 5 }));
-      window.dispatchEvent(pointer('pointerup'));
+      document.dispatchEvent(pointer('pointerup'));
     };
 
     drag();
     drag();
 
-    // Each drag registers exactly one window 'pointermove' listener (via
+    // Each drag registers exactly one document 'pointermove' listener (via
     // fromEvent) and tears it down again on its own pointerup (takeUntil) —
-    // nothing accumulates on `window` across drags.
+    // nothing accumulates on the document across drags.
     const added = addSpy.mock.calls.filter(
       ([type]) => type === 'pointermove',
     ).length;
@@ -558,6 +558,137 @@ describe('MlvColorPicker', () => {
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
+  });
+});
+
+describe('MlvColorPicker (canvas document)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Stubs the canvas geometry and capture jsdom does not implement. */
+  const prepareCanvas = (canvas: HTMLCanvasElement): void => {
+    canvas.setPointerCapture = vi.fn();
+    canvas.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  const pointer = (type: string, x: number, y: number): MouseEvent =>
+    new MouseEvent(type, { bubbles: true, clientX: x, clientY: y });
+
+  /** The `pointermove` listeners a spy saw added — the drag's own move stream. */
+  const moveListeners = (spy: {
+    mock: { calls: readonly (readonly unknown[])[] };
+  }): number =>
+    spy.mock.calls.filter(([type]) => type === 'pointermove').length;
+
+  /**
+   * The canvas drag listened on the ambient `window` — absent under server
+   * rendering, and another document's window when the picker is mounted in an
+   * iframe preview or print window. It now listens on the canvas's own
+   * document, which the captured pointer's moves and pointerup bubble
+   * through. TestBed renders the fixture into the injected `DOCUMENT`, so
+   * here the canvas's document and the injected one coincide (an isolated
+   * document, not the ambient one); the next spec separates them.
+   */
+  it('drives the canvas drag from an isolated document, not the ambient window', async () => {
+    const isolated = document.implementation.createHTMLDocument('picker');
+    await TestBed.configureTestingModule({
+      imports: [MlvColorPicker],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvColorPicker);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector(
+      '.mlv-color-picker__canvas',
+    );
+    expect(canvas.ownerDocument === isolated).toBe(true);
+    prepareCanvas(canvas);
+
+    const isolatedAdd = vi.spyOn(isolated, 'addEventListener');
+    const ambientAdd = vi.spyOn(document, 'addEventListener');
+    const windowAdd = vi.spyOn(window, 'addEventListener');
+
+    canvas.dispatchEvent(pointer('pointerdown', 10, 10));
+    // The focus-leave press tracking (#347) adds `pointerup` /
+    // `pointercancel` listeners to the injected document, so only the
+    // drag's own `pointermove` is counted.
+    expect(moveListeners(isolatedAdd)).toBe(1);
+    expect(moveListeners(ambientAdd)).toBe(0);
+    expect(moveListeners(windowAdd)).toBe(0);
+
+    const before = fixture.componentInstance.value();
+    isolated.dispatchEvent(pointer('pointermove', 90, 90));
+    isolated.dispatchEvent(pointer('pointerup', 90, 90));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.value()).not.toBe(before);
+    fixture.destroy();
+  });
+
+  /**
+   * A picker portaled into a second document (an iframe preview, a print
+   * window): the captured pointer's events bubble through that document, so
+   * the drag must listen there — the injected `DOCUMENT` and the ambient
+   * `window` never see them.
+   */
+  it('drives the canvas drag inside a second document', async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvColorPicker],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvColorPicker);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const second = document.implementation.createHTMLDocument('frame');
+    const host = fixture.nativeElement as HTMLElement;
+    second.body.appendChild(host);
+    const canvas: HTMLCanvasElement = host.querySelector(
+      '.mlv-color-picker__canvas',
+    ) as HTMLCanvasElement;
+    expect(canvas.ownerDocument === second).toBe(true);
+    prepareCanvas(canvas);
+
+    const secondAdd = vi.spyOn(second, 'addEventListener');
+    const injectedAdd = vi.spyOn(document, 'addEventListener');
+
+    canvas.dispatchEvent(pointer('pointerdown', 10, 10));
+    expect(moveListeners(secondAdd)).toBe(1);
+    expect(moveListeners(injectedAdd)).toBe(0);
+
+    // The app's document hears nothing of this drag.
+    const before = fixture.componentInstance.value();
+    document.dispatchEvent(pointer('pointermove', 90, 90));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe(before);
+
+    second.dispatchEvent(pointer('pointermove', 90, 90));
+    second.dispatchEvent(pointer('pointerup', 90, 90));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.value()).not.toBe(before);
+    fixture.destroy();
   });
 });
 

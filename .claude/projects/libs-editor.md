@@ -162,7 +162,11 @@ height: 8 }` defaults and erases them. Every drag then computes
   blocks it would land between — no block moves until the drop, and none of
   these is a document node. `destroy()`
   removes both mount elements, the drag image, both pointer listeners, the
-  mount drag listeners, and the `document` keydown listener.
+  mount drag listeners, and the keydown listener on the mount's
+  `ownerDocument` — the document the editor is mounted in, which is also where
+  the handle, the drop indicator and the drag image are created (#337; the
+  global `document` put them in the wrong document for an editor mounted in
+  another one, such as an iframe).
 - `mlvEditorMarkdownExtensions()` creates the official beta Markdown
   extension. The factory includes it only when
   `mlvEditorDefaultExtensions({ format: 'markdown' })` is requested; the
@@ -1491,7 +1495,7 @@ itself, and each settled block after the move.
 
 The drag image is a deep clone of the source element with every computed style
 written into `style.cssText`, wrapped at `position: absolute; top: -10000px`
-on `document.body` and handed to `setDragImage(wrapper, ltr ? 0 : width, 0)`,
+on the source's `ownerDocument.body` and handed to `setDragImage(wrapper, ltr ? 0 : width, 0)`,
 where `width` is the wrapper's **rendered** width
 (`getBoundingClientRect().width`): the offset is resolved against the image as
 painted, and `offsetWidth` leaves out the wrapper's own CSS `zoom` (475 against

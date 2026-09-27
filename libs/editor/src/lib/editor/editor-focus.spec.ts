@@ -1,4 +1,4 @@
-import { Component, signal, viewChild } from '@angular/core';
+import { Component, DOCUMENT, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -325,5 +325,72 @@ describe('MlvEditor composite focus', () => {
     expect(close).toHaveBeenCalledTimes(1);
     expect(host.editor().focused()).toBe(false);
     overlay.remove();
+  });
+});
+
+describe('MlvEditor composite focus (another document)', () => {
+  /**
+   * An editor mounted in another document — an iframe preview, a print window
+   * — read focus from the global `document.activeElement`, which there is the
+   * parent's `<iframe>` (here: the global `<body>`), so focus still inside the
+   * editor read as having left it.
+   */
+  async function createHostIn(ownerDocument: Document) {
+    await TestBed.configureTestingModule({
+      imports: [FocusHost],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: ownerDocument },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(FocusHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const content = root.querySelector('.ProseMirror') as HTMLElement;
+    // jsdom moves no `activeElement` inside a `createHTMLDocument()` document:
+    // pin it to the editor content, as a browser would after a focus there.
+    Object.defineProperty(ownerDocument, 'activeElement', {
+      configurable: true,
+      get: () => content,
+    });
+    return { fixture, host: fixture.componentInstance, content };
+  }
+
+  it('keeps focus inside when the editor’s own document says so', async () => {
+    const second = document.implementation.createHTMLDocument('preview');
+    const { fixture, host, content } = await createHostIn(second);
+    try {
+      content.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      // A focusout with no `relatedTarget` falls back to the active element.
+      content.dispatchEvent(
+        new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Lengths, not the arrays: each event carries the Tiptap `Editor`,
+      // which a failing matcher would pretty-print at length.
+      expect(host.focusEvents.length).toBe(1);
+      expect(host.blurEvents.length).toBe(0);
+      expect(host.editor().focused()).toBe(true);
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('blurs the focused content in the editor’s own document on disable', async () => {
+    const second = document.implementation.createHTMLDocument('preview');
+    const { fixture, host, content } = await createHostIn(second);
+    try {
+      const blur = vi.spyOn(content, 'blur');
+      host.disabled.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(blur).toHaveBeenCalledTimes(1);
+    } finally {
+      fixture.destroy();
+    }
   });
 });

@@ -309,6 +309,8 @@ describe('MlvEditorBlockHandle view', () => {
       markdown?: boolean;
       uploadPlaceholder?: boolean;
       content?: string;
+      /** The document the editor is mounted in; the global one by default. */
+      ownerDocument?: Document;
     } = {},
   ) {
     const {
@@ -316,20 +318,21 @@ describe('MlvEditorBlockHandle view', () => {
       markdown = false,
       uploadPlaceholder = false,
       content = THREE_BLOCKS,
+      ownerDocument = document,
     } = options;
-    const mount = document.createElement('div');
+    const mount = ownerDocument.createElement('div');
     mount.style.position = 'relative';
-    document.body.appendChild(mount);
+    ownerDocument.body.appendChild(mount);
     mounts.push(mount);
-    const host = document.createElement('div');
+    const host = ownerDocument.createElement('div');
     mount.appendChild(host);
 
     // Spied before the plugin view runs so every listener it registers is
     // recorded. `vi.spyOn` calls through, so nothing else changes.
     const mountAdd = vi.spyOn(mount, 'addEventListener');
     const mountRemove = vi.spyOn(mount, 'removeEventListener');
-    const documentAdd = vi.spyOn(document, 'addEventListener');
-    const documentRemove = vi.spyOn(document, 'removeEventListener');
+    const documentAdd = vi.spyOn(ownerDocument, 'addEventListener');
+    const documentRemove = vi.spyOn(ownerDocument, 'removeEventListener');
 
     let enabled = true;
     let label = 'Drag block';
@@ -1421,6 +1424,45 @@ describe('MlvEditorBlockHandle view', () => {
       fire(editor.view.dom, 'drop', 105);
       expect(texts(editor)).toEqual(['A', 'B', 'C']);
       expect(indicatorShown(harness)).toBe(false);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  /**
+   * An editor mounted in another document — an iframe preview, a print
+   * window — used to listen for Escape on the global `document`, which never
+   * hears a key pressed in the editor's own document, and to rasterize its
+   * drag image from the global `document.body`.
+   */
+  it('binds Escape and the drag image to the document the editor is mounted in', () => {
+    const second = document.implementation.createHTMLDocument('preview');
+    (
+      second as Document & {
+        elementFromPoint?: (x: number, y: number) => Element | null;
+      }
+    ).elementFromPoint ??= () => null;
+    const globalAdd = vi.spyOn(document, 'addEventListener');
+    const harness = createMountedHarness({ ownerDocument: second });
+    const { editor } = harness;
+    try {
+      const keydownOn = (calls: ReadonlyArray<readonly unknown[]>) =>
+        calls.filter(([type]) => type === 'keydown').length;
+      expect(keydownOn(harness.added().map(({ type }) => [type]))).toBe(1);
+      expect(keydownOn(globalAdd.mock.calls)).toBe(0);
+
+      grab(harness, 35);
+      const image = second.querySelector('.mlv-editor__drag-ghost');
+      expect(image?.parentElement).toBe(second.body);
+
+      fire(editor.view.dom, 'dragover', 105);
+      expect(indicatorShown(harness)).toBe(true);
+
+      second.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(indicatorShown(harness)).toBe(false);
+
+      fire(editor.view.dom, 'drop', 105);
+      expect(texts(editor)).toEqual(['A', 'B', 'C']);
     } finally {
       editor.destroy();
     }

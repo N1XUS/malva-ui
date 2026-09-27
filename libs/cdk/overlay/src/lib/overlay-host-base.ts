@@ -1,7 +1,9 @@
 import type { OnDestroy, TemplateRef } from '@angular/core';
 import {
+  DOCUMENT,
   Directive,
   Injector,
+  PLATFORM_ID,
   ViewContainerRef,
   afterNextRender,
   effect,
@@ -17,6 +19,7 @@ import type {
   PositionStrategy,
 } from '@angular/cdk/overlay';
 import { Overlay } from '@angular/cdk/overlay';
+import { isPlatformBrowser } from '@angular/common';
 import { TemplatePortal } from '@angular/cdk/portal';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
@@ -60,6 +63,23 @@ export abstract class MlvOverlayHostBase implements OnDestroy {
   protected readonly _initialFocusResolver = inject(
     MlvOverlayInitialFocusResolver,
   );
+  /**
+   * @protected The document this host renders into — the injected `DOCUMENT`,
+   * never the ambient global, which does not exist under server rendering and
+   * is a different object from the per-request document when it does.
+   */
+  protected readonly _document = inject(DOCUMENT);
+  /**
+   * Whether the host runs in a browser. The open/close `effect()` is a view
+   * effect, so it also runs during server change detection. Before #337 an
+   * overlay built there landed in the payload and broke hydration (`NG0500`,
+   * measured with a DOM-bearing server), and in plain Node the ambient
+   * `document` read threw first. An ES private field rather than
+   * `private _isBrowser`: this is an exported base consumers may extend (not
+   * a VERSIONING §2 subclassing contract), and a `#` name cannot collide with
+   * a member a consumer subclass declares.
+   */
+  readonly #isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   /** @protected Active CDK overlay reference, or `null` when closed. */
   protected _overlayRef: OverlayRef | null = null;
   /** @protected The element that had focus before the overlay opened. */
@@ -209,6 +229,12 @@ export abstract class MlvOverlayHostBase implements OnDestroy {
 
   /** @protected Captures focus, creates and attaches the overlay, then plays the enter animation. */
   protected _createOverlay(): void {
+    // A host rendered open on the server builds nothing there: no focus to
+    // capture, and a pane in the payload breaks hydration (`NG0500`). The
+    // same `effect()` runs again once the client hydrates, and opens the
+    // overlay then (`ssr-open-surfaces-hydration.spec.ts`).
+    if (!this.#isBrowser) return;
+
     if (this._overlayRef) {
       if (this.animationState() === 'leave') {
         if (this._leaveFallbackTimer !== null) {
@@ -226,7 +252,7 @@ export abstract class MlvOverlayHostBase implements OnDestroy {
     const template = this._getOverlayTemplate();
     if (!template) return;
 
-    this._triggerElement = document.activeElement as HTMLElement | null;
+    this._triggerElement = this._document.activeElement as HTMLElement | null;
 
     this._overlayRef = this._overlay.create({
       positionStrategy: this._buildPositionStrategy(),

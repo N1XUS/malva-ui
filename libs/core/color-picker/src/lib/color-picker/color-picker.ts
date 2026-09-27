@@ -401,12 +401,18 @@ export class MlvColorPicker
 
     // Per-drag rxjs streams: the move stream completes on the first pointerup
     // (takeUntil) and both streams complete on destroy (takeUntilDestroyed),
-    // so no window listener can leak or accumulate across drags — this
+    // so no document listener can leak or accumulate across drags — this
     // replaces an earlier bug where each drag's pointermove listener stayed
-    // attached to `window`.
-    const pointerUp$ = fromEvent<PointerEvent>(window, 'pointerup');
+    // attached to `window`. Bound to the canvas's own document: the canvas
+    // holds pointer capture, so its moves and its pointerup bubble through
+    // that document — which is not the injected `DOCUMENT` (the app's) when
+    // the picker is portaled into an iframe or a print window, and not the
+    // ambient `window`'s either. A pointerdown only happens in a browser, so
+    // nothing here runs on the server.
+    const canvasDocument = target.ownerDocument;
+    const pointerUp$ = fromEvent<PointerEvent>(canvasDocument, 'pointerup');
 
-    fromEvent<PointerEvent>(window, 'pointermove')
+    fromEvent<PointerEvent>(canvasDocument, 'pointermove')
       .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
       .subscribe((e) => {
         if (this._canvasDragging()) {

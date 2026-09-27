@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, DOCUMENT, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -1313,5 +1313,60 @@ describe('MlvTimePicker — mobile full-screen sheet', () => {
       expect(popup.isFullscreen()).toBe(false);
       expect(panel.classList).not.toContain(SHEET);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MlvTimePicker — injected DOCUMENT
+// ---------------------------------------------------------------------------
+
+describe('MlvTimePicker (injected DOCUMENT)', () => {
+  /**
+   * The columns live in the popup, portaled into the CDK overlay container of
+   * the injected document. Inter-column navigation compared each column with
+   * the ambient `document.activeElement`, which never holds a column there, so
+   * ArrowLeft / ArrowRight did nothing.
+   */
+  it('moves between columns by the injected document’s active element', async () => {
+    const isolated = document.implementation.createHTMLDocument('time-picker');
+    await TestBed.configureTestingModule({
+      imports: [MlvTimePicker],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvTimePicker);
+    const hostEl: HTMLElement = fixture.nativeElement;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    openPopup(hostEl, fixture);
+    await fixture.whenStable();
+
+    const listboxes = isolated.querySelectorAll<HTMLElement>(
+      '.mlv-time-picker__columns [role="listbox"]',
+    );
+    expect(
+      listboxes.length,
+      'the columns render into the injected document',
+    ).toBe(2);
+    // jsdom moves no `activeElement` inside a `createHTMLDocument()` document:
+    // pin it to the hours column and observe the focus call on minutes.
+    Object.defineProperty(isolated, 'activeElement', {
+      configurable: true,
+      get: () => listboxes[0],
+    });
+    const focusMinutes = vi.spyOn(listboxes[1], 'focus');
+
+    isolated
+      .querySelector('.mlv-time-picker__columns')
+      ?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+      );
+
+    expect(focusMinutes).toHaveBeenCalledTimes(1);
+    fixture.destroy();
   });
 });
