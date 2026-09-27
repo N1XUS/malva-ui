@@ -1330,8 +1330,11 @@ export class MlvEditor
     if (typeof Node !== 'undefined' && relatedTarget instanceof Node) {
       return this._isOwnedFocusNode(relatedTarget);
     }
-    if (typeof document === 'undefined') return false;
-    return this._isOwnedFocusNode(document.activeElement);
+    // The host's own document, not the global one: in an iframe preview or a
+    // print window the global `activeElement` is the parent's `<iframe>`.
+    return this._isOwnedFocusNode(
+      this._host.nativeElement.ownerDocument.activeElement,
+    );
   }
 
   /** @private Whether a node belongs to the physical shell or an owned overlay. */
@@ -1388,10 +1391,11 @@ export class MlvEditor
 
   /** @private Removes browser focus when the composite becomes disabled without marking it touched. */
   private _removeCompositeFocusForDisabledState(): void {
-    if (typeof document === 'undefined' || typeof HTMLElement === 'undefined') {
-      return;
-    }
-    const activeElement = document.activeElement;
+    if (typeof HTMLElement === 'undefined') return;
+    // The host's own document — see `_isFocusInsideComposite`. It also runs
+    // on the server (constructor effect, destroy), where there is no global
+    // `document` and domino's `activeElement` is `null`.
+    const activeElement = this._host.nativeElement.ownerDocument.activeElement;
     if (
       !(activeElement instanceof HTMLElement) ||
       !this._isOwnedFocusNode(activeElement)

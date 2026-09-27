@@ -82,10 +82,10 @@ describe('MlvColorPickerPopup — inner picker hue (#315)', () => {
     canvas.dispatchEvent(pointer('pointerdown', first[0], first[1]));
     await settle();
     for (const [x, y] of rest) {
-      window.dispatchEvent(pointer('pointermove', x, y));
+      document.dispatchEvent(pointer('pointermove', x, y));
       await settle();
     }
-    window.dispatchEvent(pointer('pointerup', 0, 0));
+    document.dispatchEvent(pointer('pointerup', 0, 0));
     await settle();
   }
 

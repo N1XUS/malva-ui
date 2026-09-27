@@ -1,4 +1,4 @@
-import { Component, viewChild } from '@angular/core';
+import { Component, DOCUMENT, viewChild } from '@angular/core';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
@@ -555,5 +555,99 @@ describe('MlvColorPickerPopup reactive forms', () => {
         ) as HTMLInputElement
       ).value,
     ).toBe('var(--brand)');
+  });
+});
+
+describe('MlvColorPickerPopup (injected DOCUMENT)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * The panel is portaled into the CDK overlay container of the injected
+   * document. `_focusPicker()` looked it up with the ambient
+   * `document.getElementById`, found nothing there and returned, so a keyboard
+   * swatch activation left focus on the swatch.
+   */
+  it('moves focus into the panel rendered in the injected document', async () => {
+    const isolated = document.implementation.createHTMLDocument('popup');
+    await TestBed.configureTestingModule({
+      imports: [MlvColorPickerPopup],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvColorPickerPopup);
+    const hostEl: HTMLElement = fixture.nativeElement;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // jsdom moves no `activeElement` inside a `createHTMLDocument()`
+    // document, so the focus calls themselves are what is observed.
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    key(
+      hostEl.querySelector(
+        '.mlv-color-picker-popup__swatch-button',
+      ) as HTMLElement,
+      'Enter',
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const panel = isolated.querySelector('.mlv-color-picker-popup__panel');
+    expect(panel, 'the panel renders into the injected document').toBeTruthy();
+    const focusedInPanel = focus.mock.contexts.filter(
+      (el) => el instanceof Node && panel?.contains(el),
+    ).length;
+    expect(focusedInPanel).toBeGreaterThan(0);
+    fixture.destroy();
+  });
+
+  /**
+   * An open popup resolves a CSS-variable value from the swatch's computed
+   * background. That runs from the value `effect()`, so it reaches server
+   * change detection when the popup starts open — where Node has no global
+   * `getComputedStyle`. It goes through the injected document's window now,
+   * which an isolated document (like the server's) may not have.
+   */
+  it("resolves the swatch colour through the injected document's window", async () => {
+    const isolated = document.implementation.createHTMLDocument('popup');
+    await TestBed.configureTestingModule({
+      imports: [MlvColorPickerPopup],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvColorPickerPopup);
+    const hostEl: HTMLElement = fixture.nativeElement;
+    fixture.componentRef.setInput('opened', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const swatch = hostEl.querySelector(
+      '.mlv-color-picker-popup__swatch-color',
+    );
+    expect(swatch, 'the field presentation renders its swatch').toBeTruthy();
+
+    const ambient = vi.spyOn(globalThis, 'getComputedStyle');
+    fixture.componentRef.setInput('value', 'var(--brand)');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(
+      ambient.mock.calls.filter(([element]) => element === swatch).length,
+    ).toBe(0);
+    // No window to resolve against: the picker falls back to its default.
+    expect(
+      (
+        fixture.componentInstance as unknown as { _pickerValue(): string }
+      )._pickerValue(),
+    ).toBe('#ff0000');
+    fixture.destroy();
   });
 });

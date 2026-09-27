@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DOCUMENT,
   effect,
   ElementRef,
   forwardRef,
@@ -243,6 +244,13 @@ export class MlvTimePicker
    */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private The document the popup renders into — the injected `DOCUMENT`,
+   * never the ambient global, which is a different object under server
+   * rendering and in an isolated document.
+   */
+  private readonly _document = inject(DOCUMENT);
+
   /** @private Normalizes horizontal column navigation for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
 
@@ -444,7 +452,7 @@ export class MlvTimePicker
     if (!columns.length) return;
 
     const focusedIdx = columns.findIndex(
-      (column) => column.listElement === document.activeElement,
+      (column) => column.listElement === this._document.activeElement,
     );
     if (focusedIdx === -1) return;
 

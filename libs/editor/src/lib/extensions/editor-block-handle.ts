@@ -504,7 +504,7 @@ function gapOffset(slots: readonly MlvEditorBlockHit[], gap: number): number {
 /**
  * @internal Deep-clones an element with every computed style written inline.
  *
- * The clone is handed to `setDragImage` from `document.body`, outside every
+ * The clone is handed to `setDragImage` from its document's `body`, outside every
  * `.mlv-editor`/`.ProseMirror` selector that styles it in place. Inlining the
  * resolved styles makes it self-contained, which is sturdier than rebuilding
  * an ancestor class chain that would have to track whichever selectors happen
@@ -543,7 +543,10 @@ function cloneWithComputedStyles(source: HTMLElement): HTMLElement {
 }
 
 /**
- * @internal Builds the off-screen element handed to `setDragImage`.
+ * @internal Builds the off-screen element handed to `setDragImage`, on the
+ * `body` of the source block's own document — the global `document` is
+ * another document when the editor is mounted in an iframe preview or a print
+ * window.
  *
  * `position: absolute; top: -10000px` keeps it rendered — which the drag image
  * requires — without ever being seen. `zoom` rather than `transform` carries
@@ -553,7 +556,8 @@ function cloneWithComputedStyles(source: HTMLElement): HTMLElement {
  * styles carry no ancestor `zoom`.
  */
 function createGhostElement(source: HTMLElement, scale: number): HTMLElement {
-  const wrapper = document.createElement('div');
+  const ownerDocument = source.ownerDocument;
+  const wrapper = ownerDocument.createElement('div');
   wrapper.className = MLV_EDITOR_DRAG_GHOST_CLASS;
   wrapper.setAttribute('aria-hidden', 'true');
   wrapper.style.position = 'absolute';
@@ -562,7 +566,7 @@ function createGhostElement(source: HTMLElement, scale: number): HTMLElement {
   wrapper.style.inlineSize = `${source.offsetWidth}px`;
   if (scale !== 1) wrapper.style.setProperty('zoom', String(scale));
   wrapper.appendChild(cloneWithComputedStyles(source));
-  document.body.appendChild(wrapper);
+  ownerDocument.body.appendChild(wrapper);
   return wrapper;
 }
 
@@ -579,18 +583,27 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-/** @internal Creates the single floating drop indicator element. */
-function createIndicatorElement(): HTMLElement {
-  const element = document.createElement('div');
+/**
+ * @internal Creates the single floating drop indicator element in `ownerDocument`
+ * — the mount's, which is not the global one in an iframe preview.
+ */
+function createIndicatorElement(ownerDocument: Document): HTMLElement {
+  const element = ownerDocument.createElement('div');
   element.className = MLV_EDITOR_DROP_INDICATOR_CLASS;
   element.setAttribute('aria-hidden', 'true');
   element.setAttribute('data-visible', 'false');
   return element;
 }
 
-/** @internal Creates the single floating handle element. */
-function createHandleElement(label: string): HTMLElement {
-  const element = document.createElement('div');
+/**
+ * @internal Creates the single floating handle element in `ownerDocument` — the
+ * mount's, which is not the global one in an iframe preview.
+ */
+function createHandleElement(
+  label: string,
+  ownerDocument: Document,
+): HTMLElement {
+  const element = ownerDocument.createElement('div');
   element.className = 'mlv-editor__block-handle';
   element.setAttribute('draggable', 'true');
   element.setAttribute('aria-hidden', 'true');
@@ -746,7 +759,11 @@ export const MlvEditorBlockHandle =
             const mount = options.mount();
             if (!mount) return { destroy: () => undefined };
 
-            const handle = createHandleElement(options.label());
+            // Everything document-level below goes through the mount's own
+            // document: in an iframe preview or a print window the global
+            // `document` is the parent's, which hears none of the editor's keys.
+            const ownerDocument = mount.ownerDocument;
+            const handle = createHandleElement(options.label(), ownerDocument);
             mount.appendChild(handle);
 
             // The indicator lives beside the handle rather than inside the
@@ -756,7 +773,7 @@ export const MlvEditorBlockHandle =
             // normal flow has no `top` to transition anyway. Out here it is
             // also further from the document than a decoration ever was — the
             // mount is a sibling of `view.dom`, so no serializer can reach it.
-            const indicator = createIndicatorElement();
+            const indicator = createIndicatorElement(ownerDocument);
             mount.appendChild(indicator);
 
             /**
@@ -1022,7 +1039,7 @@ export const MlvEditorBlockHandle =
               if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 
               // A `dragstart` that arrives while one is already recorded would
-              // otherwise strand the previous drag image on `document.body`,
+              // otherwise strand the previous drag image on the document body,
               // where nothing else reaches it.
               ghost?.remove();
               // Cloned *before* the source is dimmed: the clone carries
@@ -1148,8 +1165,9 @@ export const MlvEditorBlockHandle =
             mount.addEventListener('drop', onDrop, true);
             // Escape aborts a native drag in a real browser, which fires
             // `dragend` anyway; this keeps the cancellation deterministic and
-            // independent of that.
-            document.addEventListener('keydown', onKeyDown);
+            // independent of that. On the mount's document, where the key is
+            // pressed; the global one belongs to the parent of an iframe.
+            ownerDocument.addEventListener('keydown', onKeyDown);
 
             return {
               // `enabled()` is checked on every pointer move too, but a host
@@ -1198,11 +1216,11 @@ export const MlvEditorBlockHandle =
                 mount.removeEventListener('dragover', onDragOver, true);
                 mount.removeEventListener('dragleave', onDragLeave, true);
                 mount.removeEventListener('drop', onDrop, true);
-                document.removeEventListener('keydown', onKeyDown);
+                ownerDocument.removeEventListener('keydown', onKeyDown);
                 handle.remove();
                 indicator.remove();
                 // A drag interrupted by teardown leaves its drag image on
-                // `document.body`, outside everything else this removes.
+                // the document body, outside everything else this removes.
                 ghost?.remove();
                 // The dim stays in plugin state, where this cannot dispatch;
                 // see `clearInheritedDragSource`.

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DOCUMENT,
   ElementRef,
   effect,
   forwardRef,
@@ -244,6 +245,13 @@ export class MlvColorPickerPopup extends MlvSignalFormControlBase<string> {
 
   /** @private Locates the first tabbable picker control for keyboard opening. */
   private readonly _tabbable = inject(MlvTabbableElementService);
+
+  /**
+   * @private The document the panel renders into — the injected `DOCUMENT`,
+   * never the ambient global, which is a different object under server
+   * rendering and in an isolated document.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   /** @private Whether the next completed close should restore swatch focus. */
   private _restoreSwatchFocus = false;
@@ -487,13 +495,18 @@ export class MlvColorPickerPopup extends MlvSignalFormControlBase<string> {
     }
 
     const swatch = this._swatchColorElement();
-    const resolved = swatch ? getComputedStyle(swatch).backgroundColor : '';
+    // Reached from the value `effect()` while open, so it can run during
+    // server change detection, where Node has no global `getComputedStyle`.
+    const resolved = swatch
+      ? (this._document.defaultView?.getComputedStyle(swatch).backgroundColor ??
+        '')
+      : '';
     this._pickerValue.set(tryParseCssColor(resolved) ? resolved : '#ff0000');
   }
 
   /** @private Moves focus into the picker after a keyboard swatch activation. */
   private _focusPicker(): void {
-    const panel = document.getElementById(this._panelId);
+    const panel = this._document.getElementById(this._panelId);
     if (!panel) return;
     const first = this._tabbable.getTabbableElement(panel, false, true);
     (first ?? panel).focus();

@@ -97,10 +97,12 @@ describe('MlvColorPicker — own emission is not re-parsed (#315)', () => {
 
     const moves = 20;
     for (let i = 1; i <= moves; i += 1) {
-      window.dispatchEvent(pointer('pointermove', 500 + i * 20, 500 - i * 20));
+      document.dispatchEvent(
+        pointer('pointermove', 500 + i * 20, 500 - i * 20),
+      );
       await settle();
     }
-    window.dispatchEvent(pointer('pointerup', 0, 0));
+    document.dispatchEvent(pointer('pointerup', 0, 0));
 
     // Before #315: 20 parses, 40 re-syncs, 20 repaints.
     expect(parses.calls).toBe(0);

@@ -1,5 +1,5 @@
 import type { StaticProvider, Type } from '@angular/core';
-import { Injector, afterNextRender, inject } from '@angular/core';
+import { DOCUMENT, Injector, afterNextRender, inject } from '@angular/core';
 import type {
   OverlayConfig,
   OverlayRef,
@@ -55,6 +55,12 @@ export abstract class MlvOverlayServiceBase<
    * on `<body>`, outside any `[dir]` scope its trigger sits in.
    */
   protected readonly _rtl = inject(MlvRtlService);
+  /**
+   * @protected The document the overlay opens in — the injected `DOCUMENT`,
+   * never the ambient global: under server rendering the global is a
+   * different object from the per-request document, or absent altogether.
+   */
+  protected readonly _document = inject(DOCUMENT);
 
   /** @protected CSS class added to the panel to play its enter animation, then removed on `animationend`. */
   protected abstract readonly _enterAnimationClass: string;
@@ -140,10 +146,8 @@ export abstract class MlvOverlayServiceBase<
    * @returns The overlay reference controlling the opened instance.
    */
   open<T>(component: Type<T>, config: TConfig = {} as TConfig): TRef {
-    const previouslyFocusedElement =
-      typeof document === 'undefined'
-        ? null
-        : (document.activeElement as HTMLElement | null);
+    const previouslyFocusedElement = this._document
+      .activeElement as HTMLElement | null;
     const overlayRef = this._overlay.create({
       positionStrategy: this._buildPositionStrategy(config),
       direction:

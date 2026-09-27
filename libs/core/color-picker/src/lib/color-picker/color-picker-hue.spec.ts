@@ -89,10 +89,10 @@ async function drag(
   canvas.dispatchEvent(pointer('pointerdown', first[0], first[1]));
   await settle(fixture);
   for (const [x, y] of rest) {
-    window.dispatchEvent(pointer('pointermove', x, y));
+    document.dispatchEvent(pointer('pointermove', x, y));
     await settle(fixture);
   }
-  window.dispatchEvent(pointer('pointerup', 0, 0));
+  document.dispatchEvent(pointer('pointerup', 0, 0));
   await settle(fixture);
 }
 

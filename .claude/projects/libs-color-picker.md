@@ -193,6 +193,9 @@ committed value opens at hue 0.
 The committed value may be empty or a CSS variable reference. CSS variables
 are displayed directly by the swatch and resolved through computed style only
 to initialize the visual picker; opening never rewrites the public string.
+That computed style is read through the injected `DOCUMENT`'s window
+(`defaultView?.getComputedStyle`), so a document without one — the server's —
+falls back to the picker default instead of throwing (#337).
 
 ---
 
@@ -305,6 +308,12 @@ libs/core/color-picker/src/
 ```
 
 ---
+
+## Document binding (2026-09, #337)
+
+- Canvas drag listens for `pointermove` / `pointerup` on the **canvas's own document** (`ownerDocument` of the pointerdown's `currentTarget`), not the global `window` and not the injected `DOCUMENT`. Real pointer events reach it unchanged: the canvas holds pointer capture, so they are targeted at the canvas and bubble through its document. That is the app's document in the ordinary case, and the other document when the picker is rendered into an iframe preview or a print window — where the injected `DOCUMENT` would never see the drag. A **synthetic** event dispatched on `window` no longer drives a drag (events bubble document → window, not back) — dispatch on the canvas's document or the canvas. Browser-only by construction: a `pointerdown` never happens on the server.
+- `mlv-color-picker-popup` finds its panel for keyboard focus transfer with the injected document's `getElementById`, and reads computed style through its `defaultView`.
+- Specs: `color-picker.spec.ts` § _(canvas document)_ — an isolated `createHTMLDocument()` `DOCUMENT` (TestBed renders into it, so canvas and injected document coincide), and the fixture moved into a second document (canvas and injected document differ; the app's document hears nothing); `color-picker-popup.spec.ts` § _(injected DOCUMENT)_.
 
 ## Touched (2026-09, #347)
 

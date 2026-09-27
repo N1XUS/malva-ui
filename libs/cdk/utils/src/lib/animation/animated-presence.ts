@@ -2,6 +2,7 @@ import {
   DestroyRef,
   Directive,
   type EmbeddedViewRef,
+  PLATFORM_ID,
   Renderer2,
   TemplateRef,
   ViewContainerRef,
@@ -9,6 +10,7 @@ import {
   inject,
   input,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 /**
  * Structural directive that plays enter/leave animations on conditionally
@@ -18,6 +20,11 @@ import {
  * The leave animation completes before the DOM node is removed.
  * Respects `prefers-reduced-motion`: when the OS reduces motion,
  * no animation fires and the element appears/disappears immediately.
+ * Off the browser platform (server rendering) nothing animates either: the
+ * view renders in its final state, with no enter class in the payload, and a
+ * leave removes it at once. A hydrating client does not yet tell a view it
+ * claimed from server markup apart from one it created, so a view the server
+ * already showed plays the enter animation once after hydration.
  *
  * @example
  * ```html
@@ -66,6 +73,13 @@ export class MlvAnimatedPresence {
   private readonly _renderer = inject(Renderer2);
   /** @private DestroyRef for immediate cleanup on directive destroy. */
   private readonly _destroyRef = inject(DestroyRef);
+  /**
+   * @private Whether the directive runs in a browser. Its `effect()` is a view
+   * effect, so it also runs during server change detection, where there is no
+   * `requestAnimationFrame` and no `getComputedStyle` to wait on. There the
+   * view renders in its final state and leaves at once.
+   */
+  private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** @private Currently rendered embedded view, or null when unmounted. */
   private _viewRef: EmbeddedViewRef<unknown> | null = null;
@@ -114,6 +128,13 @@ export class MlvAnimatedPresence {
    * Falls back to immediate removal when no `@keyframes` match (e.g. reduced-motion).
    */
   private _playEnter(el: HTMLElement, enterClass: string): void {
+    // Server: Node has no frame to wait on (`requestAnimationFrame` threw on
+    // every server render before #337), so the view ships in its final state
+    // with no class. The hydrating client then runs this for the claimed view
+    // too and adds the enter class, so a server-shown view fades in once after
+    // hydration — skipping that for a claimed view is a tracked follow-up.
+    if (!this._isBrowser) return;
+
     this._renderer.addClass(el, enterClass);
 
     requestAnimationFrame(() => {
@@ -148,7 +169,8 @@ export class MlvAnimatedPresence {
     if (!this._viewRef || this._leavePending) return;
 
     const el = this._rootElement();
-    if (!el) {
+    // No root element to animate, or no browser to animate it in.
+    if (!el || !this._isBrowser) {
       this._destroyView();
       return;
     }

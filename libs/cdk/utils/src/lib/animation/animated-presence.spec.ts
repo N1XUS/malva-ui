@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, PLATFORM_ID, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MlvAnimatedPresence } from './animated-presence';
 
@@ -254,5 +254,52 @@ describe('MlvAnimatedPresence', () => {
       root.dispatchEvent(animationEnd());
       expect(fixture.nativeElement.querySelector('.target')).toBeNull();
     });
+  });
+});
+
+describe('MlvAnimatedPresence — server platform', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TestHostComponent],
+      providers: [{ provide: PLATFORM_ID, useValue: 'server' }],
+    }).compileComponents();
+    // Node defines neither. Angular's own scheduler checks for them before
+    // use; the directive must not reach for them at all.
+    vi.stubGlobal('requestAnimationFrame', undefined);
+    vi.stubGlobal('getComputedStyle', undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * The directive's `effect()` is a view effect, so it runs during server
+   * change detection. It used to add the enter class there — serialized into
+   * the payload — and then call the ambient `requestAnimationFrame`, which
+   * Node does not define, so every server render threw. Now the server ships
+   * the view in its final state; the hydrating client adds the enter class to
+   * the claimed view once (measured with a hydration round trip during #337;
+   * skipping it for a claimed view is a follow-up).
+   */
+  it('renders the view in its final state, without the enter class', () => {
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.show.set(true);
+    fixture.detectChanges();
+
+    const target: HTMLElement | null =
+      fixture.nativeElement.querySelector('.target');
+    expect(target?.className).toBe('target');
+  });
+
+  it('removes the view at once on leave, with no leave class', () => {
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.show.set(true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.show.set(false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.target')).toBeNull();
   });
 });

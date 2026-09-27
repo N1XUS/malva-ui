@@ -1,6 +1,11 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
-import { Component, signal, type WritableSignal } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  signal,
+  type WritableSignal,
+} from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { MlvBreakpointService } from '@malva-ui/cdk/utils';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
@@ -424,5 +429,53 @@ describe('MlvDayPicker (mobile full-screen sheet)', () => {
       .componentInstance as MlvPopup;
 
     expect(popup.mobileTitle()).toBe('Select day');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MlvDayPicker — injected DOCUMENT
+// ---------------------------------------------------------------------------
+
+describe('MlvDayPicker (injected DOCUMENT)', () => {
+  /**
+   * The popup is portaled into the CDK overlay container of the injected
+   * document. `_onPopupOpened()` looked it up with the ambient
+   * `document.getElementById`, which finds nothing there — under server
+   * rendering, or in any document other than the global one — so focus never
+   * moved into the calendar.
+   */
+  it('moves focus into the popup rendered in the injected document', async () => {
+    const isolated = document.implementation.createHTMLDocument('day-picker');
+    await TestBed.configureTestingModule({
+      imports: [MlvDayPicker],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MlvBreakpointService, useClass: FakeBreakpointService },
+        { provide: DOCUMENT, useValue: isolated },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(MlvDayPicker<Date>);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    component.toggleDropdown();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const panel = isolated.getElementById(component.popupId());
+    const target = panel?.querySelector<HTMLElement>(
+      '[tabindex="0"], button, [tabindex]',
+    );
+    expect(target, 'the popup renders into the injected document').toBeTruthy();
+    // jsdom moves no `activeElement` inside a `createHTMLDocument()` document,
+    // so the call itself is what is observed.
+    const focus = vi.spyOn(target as HTMLElement, 'focus');
+
+    (component as unknown as { _onPopupOpened(): void })._onPopupOpened();
+
+    expect(focus).toHaveBeenCalledTimes(1);
+    fixture.destroy();
   });
 });

@@ -21,6 +21,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `UI_ANIMATION_DEFAULTS` | Token | `InjectionToken<MlvUiAnimationDefaults>` |
 | `provideUiAnimationDefaults` | Function | Provider factory |
 | `MlvUiAnimationDefaults` | Interface | `{ enterDuration?: string; leaveDuration?: string }` |
+| `MlvAnimatedPresence` | Directive | `*mlvAnimatedPresence` — plays an enter class on mount and holds the view for a leave class before removing it. Server-safe (#337): off the browser platform the view renders in its final state (no enter class serialized, no `requestAnimationFrame` / `getComputedStyle` — before, every server render threw) and a leave removes it at once. The hydrating client cannot yet tell a claimed view from a created one, so it adds `mlv-presence--enter` to a server-shown view after hydration: that view fades in once (opacity 0 → 1 over `--mlv-presence-enter-duration`, reduced motion excepted). Skipping the enter for a claimed view is a tracked follow-up |
 | `range` | Function | `range(length, mapFn?)` — build a `0..n-1` array, optionally mapped |
 | `clamp` | Function | `clamp(value, min, max)` — constrain a number to an inclusive range |
 | `mlvNextId` | Function | `mlvNextId(prefix)` — process-unique `<prefix>-<n>` id string (module counter) |

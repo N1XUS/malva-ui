@@ -10,6 +10,7 @@ import { LucideHome, LucideSearch, provideLucideIcons } from '@lucide/angular';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 
 import type { MlvNavItem } from '@malva-ui/cdk/utils';
+import { MlvAnimatedPresence } from '@malva-ui/cdk/utils';
 import { MlvAccordion, MlvAccordionItem } from '@malva-ui/core/accordion';
 import { MlvActionBar, MlvActionBarLogo } from '@malva-ui/core/action-bar';
 import { MlvAlert } from '@malva-ui/core/alert';
@@ -1109,6 +1110,31 @@ class SsrDisplayHost {
 })
 class SsrDrawerSectionsHost {}
 
+/**
+ * Surfaces that start **open**. Every other host renders its overlays closed,
+ * so nothing here reached the overlay host's open path on the server: a view
+ * `effect()` runs during server change detection, and
+ * `MlvOverlayHostBase` read the global `document` there and then built a CDK
+ * overlay into the payload; `MlvAnimatedPresence` added its enter class and
+ * called `requestAnimationFrame`. This suite's jsdom `document` hides the
+ * first (see the file comment) and `renders no overlay markup on the server`
+ * sees the overlay; `server-renders open surfaces with no browser instance
+ * globals` below renders this host with the animation-frame and computed-style
+ * globals taken away, as Node has them.
+ */
+@Component({
+  selector: 'mlv-ssr-open-surfaces-host',
+  imports: [MlvDrawer, MlvDrawerContent, MlvSearchField, MlvAnimatedPresence],
+  template: `
+    <mlv-drawer ariaLabel="Open filters" [opened]="true">
+      <ng-template mlvDrawerContent><p>Open drawer content</p></ng-template>
+    </mlv-drawer>
+    <mlv-search-field overlay ariaLabel="Search everything" [opened]="true" />
+    <p *mlvAnimatedPresence="true" class="ssr-presence">Shown</p>
+  `,
+})
+class SsrOpenSurfacesHost {}
+
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
@@ -1139,6 +1165,7 @@ const SSR_HOSTS: readonly SsrHostEntry[] = [
     component: SsrDrawerSectionsHost,
     selector: 'mlv-ssr-drawer-sections-host',
   },
+  { component: SsrOpenSurfacesHost, selector: 'mlv-ssr-open-surfaces-host' },
 ];
 
 /** What one server render of a host produced. */
@@ -1214,6 +1241,42 @@ const renderMarkup = async (
     { document: `<${entry.selector}></${entry.selector}>`, url: '/' },
   );
   return { html };
+};
+
+/**
+ * Browser **instance** globals Node does not define and this suite can take
+ * away. `domino.impl` installs DOM classes only, and jsdom's instances stay
+ * live for the rest of this suite — the blind spot the file comment describes.
+ * `document` and `window` cannot join them: vitest's jsdom environment
+ * defines both as non-configurable getters on `globalThis` (measured), so
+ * `vi.stubGlobal` throws `Cannot redefine property`. A bare `document` read
+ * therefore stays invisible here; what `renders no overlay markup on the
+ * server` sees is its consequence, an overlay built on the server.
+ * (`matchMedia` is absent from jsdom already.)
+ */
+const NODE_ABSENT_GLOBALS = [
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'getComputedStyle',
+] as const;
+
+/**
+ * Runs `render` with {@link NODE_ABSENT_GLOBALS} removed from `globalThis` —
+ * deleted, not set to `undefined`, so a bare read throws `ReferenceError` as
+ * it does in Node — and restores them afterwards whatever happens.
+ */
+const withoutBrowserGlobals = async <T>(
+  render: () => Promise<T>,
+): Promise<T> => {
+  for (const name of NODE_ABSENT_GLOBALS) {
+    vi.stubGlobal(name, undefined);
+    Reflect.deleteProperty(globalThis, name);
+  }
+  try {
+    return await render();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 };
 
 /** Renders every host once. Memoised so the suite pays for one pass. */
@@ -2080,6 +2143,30 @@ describe('@malva-ui/core SSR safety', () => {
     // of these in the server payload means an overlay was created during SSR.
     expect(html).not.toContain('cdk-overlay-container');
     expect(html).not.toContain('cdk-overlay-backdrop');
+  });
+
+  it('server-renders open surfaces with no browser instance globals', async () => {
+    const { html, errors, logged } = await withoutBrowserGlobals(() =>
+      renderHost({
+        component: SsrOpenSurfacesHost,
+        selector: 'mlv-ssr-open-surfaces-host',
+      }),
+    );
+
+    // Before #337: `requestAnimationFrame is not defined` from the presence
+    // directive, routed to the ErrorHandler on every render. (In Node the
+    // drawer and the search field threw `document is not defined` too; this
+    // harness cannot take `document` away — see NODE_ABSENT_GLOBALS.)
+    expect(errors).toEqual([]);
+    expect(logged).toEqual([]);
+    // The overlay hosts build nothing on the server; the client opens them.
+    expect(html).toContain('<mlv-drawer');
+    expect(html).not.toContain('Open drawer content');
+    expect(html).not.toContain('cdk-overlay-container');
+    // The presence view renders in its final state, no enter class in the
+    // payload. (The hydrating client still adds one to the claimed view, so
+    // it fades in once after hydration — a tracked follow-up.)
+    expect(html).toMatch(/<p class="ssr-presence"[^>]*>Shown<\/p>/);
   });
 
   it('writes no NaN into the server payload', async () => {

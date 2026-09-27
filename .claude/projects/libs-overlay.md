@@ -104,7 +104,7 @@ Provided by the base (inherited public API): `opened` (`model`), `hasBackdrop`,
 default `true`), `initialFocus` (inputs), `afterOpened`, `afterClosed` (outputs),
 `animationState` (signal), `open()`, `close()`,
 `onAnimationEnd()`, `ngOnDestroy()`, and the protected `_overlay`, `_vcr`,
-`_injector`, `_initialFocusResolver`, `_overlayRef`, `_triggerElement` members
+`_injector`, `_document`, `_initialFocusResolver`, `_overlayRef`, `_triggerElement` members
 plus `_createOverlay()`/`_startLeaveAnimation()`/`_destroyOverlay()` and the
 template-facing `_onPanelAnimationEnd(event)`.
 
@@ -161,6 +161,37 @@ Composed controls that own a larger logical focus lifecycle may set it to
 `false`; disposal then leaves focus untouched. Reopening while leave is pending
 cancels the fallback and leave state so the attached overlay remains rendered.
 
+**Server rendering (#337).** The open/close `effect()` runs during server
+change detection, so a host that starts `opened` used to read the ambient
+`document` there — `ReferenceError` in plain Node, routed to the
+`ErrorHandler` — and, with a DOM-bearing server, build a CDK overlay into the
+payload, which broke hydration (`NG0500: During hydration Angular expected
+<mlv-search-field> but found <p>`, measured). `_createOverlay()` now returns
+at once off the browser platform (an ES `#isBrowser` field, so it cannot
+collide with a subclass member): the server renders the host closed and the
+client's effect opens it after hydration. The trigger element is read from the
+injected `DOCUMENT` (`_document`), never the global. Pinned by
+`overlay.spec.ts` (server platform, isolated `DOCUMENT`), `ssr-smoke.spec.ts`'s
+open-surfaces host (payload) and `ssr-open-surfaces-hydration.spec.ts` (the
+real `renderApplication` → `provideClientHydration` round trip: both hosts
+claimed and open on the client).
+
+**`_document` can collide with a consumer subclass.** `MlvOverlayHostBase` and
+`MlvOverlayServiceBase` gained `protected readonly _document` in #337, with the
+same standing #231 gave `_onPanelAnimationEnd`: `_`-prefixed, so not public under
+`VERSIONING.md` §2, but visible to a subclass. A consumer subclass that already
+declares its own `_document` — typically `private readonly _document =
+inject(DOCUMENT)`, the injection spelling used across this repository (none
+of the three in-repo subclasses — `MlvDrawer`, `MlvSearchField`,
+`MlvDrawerService` — declares one) — now fails to compile
+with **TS2415** (`Class '…' incorrectly extends base class`: a `private`
+member cannot redeclare a `protected` one; measured with `tsc`). A `protected`
+redeclaration of the same type still compiles, needing `override` under
+`noImplicitOverride` (TS4114). The fix is to delete the
+subclass's declaration and use the base's `_document`, which is the same
+injected `DOCUMENT`. It stays `protected`, not `#`, because subclasses are
+meant to use it.
+
 ### `MlvOverlayServiceBase<TConfig, TRef>`
 
 | Member                                                         | Kind                       | Purpose                                                                                                                                                    |
@@ -190,7 +221,8 @@ handle or sections provider.
 component type and defaults `config` to `{}`. Content polymorphism is a concrete
 surface concern rather than part of this modal-lifecycle abstraction.
 
-The service captures the focused element before creating the overlay, traps
+The service captures the focused element — from the injected `DOCUMENT`
+(`_document`), not the global — before creating the overlay, traps
 focus in the dialog surface, resolves the initial focus target through
 `MlvOverlayInitialFocusResolver` from `afterNextRender` (the trap's own
 auto-capture is deliberately unused), destroys the trap after close, and
