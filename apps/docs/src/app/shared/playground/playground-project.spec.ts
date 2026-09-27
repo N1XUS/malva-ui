@@ -3,6 +3,7 @@ import {
   createPlaygroundProject,
   maskNonCode,
   packageRootOf,
+  unpublishedRecheckReason,
 } from './playground-project';
 import type {
   PlaygroundPeers,
@@ -33,10 +34,14 @@ const VERSIONS: PlaygroundVersions = {
   '@malva-ui/core': '9.9.9',
   '@malva-ui/editor': '9.9.9',
   '@malva-ui/i18n': '9.9.9',
-  // In `nx.json` -> `release.projects`, so the real table names it too — and,
-  // like the real one, at a version npm has never seen.
+  // In `nx.json` -> `release.projects`, so the real table names it too. The
+  // refusal spec below lists it as unpublished explicitly.
   '@malva-ui/taskboard': '9.9.9',
   '@tiptap/core': '3.0.0',
+  // Present so the exact dev-dependency list below proves a typings package is
+  // added only for an example that imports its package.
+  '@types/sortablejs': '^1.15.9',
+  sortablejs: '^1.15.7',
   '@tiptap/starter-kit': '3.0.0',
   'intl-messageformat': '^11.0.0',
   rxjs: '~7.8.0',
@@ -215,7 +220,7 @@ describe('createPlaygroundProject', () => {
     });
 
     it('omits the template and stylesheet an inline example does not have', () => {
-      // 46 of the 474 examples use an inline `template:` and ship no index.html.
+      // 46 of the 479 examples use an inline `template:` and ship no index.html.
       const inline = TYPESCRIPT.replace(
         "templateUrl: './index.html',",
         "template: '<button mlvButton>Save</button>',",
@@ -502,6 +507,49 @@ export default class RenamedExampleComponent {}
       ]);
       expect(packageJson().scripts['start']).toBe('ng serve');
     });
+
+    it('declares the typings of an untyped package the example imports', () => {
+      // #594. `scheduler/examples/6` imports `sortablejs`, which ships no types,
+      // and the generated tsconfig is `strict`: without `@types/sortablejs` the
+      // project failed `ng build` with TS7016 (measured on 0.2.0).
+      const result = createPlaygroundProject({
+        files: [
+          {
+            type: 'TypeScript',
+            content: TYPESCRIPT.replace(
+              "import { MlvButton } from '@malva-ui/core/button';",
+              "import { MlvButton } from '@malva-ui/core/button';\n" +
+                "import Sortable from 'sortablejs';\n" +
+                "import { untyped } from '@example/untyped';",
+            ),
+          },
+        ],
+        versions: {
+          ...VERSIONS,
+          '@example/untyped': '1.0.0',
+          // DefinitelyTyped's name for a scoped package.
+          '@types/example__untyped': '2.0.0',
+        },
+        peers: PEERS,
+        title: 'T',
+        description: 'D',
+      });
+      if (!result.project) throw new Error(`blocked: ${result.blockedBy}`);
+
+      const { dependencies, devDependencies } = JSON.parse(
+        result.project.files['package.json'],
+      ) as {
+        dependencies: Record<string, string>;
+        devDependencies: Record<string, string>;
+      };
+
+      expect(dependencies['sortablejs']).toBe('^1.15.7');
+      expect(devDependencies['@types/sortablejs']).toBe('^1.15.9');
+      expect(devDependencies['@types/example__untyped']).toBe('2.0.0');
+      expect(
+        Object.keys(dependencies).filter((name) => name.startsWith('@types/')),
+      ).toEqual([]);
+    });
   });
 
   describe('portability', () => {
@@ -519,6 +567,73 @@ export default class RenamedExampleComponent {}
       expect(result.project).toBeNull();
       expect(result.blockedBy).toContain('../../../../shared');
     });
+
+    it('refuses an example whose stylesheet loads a docs-local partial', () => {
+      // #594. All eight `taskboard/*` examples `@use '../ticket'`, a partial
+      // beside the example directories. The project carries only the example's
+      // own files, so `ng build` failed with "Can't find stylesheet to import"
+      // (measured on 0.2.0) — hidden while taskboard was unpublished.
+      const result = build([
+        {
+          type: 'TypeScript',
+          content: TYPESCRIPT.replace(
+            "templateUrl: './index.html',",
+            "templateUrl: './index.html',\n  styleUrl: './index.scss',",
+          ),
+        },
+        { type: 'SCSS', content: "@use '../ticket';\n\n.demo { gap: 0; }\n" },
+      ]);
+
+      expect(result.project).toBeNull();
+      expect(result.blockedBy).toContain('docs-local code');
+      expect(result.blockedBy).toContain('../ticket');
+    });
+
+    // The other spellings a stylesheet load takes. Each builds a project with
+    // no `../shared.css` in it, so each has to withhold the button too.
+    it.each([
+      ["@import url('../shared.css');", '../shared.css'],
+      ['@import url(../shared.css);', '../shared.css'],
+      ['@import url( "../shared.css" );', '../shared.css'],
+      ['@use"../shared";', '../shared'],
+      ["@IMPORT '../shared';", '../shared'],
+    ])('refuses an example whose stylesheet holds %s', (rule, url) => {
+      const result = build([
+        {
+          type: 'TypeScript',
+          content: TYPESCRIPT.replace(
+            "templateUrl: './index.html',",
+            "templateUrl: './index.html',\n  styleUrl: './index.scss',",
+          ),
+        },
+        { type: 'SCSS', content: `${rule}\n\n.demo { gap: 0; }\n` },
+      ]);
+
+      expect(result.project).toBeNull();
+      expect(result.blockedBy).toContain(url);
+    });
+
+    it.each([
+      "@use 'sass:map';",
+      '@use "sass:math" as math;',
+      "@forward 'sass:list';",
+    ])(
+      'keeps an example whose stylesheet loads only a Sass built-in: %s',
+      (rule) => {
+        const result = build([
+          {
+            type: 'TypeScript',
+            content: TYPESCRIPT.replace(
+              "templateUrl: './index.html',",
+              "templateUrl: './index.html',\n  styleUrl: './index.scss',",
+            ),
+          },
+          { type: 'SCSS', content: `${rule}\n\n.demo { gap: 0; }\n` },
+        ]);
+
+        expect(result.blockedBy).toBeNull();
+      },
+    );
 
     it('refuses an example importing a package the version table does not know', () => {
       const result = build([
@@ -563,15 +678,26 @@ export default class RenamedExampleComponent {}
       // 404s on install. A button that opens a WebContainer failing at
       // `npm install` is the worst of the failure modes: it looks like the
       // library is broken.
-      const result = build([
-        {
-          type: 'TypeScript',
-          content: TYPESCRIPT.replace(
-            "from '@malva-ui/core/button'",
-            "from '@malva-ui/taskboard'",
-          ),
-        },
-      ]);
+      //
+      // The list is passed explicitly: `UNPUBLISHED_PACKAGES` is empty while
+      // every release-set package is on npm (#594), and the refusal has to stay
+      // proven for the next package that joins the set before it ships.
+      const result = createPlaygroundProject({
+        files: [
+          {
+            type: 'TypeScript',
+            content: TYPESCRIPT.replace(
+              "from '@malva-ui/core/button'",
+              "from '@malva-ui/taskboard'",
+            ),
+          },
+        ],
+        versions: VERSIONS,
+        peers: PEERS,
+        title: 'T',
+        description: 'D',
+        unpublished: ['@malva-ui/taskboard'],
+      });
 
       expect(result.project).toBeNull();
       expect(result.blockedBy).toContain('@malva-ui/taskboard');
@@ -580,9 +706,9 @@ export default class RenamedExampleComponent {}
 
     it('lets the CI writer opt out, which is why the flag exists at all', () => {
       // `docs:write-playground-project` materialises the project and the
-      // workflow's own preflight decides whether npm can install it, so the
-      // scheduler leg keeps proving its dependency closure and starts proving
-      // the install the day the package ships.
+      // workflow's own preflight decides whether npm can install it, so a leg
+      // whose example imports a listed package keeps proving its dependency
+      // closure and starts proving the install the day the package ships.
       const result = createPlaygroundProject({
         files: [
           {
@@ -655,5 +781,43 @@ describe('packageRootOf', () => {
     );
     expect(packageRootOf('rxjs/operators')).toBe('rxjs');
     expect(packageRootOf('sortablejs')).toBe('sortablejs');
+  });
+});
+
+describe('unpublishedRecheckReason', () => {
+  // #594. The offline pin compared the verified-at version with the root
+  // manifest whether or not the list named anything, so once the list was
+  // emptied every later release would have turned `docs:test` red over a claim
+  // nobody was making.
+  it('owes nothing for an empty list, however old its verified-at version', () => {
+    expect(unpublishedRecheckReason([], '0.2.0', '0.2.1')).toBeNull();
+    expect(unpublishedRecheckReason([], '0.1.15', '1.0.0')).toBeNull();
+  });
+
+  it('owes a re-check for a listed package once a release has moved past it', () => {
+    const reason = unpublishedRecheckReason(
+      ['@malva-ui/scheduler', '@malva-ui/taskboard'],
+      '0.1.15',
+      '0.2.0',
+    );
+
+    expect(reason).toContain('@malva-ui/scheduler, @malva-ui/taskboard');
+    expect(reason).toContain('checked against npm at 0.1.15');
+    expect(reason).toContain('root manifest is 0.2.0');
+    expect(reason).toContain('set UNPUBLISHED_VERIFIED_AT to 0.2.0');
+  });
+
+  it('re-arms the moment an entry is added under a stale verified-at version', () => {
+    // An entry added without looking fails on the commit that adds it, which
+    // is the check the constant exists to force.
+    expect(
+      unpublishedRecheckReason(['@malva-ui/new'], '0.2.0', '0.2.3'),
+    ).toContain('@malva-ui/new');
+  });
+
+  it('owes nothing while the list was checked at the current root version', () => {
+    expect(
+      unpublishedRecheckReason(['@malva-ui/new'], '0.2.3', '0.2.3'),
+    ).toBeNull();
   });
 });

@@ -18,9 +18,11 @@
  * never seen, which the browser button refuses to build (`UNPUBLISHED_PACKAGES`).
  * The workflow passes it because materialising the project and deciding whether
  * npm can install it are two different jobs: the preflight step answers the
- * second, over the network, and skips loudly. Without it the scheduler and
- * taskboard legs could not run at all, and would start proving nothing on the
- * day those packages ship instead of starting to prove something.
+ * second, over the network, and skips loudly. Without it a leg whose example
+ * imports a listed package could not run at all, and would start proving
+ * nothing on the day that package ships instead of starting to prove something.
+ * While the list is empty (as it is since `0.2.0` published
+ * `@malva-ui/scheduler` and `@malva-ui/taskboard`) the flag changes nothing.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -111,7 +113,7 @@ function main(): void {
   // bumping the root manifest and `scripts/publish.mjs` pushing the tarballs,
   // and a package that is in `nx.json` -> `release.projects` but has not had a
   // release since it landed (`@malva-ui/scheduler` and `@malva-ui/taskboard`
-  // are both in that state as of 0.1.15).
+  // were in that state from their landing until `0.2.0`).
   const dependencies = (
     JSON.parse(project.files['package.json']) as {
       dependencies: Record<string, string>;
@@ -126,6 +128,8 @@ function main(): void {
   // The claim the browser button is withholding itself on. The workflow checks
   // it the only way it can be checked — with `npm view` — and fails if any of
   // these has since been published, because then the exclusion is a bug.
+  // Printed even when the list is empty: the workflow reads the bare
+  // `malva-ui-unpublished=` line as an empty output and skips that check.
   console.log(`malva-ui-unpublished=${UNPUBLISHED_PACKAGES.join(' ')}`);
 }
 

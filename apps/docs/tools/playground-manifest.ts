@@ -7,9 +7,9 @@
  * (`nx.json` → `release.version.manifestRootsToUpdate`, plus
  * `scripts/release-version-actions.cjs`) to treat the root manifest as the
  * canonical version of every published project. So a template built from here
- * cannot drift: when `0.2.0` ships, `nx release` writes `0.2.0` into the root
- * manifest and the next docs build emits `"@malva-ui/core": "0.2.0"` with no
- * edit anywhere.
+ * cannot drift: at every release `nx release` writes the new version into the
+ * root manifest and the next docs build emits it for every `@malva-ui/*`
+ * package with no edit anywhere.
  *
  * Kept free of file-system writes so it can be unit tested; the CLI wrapper is
  * `./generate-playground-versions.ts`.
@@ -101,6 +101,10 @@ function assertSubstituted(
  * `@malva-ui/scheduler` carries it as a plain `dependencies` entry — npm
  * installs those transitively, but {@link buildPlaygroundManifest} walks only
  * `peerDependencies`, so nothing else here would give it a version.
+ * `@types/sortablejs` goes with it: `sortablejs` ships no types, the generated
+ * tsconfig is `strict`, and the project builder declares an imported package's
+ * `@types/*` only when this table knows a version for it — without it that
+ * example's project failed `ng build` with TS7016 (#594).
  *
  * `@angular/router` stays for the same reason read from the other end. Since
  * #242 it *is* a declared peer of `@malva-ui/core`, so the closure now supplies
@@ -120,6 +124,7 @@ export const EXTRA_PLAYGROUND_PACKAGES: readonly string[] = [
   '@angular/compiler-cli',
   '@angular/platform-browser',
   '@angular/router',
+  '@types/sortablejs',
   'sortablejs',
   'tslib',
   'typescript',
