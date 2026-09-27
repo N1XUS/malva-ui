@@ -12,15 +12,20 @@ import {
   signal,
   ViewEncapsulation,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter, fromEvent, map, switchMap, tap, takeUntil } from 'rxjs';
+import { filter, finalize, fromEvent, map, switchMap, takeUntil } from 'rxjs';
 import {
   LEFT_ARROW,
   RIGHT_ARROW,
   UP_ARROW,
   DOWN_ARROW,
 } from '@angular/cdk/keycodes';
-import { MlvRtlService, clamp } from '@malva-ui/cdk/utils';
+import {
+  MlvRtlService,
+  clamp,
+  mlvPointerGestureEnd,
+} from '@malva-ui/cdk/utils';
 import type { MlvSplitPaneOrientation } from './split-pane.types';
 import { MlvSplitPanePanel } from './split-pane-panel';
 
@@ -83,7 +88,8 @@ export class MlvSplitPane implements AfterContentInit {
    * @private Latest sizes produced during an active pointer drag. The drag
    * stream runs outside Angular and mutates the grid template imperatively; this
    * buffer holds the running value so it can be committed to the `_sizes` signal
-   * exactly once, on pointerup, inside the zone.
+   * exactly once, when the gesture ends (`pointerup`, `pointercancel`, lost
+   * capture or destroy), inside the zone.
    */
   private _dragSizes: number[] | null = null;
 
@@ -99,6 +105,14 @@ export class MlvSplitPane implements AfterContentInit {
 
   /** @private Angular Renderer2 for all DOM mutations. */
   private readonly _renderer = inject(Renderer2);
+
+  /**
+   * @private The document whose root element carries the page-wide resize
+   * cursor and `user-select: none` while a handle is dragged. Injected rather
+   * than the ambient global, which under server rendering is a different,
+   * process-wide object.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   /** @private DestroyRef for observable cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
@@ -257,6 +271,13 @@ export class MlvSplitPane implements AfterContentInit {
    * @private Wires pointer-capture drag behavior for a single handle.
    * Only the two panels adjacent to the handle change size during drag;
    * all other panels remain fixed.
+   *
+   * The gesture ends on `pointerup`, `pointercancel` or the handle losing
+   * capture (`mlvPointerGestureEnd`), and on destroy. Every one of those runs
+   * `_endDrag()` from `finalize`, so the page-wide cursor, `user-select` and the
+   * `--dragging` class never outlive the gesture, and the size the drag reached
+   * is committed either way — a cancelled touch drag keeps the layout the user
+   * last saw rather than snapping back.
    */
   private _initDragForHandle(handleEl: HTMLElement, handleIndex: number): void {
     const containerEl = this._elementRef.nativeElement as HTMLElement;
@@ -271,30 +292,31 @@ export class MlvSplitPane implements AfterContentInit {
     this._ngZone.runOutsideAngular(() => {
       fromEvent<PointerEvent>(handleEl, 'pointerdown')
         .pipe(
-          takeUntilDestroyed(this._destroyRef),
-          filter((e) => e.button === 0),
+          // A second pointer pressing any handle mid-drag would restyle the
+          // page and then clear the first drag's state when it ends.
+          filter((e) => e.button === 0 && !this._isDragging()),
           switchMap((startEvent: PointerEvent) => {
             startEvent.preventDefault();
-            handleEl.setPointerCapture(startEvent.pointerId);
+            const pointerId = startEvent.pointerId;
+            try {
+              handleEl.setPointerCapture(pointerId);
+            } catch {
+              // An inactive pointer (a synthetic event) cannot be captured.
+              // Throwing here would error the stream and leave the handle
+              // dead; the gesture still ends on pointerup / pointercancel.
+            }
 
             const containerRect = containerEl.getBoundingClientRect();
             const containerSize = isHorizontal()
               ? containerRect.width
               : containerRect.height;
             const resizeCursor = isHorizontal() ? 'col-resize' : 'row-resize';
+            const root = this._document.documentElement;
 
             // `_isDragging` drives a host-class binding — flip it in the zone.
             this._ngZone.run(() => this._isDragging.set(true));
-            this._renderer.setStyle(
-              document.documentElement,
-              'cursor',
-              resizeCursor,
-            );
-            this._renderer.setStyle(
-              document.documentElement,
-              'user-select',
-              'none',
-            );
+            this._renderer.setStyle(root, 'cursor', resizeCursor);
+            this._renderer.setStyle(root, 'user-select', 'none');
 
             const panels = this._panels();
             const panelI = panels[handleIndex];
@@ -320,26 +342,8 @@ export class MlvSplitPane implements AfterContentInit {
               : panelIRect.top;
 
             return fromEvent<PointerEvent>(handleEl, 'pointermove').pipe(
-              takeUntil(
-                fromEvent<PointerEvent>(handleEl, 'pointerup').pipe(
-                  tap(() => {
-                    this._renderer.removeStyle(
-                      document.documentElement,
-                      'cursor',
-                    );
-                    this._renderer.removeStyle(
-                      document.documentElement,
-                      'user-select',
-                    );
-                    // Commit the final sizes + clear dragging once, in the zone,
-                    // so OnPush change detection runs a single time per drag.
-                    this._ngZone.run(() => {
-                      this._isDragging.set(false);
-                      if (this._dragSizes) this._sizes.set(this._dragSizes);
-                    });
-                  }),
-                ),
-              ),
+              filter((moveEvent) => moveEvent.pointerId === pointerId),
+              takeUntil(mlvPointerGestureEnd(handleEl, pointerId, handleEl)),
               map((moveEvent: PointerEvent) => {
                 const pointerPos = isHorizontal()
                   ? moveEvent.clientX
@@ -360,8 +364,14 @@ export class MlvSplitPane implements AfterContentInit {
                 newSizes[handleIndex + 1] = pairTotal - clampedI;
                 return newSizes;
               }),
+              // Runs however the drag stops: the gesture ending, or a destroy
+              // mid-drag unsubscribing this inner stream.
+              finalize(() => this._endDrag(root)),
             );
           }),
+          // Last, so a destroy mid-drag tears down the active inner stream and
+          // runs its `finalize`; placed before `switchMap` it would not.
+          takeUntilDestroyed(this._destroyRef),
         )
         .subscribe((sizes) => {
           // Per move (outside the zone): buffer the value and apply the grid
@@ -369,6 +379,24 @@ export class MlvSplitPane implements AfterContentInit {
           this._dragSizes = sizes;
           this._applyGridTemplate(sizes);
         });
+    });
+  }
+
+  /**
+   * @private Ends a drag however it ended — release, `pointercancel`, lost
+   * capture or destroy: clears the page-wide cursor and `user-select`, drops
+   * the `--dragging` flag and commits the buffered drag sizes once, in the zone,
+   * so OnPush change detection runs a single time per drag.
+   *
+   * @param root — The document element the drag styled.
+   */
+  private _endDrag(root: HTMLElement): void {
+    this._renderer.removeStyle(root, 'cursor');
+    this._renderer.removeStyle(root, 'user-select');
+    this._ngZone.run(() => {
+      this._isDragging.set(false);
+      if (this._dragSizes) this._sizes.set(this._dragSizes);
+      this._dragSizes = null;
     });
   }
 

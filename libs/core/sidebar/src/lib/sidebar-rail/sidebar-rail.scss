@@ -1,44 +1,47 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-sidebar-rail;
+  $block: mlv-sidebar-rail;
 
-.#{$block} {
-  position: absolute;
-  top: 0;
-  inset-inline-end: -0.0625rem;
-  width: 0.125rem;
-  height: 100%;
-  background-color: transparent;
-  cursor: col-resize;
-  z-index: 1;
-  transition:
-    width var(--mlv-duration-fast) var(--mlv-ease-default),
-    background-color var(--mlv-duration-fast) var(--mlv-ease-default);
-
-  &::before {
-    content: '';
+  .#{$block} {
     position: absolute;
     top: 0;
-    inset-inline: -0.25rem;
-    bottom: 0;
+    inset-inline-end: -0.0625rem;
+    width: 0.125rem;
+    height: 100%;
+    background-color: transparent;
+    cursor: col-resize;
+    // A touch drag on the rail resizes the sidebar. Without this the browser
+    // claims the gesture for panning and fires `pointercancel` almost at once.
+    touch-action: none;
+    z-index: 1;
+    transition:
+      width var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      inset-inline: -0.25rem;
+      bottom: 0;
+    }
+
+    &:hover {
+      width: 0.25rem;
+      background-color: var(--mlv-background-accent-1);
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+
+    &--dragging {
+      width: 0.25rem;
+      background-color: var(--mlv-background-accent-1);
+    }
   }
 
-  &:hover {
-    width: 0.25rem;
-    background-color: var(--mlv-background-accent-1);
-  }
-
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: var(--mlv-focus-ring-offset);
-  }
-
-  &--dragging {
-    width: 0.25rem;
-    background-color: var(--mlv-background-accent-1);
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

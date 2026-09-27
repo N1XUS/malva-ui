@@ -376,7 +376,7 @@ untouched — otherwise the hover leak spec would pass whatever the selector sai
 
 #### Drag Scroll
 
-Thumb drag is supported. On `pointerdown`, the thumb captures the pointer via `setPointerCapture`, then translates `pointermove` deltas into viewport `scrollTop`/`scrollLeft` updates. Released on `pointerup` or `pointercancel`.
+Thumb drag is supported. On a primary-button `pointerdown`, the thumb captures the pointer via `setPointerCapture`, then translates that pointer's `pointermove` deltas into viewport `scrollTop`/`scrollLeft` updates. Ends on `pointerup`, `pointercancel` or the thumb losing capture (`mlvPointerGestureEnd`, `@malva-ui/cdk/utils`, internal), and on destroy — one `fromEvent` stream per drag, `takeUntil(end)` + `takeUntilDestroyed`, `finalize` clearing `_isDragging`. Before #338 each drag registered a `DestroyRef.onDestroy` closure that was never released (one per drag until destroy), a secondary-button press started a drag, and lost capture did not end one.
 
 #### Scroll listener (an `rxjs` stream, not a template binding)
 

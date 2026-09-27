@@ -229,6 +229,125 @@ describe('MlvSidebarRail', () => {
     expect(document.body.style.userSelect).toBe('');
   });
 
+  // #338 — the drag ended on `pointerup` alone. A touch drag the browser turns
+  // into a scroll, a palm rejection or lost capture fires `pointercancel` /
+  // `lostpointercapture` instead, which left the rail dragging, the body
+  // cursor and `user-select` latched, the sidebar transition off, and the
+  // document `pointermove` resizing the sidebar on the next hover.
+  describe('gesture end (#338)', () => {
+    let sidebar: HTMLElement;
+
+    beforeEach(() => {
+      toggle.mockClear();
+      sidebar = fixture.nativeElement.querySelector(
+        '.mlv-sidebar',
+      ) as HTMLElement;
+      sidebar.style.transition = 'width 1s';
+      vi.spyOn(sidebar, 'getBoundingClientRect').mockReturnValue(rect(0, 260));
+      // Run the rAF-throttled move synchronously.
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        cb(0);
+        return 1;
+      });
+    });
+
+    afterEach(() => collapsed.set(false));
+
+    const interruptions: Record<string, () => void> = {
+      pointercancel: () =>
+        document.dispatchEvent(pointerEvent('pointercancel')),
+      lostpointercapture: () =>
+        rail.dispatchEvent(pointerEvent('lostpointercapture')),
+    };
+
+    it.each(Object.keys(interruptions))(
+      'ends the drag on %s and restores everything the drag set',
+      (type) => {
+        const net = trackListeners(document);
+        rail.dispatchEvent(pointerEvent('pointerdown', 260));
+        fixture.detectChanges();
+        expect(sidebar.style.transition).toBe('none');
+
+        interruptions[type]();
+        fixture.detectChanges();
+
+        expect(rail.classList.contains('mlv-sidebar-rail--dragging')).toBe(
+          false,
+        );
+        expect(document.body.style.cursor).toBe('');
+        expect(document.body.style.userSelect).toBe('');
+        expect(sidebar.style.transition).toBe('width 1s');
+        expect(net.get('pointermove')).toBe(0);
+        expect(net.get('pointerup')).toBe(0);
+        expect(net.get('pointercancel') ?? 0).toBe(0);
+
+        setWidth.mockClear();
+        document.dispatchEvent(pointerEvent('pointermove', 300));
+        expect(setWidth).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(Object.keys(interruptions))(
+      'does not collapse a sidebar whose drag was interrupted by %s',
+      (type) => {
+        // 200px inward leaves 60px, under the 100px snap threshold — a release
+        // here collapses the sidebar; an interruption must not.
+        rail.dispatchEvent(pointerEvent('pointerdown', 260));
+        document.dispatchEvent(pointerEvent('pointermove', 60));
+
+        interruptions[type]();
+
+        expect(toggle).not.toHaveBeenCalled();
+      },
+    );
+
+    it('ignores an interruption of another pointer', () => {
+      rail.dispatchEvent(pointerEvent('pointerdown', 260, 1));
+      document.dispatchEvent(pointerEvent('pointercancel', 0, 2));
+      rail.dispatchEvent(pointerEvent('lostpointercapture', 0, 2));
+      fixture.detectChanges();
+
+      expect(rail.classList.contains('mlv-sidebar-rail--dragging')).toBe(true);
+      document.dispatchEvent(pointerEvent('pointermove', 300, 2));
+      expect(setWidth).not.toHaveBeenCalled();
+      document.dispatchEvent(pointerEvent('pointermove', 300, 1));
+      expect(setWidth.mock.calls).toEqual([[300]]);
+    });
+
+    it('starts no drag from a non-primary button', () => {
+      const secondary = new MouseEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+      });
+      Object.defineProperty(secondary, 'pointerId', { value: 1 });
+      rail.dispatchEvent(secondary);
+      fixture.detectChanges();
+
+      expect(rail.classList.contains('mlv-sidebar-rail--dragging')).toBe(false);
+      expect(document.body.style.cursor).toBe('');
+      expect(sidebar.style.transition).toBe('width 1s');
+    });
+
+    it('restores the body styles and the transition when destroyed mid-drag', () => {
+      rail.dispatchEvent(pointerEvent('pointerdown', 260));
+
+      fixture.destroy();
+
+      expect(document.body.style.cursor).toBe('');
+      expect(document.body.style.userSelect).toBe('');
+      expect(sidebar.style.transition).toBe('width 1s');
+    });
+
+    it('leaves the body styles alone when destroyed between drags', () => {
+      document.body.style.cursor = 'wait';
+
+      fixture.destroy();
+
+      expect(document.body.style.cursor).toBe('wait');
+    });
+  });
+
   // #308 — the rail rides the sidebar's inline-end edge, which is its physical
   // LEFT edge in RTL. `clientX - rect.left` measured the width from the wrong
   // side: ≈ 0 at the rail and negative when dragging outward, so every RTL drag

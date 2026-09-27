@@ -1,4 +1,4 @@
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,11 +10,12 @@ import {
   inject,
   input,
   model,
-  Renderer2,
   signal,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter, fromEvent, takeUntil } from 'rxjs';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
@@ -34,7 +35,11 @@ import {
   MlvCompactComfortableDensity,
   MLV_DENSITY_ELEMENT,
 } from '@malva-ui/cdk/density';
-import { MlvRtlService, clamp } from '@malva-ui/cdk/utils';
+import {
+  MlvRtlService,
+  clamp,
+  mlvPointerGestureEnd,
+} from '@malva-ui/cdk/utils';
 import { MLV_SLIDER_I18N } from '@malva-ui/i18n';
 import {
   MlvSliderTooltipDef,
@@ -282,12 +287,16 @@ export class MlvSlider
     // Touched and unfocused only when focus leaves the slider — never on Tab
     // from the low thumb to the high one (#347, D22).
     this._reportTouchOnFocusLeave();
-    this._renderer = inject(Renderer2);
+    this._document = inject(DOCUMENT);
     this._destroyRef = inject(DestroyRef);
   }
 
-  /** @private Renderer2 for SSR-safe + auto-cleanup window listeners during drag. */
-  private _renderer: Renderer2;
+  /**
+   * @private The document whose window the drag listeners bind to. Injected
+   * rather than the ambient global, so a server render never reaches a
+   * process-wide object (a drag only starts from a browser `pointerdown`).
+   */
+  private _document: Document;
 
   /** @private DestroyRef so a destroy mid-drag releases the listeners. */
   private _destroyRef: DestroyRef;
@@ -335,7 +344,6 @@ export class MlvSlider
       ? Math.min(newValue, this._highValue())
       : newValue;
     this._setLowValue(clamped);
-    this._emitChange();
   }
 
   /**
@@ -350,7 +358,6 @@ export class MlvSlider
     if (!this._canWrite()) return;
     const clamped = Math.max(newValue, this._lowValue());
     this._setHighValue(clamped);
-    this._emitChange();
   }
 
   // -------------------------------------------------------------------------
@@ -365,8 +372,13 @@ export class MlvSlider
    * The listener sits on the host, which also renders the description and
    * validation message under the track (#320); a press on either is a text
    * selection, not a request to move a thumb, so it is ignored.
+   *
+   * Only the primary button starts a gesture: a right-click (the context menu)
+   * or a middle-click moves no thumb and starts no drag, like every other drag
+   * in the library.
    */
   protected _onTrackPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
     if (!this._canWrite()) return;
     if (
       event.target instanceof Element &&
@@ -390,8 +402,15 @@ export class MlvSlider
     if (thumbElement && this._elementRef.nativeElement.contains(thumbElement)) {
       const thumb = (thumbElement.dataset['thumb'] ?? 'low') as 'low' | 'high';
       this._activeDragThumb.set(thumb);
-      thumbElement.setPointerCapture(event.pointerId);
-      this._attachPointerListeners(event.pointerId);
+      let captured: Element | null = thumbElement;
+      try {
+        thumbElement.setPointerCapture(event.pointerId);
+      } catch {
+        // An inactive pointer (a synthetic event) cannot be captured; the
+        // gesture still ends on the window's pointerup / pointercancel.
+        captured = null;
+      }
+      this._attachPointerListeners(event.pointerId, captured);
       return;
     }
 
@@ -399,7 +418,6 @@ export class MlvSlider
     const value = this._pointerEventToValue(event);
     if (!this.range()) {
       this._setLowValue(value);
-      this._emitChange();
       this._activeDragThumb.set('low');
     } else {
       const lowDist = Math.abs(this._lowValue() - value);
@@ -411,9 +429,8 @@ export class MlvSlider
         this._setHighValue(Math.max(value, this._lowValue()));
         this._activeDragThumb.set('high');
       }
-      this._emitChange();
     }
-    this._attachPointerListeners(event.pointerId);
+    this._attachPointerListeners(event.pointerId, null);
   }
 
   /**
@@ -421,12 +438,22 @@ export class MlvSlider
    * During drag the thumb follows the pointer freely (no step snapping) while the
    * emitted value snaps to the nearest step on every move. On pointer release the
    * raw drag position is cleared so the thumb animates to the snapped position.
+   *
+   * The gesture ends on `pointerup`, `pointercancel` or — for a thumb press —
+   * the thumb losing capture (`mlvPointerGestureEnd`). Both streams are scoped
+   * to the gesture **and** to the component (`takeUntilDestroyed`), whose
+   * `onDestroy` registration is released with the subscription, so a finished
+   * drag leaves nothing registered behind.
+   *
+   * @param pointerId — The `pointerId` of the press that started the drag.
+   * @param captureElement — The thumb that captured the pointer, or `null` for
+   *   a track press, which captures nothing.
    */
-  private _attachPointerListeners(pointerId: number): void {
-    let release: (() => void) | null = null;
-
+  private _attachPointerListeners(
+    pointerId: number,
+    captureElement: Element | null,
+  ): void {
     const onMove = (e: PointerEvent) => {
-      if (e.pointerId !== pointerId) return;
       // Permission lost mid-drag (`readonly` or `disabled` flipping on): the
       // thumb stops following the pointer, not only the value. It rests where
       // the last permitted move left it and settles on the value at release.
@@ -452,11 +479,9 @@ export class MlvSlider
         this._highDragPercent.set(clampedPercent);
         this._setHighValue(Math.max(snappedValue, this._lowValue()));
       }
-      this._emitChange();
     };
 
-    const onEnd = (e: PointerEvent) => {
-      if (e.pointerId !== pointerId) return;
+    const onEnd = () => {
       this._lowDragPercent.set(null);
       this._highDragPercent.set(null);
       this._activeDragThumb.set(null);
@@ -468,26 +493,20 @@ export class MlvSlider
       // report never hears of that gesture and its end is the only "done"
       // signal a mouse user gives.
       if (!this._focusIsInsideControl()) this._markTouched();
-      release?.();
-      release = null;
     };
 
-    const moveDispose = this._renderer.listen('window', 'pointermove', onMove);
-    const upDispose = this._renderer.listen('window', 'pointerup', onEnd);
-    const cancelDispose = this._renderer.listen(
-      'window',
-      'pointercancel',
-      onEnd,
-    );
-    release = () => {
-      moveDispose();
-      upDispose();
-      cancelDispose();
-    };
-
-    // Guarantee cleanup if the component is destroyed mid-drag — prevents
-    // stale window listeners against a detached host.
-    this._destroyRef.onDestroy(() => release?.());
+    // The window, as before: a pointer that leaves the page mid-drag still
+    // reports its moves and its end there.
+    const target: EventTarget = this._document.defaultView ?? this._document;
+    const end$ = mlvPointerGestureEnd(target, pointerId, captureElement);
+    fromEvent<PointerEvent>(target, 'pointermove')
+      .pipe(
+        filter((e) => e.pointerId === pointerId),
+        takeUntil(end$),
+        takeUntilDestroyed(this._destroyRef),
+      )
+      .subscribe(onMove);
+    end$.pipe(takeUntilDestroyed(this._destroyRef)).subscribe(onEnd);
   }
 
   // -------------------------------------------------------------------------
@@ -603,25 +622,36 @@ export class MlvSlider
    */
   private _setLowValue(value: number): void {
     if (this.range()) {
-      this._write([value, this._highValue()]);
+      this._writeRange(value, this._highValue());
     } else {
+      // A number: the model's own `Object.is` check drops an unchanged one.
       this._write(value);
     }
   }
 
   /** @private Writes the high thumb while preserving the current low value. */
   private _setHighValue(value: number): void {
-    this._write([this._lowValue(), value]);
+    this._writeRange(this._lowValue(), value);
   }
 
   /**
-   * @private Writes the current value through the signal-forms model.
+   * @private Writes a range tuple — unless the model already holds exactly
+   * those two ends. A tuple is a fresh array on every write, which the model's
+   * `Object.is` check never finds equal, so without this every pointer move
+   * inside one step sent an identical `[low, high]` to `valueChange` and the
+   * bound form control. Compared against the raw model, not the clamped
+   * `_lowValue` / `_highValue`, so an out-of-range bound value is still
+   * normalized by the first write that lands on its clamped end.
    */
-  private _emitChange(): void {
-    if (this.range()) {
-      this._write([this._lowValue(), this._highValue()]);
-    } else {
-      this._write(this._lowValue());
+  private _writeRange(low: number, high: number): void {
+    const current = this.value();
+    if (
+      Array.isArray(current) &&
+      Object.is(current[0], low) &&
+      Object.is(current[1], high)
+    ) {
+      return;
     }
+    this._write([low, high]);
   }
 }

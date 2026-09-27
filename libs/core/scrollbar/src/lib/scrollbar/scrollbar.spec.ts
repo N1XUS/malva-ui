@@ -3,7 +3,12 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  signal,
+} from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MlvScrollbar } from './scrollbar';
 import {
@@ -1515,7 +1520,7 @@ describe('MlvScrollbar — track metric caching', () => {
       thumbEl.setPointerCapture = vi.fn();
 
       const down = new Event('pointerdown', { bubbles: true }) as PointerEvent;
-      Object.assign(down, { clientY: 0, clientX: 0, pointerId: 1 });
+      Object.assign(down, { clientY: 0, clientX: 0, pointerId: 1, button: 0 });
       thumbEl.dispatchEvent(down);
       const move = new Event('pointermove', { bubbles: true }) as PointerEvent;
       Object.assign(move, { clientY: 10, clientX: 0, pointerId: 1 });
@@ -1781,7 +1786,7 @@ describe('MlvScrollbar — track metric caching', () => {
 
       // No scroll event has happened yet — the cache is cold here.
       const down = new Event('pointerdown', { bubbles: true }) as PointerEvent;
-      Object.assign(down, { clientY: 0, clientX: 0, pointerId: 1 });
+      Object.assign(down, { clientY: 0, clientX: 0, pointerId: 1, button: 0 });
       thumbEl.dispatchEvent(down);
 
       const move = new Event('pointermove', { bubbles: true }) as PointerEvent;
@@ -1797,10 +1802,131 @@ describe('MlvScrollbar — track metric caching', () => {
       // The measurement it took is now cached: a second drag re-reads nothing.
       h.resetReads();
       const down2 = new Event('pointerdown', { bubbles: true }) as PointerEvent;
-      Object.assign(down2, { clientY: 0, clientX: 0, pointerId: 2 });
+      Object.assign(down2, { clientY: 0, clientX: 0, pointerId: 2, button: 0 });
       thumbEl.dispatchEvent(down2);
       expect(h.reads.vOffset).toBe(0);
       expect(h.reads.vStyle).toBe(0);
+    });
+
+    // #338 — the thumb drag already ended on pointercancel, but not on lost
+    // capture; it started from any button, followed every pointer's moves, and
+    // registered one `DestroyRef.onDestroy` per drag that was never released.
+    describe('gesture end (#338)', () => {
+      /** A synthetic pointer event on the vertical axis. */
+      function pointer(
+        type: string,
+        clientY: number,
+        pointerId = 1,
+        button = 0,
+      ): PointerEvent {
+        const event = new Event(type, { bubbles: true }) as PointerEvent;
+        Object.assign(event, { clientY, clientX: 0, pointerId, button });
+        return event;
+      }
+
+      async function dragHarness(): Promise<{
+        h: CachingHarness;
+        thumbEl: HTMLElement;
+        dragging: () => boolean;
+      }> {
+        const h = await createHarness('vertical', { scrollHeight: 400 });
+        await h.resize();
+        const thumbEl = h.trackV.querySelector(
+          '.mlv-scrollbar__thumb',
+        ) as HTMLElement;
+        thumbEl.setPointerCapture = vi.fn();
+        const dragging = (): boolean => {
+          h.fixture.detectChanges();
+          return (h.fixture.nativeElement as HTMLElement).classList.contains(
+            'mlv-scrollbar--dragging',
+          );
+        };
+        return { h, thumbEl, dragging };
+      }
+
+      it.each(['pointerup', 'pointercancel', 'lostpointercapture'])(
+        'ends the drag on %s',
+        async (type) => {
+          const { h, thumbEl, dragging } = await dragHarness();
+          thumbEl.dispatchEvent(pointer('pointerdown', 0));
+          thumbEl.dispatchEvent(pointer('pointermove', 24));
+          expect(dragging()).toBe(true);
+          const scrolled = h.state.scrollTop;
+
+          thumbEl.dispatchEvent(pointer(type, 24));
+
+          expect(dragging()).toBe(false);
+          thumbEl.dispatchEvent(pointer('pointermove', 60));
+          expect(h.state.scrollTop).toBe(scrolled);
+        },
+      );
+
+      it('follows and ends only on the pointer that pressed', async () => {
+        const { h, thumbEl, dragging } = await dragHarness();
+        thumbEl.dispatchEvent(pointer('pointerdown', 0, 1));
+
+        thumbEl.dispatchEvent(pointer('pointermove', 24, 2));
+        expect(h.state.scrollTop).toBe(0);
+        thumbEl.dispatchEvent(pointer('pointercancel', 24, 2));
+        thumbEl.dispatchEvent(pointer('lostpointercapture', 24, 2));
+        expect(dragging()).toBe(true);
+
+        thumbEl.dispatchEvent(pointer('pointermove', 24, 1));
+        expect(h.state.scrollTop).toBeCloseTo(45, 5);
+      });
+
+      it('starts no drag from a non-primary button', async () => {
+        const { h, thumbEl, dragging } = await dragHarness();
+        thumbEl.dispatchEvent(pointer('pointerdown', 0, 1, 2));
+        thumbEl.dispatchEvent(pointer('pointermove', 24, 1));
+
+        expect(dragging()).toBe(false);
+        expect(h.state.scrollTop).toBe(0);
+      });
+
+      it('leaves no DestroyRef registration behind per drag', async () => {
+        const { thumbEl, h } = await dragHarness();
+        const proto = Object.getPrototypeOf(
+          h.fixture.debugElement.injector.get(DestroyRef),
+        ) as DestroyRef;
+        const original = proto.onDestroy;
+        let live = 0;
+        vi.spyOn(proto, 'onDestroy').mockImplementation(function (
+          this: DestroyRef,
+          callback: () => void,
+        ) {
+          live++;
+          const unregister = original.call(this, callback);
+          let released = false;
+          return () => {
+            if (!released) live--;
+            released = true;
+            unregister();
+          };
+        });
+
+        for (let drag = 0; drag < 3; drag++) {
+          thumbEl.dispatchEvent(pointer('pointerdown', 0));
+          thumbEl.dispatchEvent(pointer('pointermove', 24));
+          thumbEl.dispatchEvent(pointer('pointerup', 24));
+        }
+
+        expect(live).toBe(0);
+        vi.restoreAllMocks();
+      });
+
+      it('releases the thumb listeners when destroyed mid-drag', async () => {
+        const { h, thumbEl } = await dragHarness();
+        thumbEl.dispatchEvent(pointer('pointerdown', 0));
+        thumbEl.dispatchEvent(pointer('pointermove', 24));
+        const scrolled = h.state.scrollTop;
+
+        h.fixture.destroy();
+        harness = null;
+
+        thumbEl.dispatchEvent(pointer('pointermove', 60));
+        expect(h.state.scrollTop).toBe(scrolled);
+      });
     });
   });
 });

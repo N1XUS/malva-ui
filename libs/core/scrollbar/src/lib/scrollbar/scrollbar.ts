@@ -9,7 +9,6 @@ import {
   inject,
   input,
   NgZone,
-  Renderer2,
   signal,
   ViewEncapsulation,
   viewChild,
@@ -17,7 +16,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { fromEvent } from 'rxjs';
+import { filter, finalize, fromEvent, takeUntil } from 'rxjs';
+import { mlvPointerGestureEnd } from '@malva-ui/cdk/utils';
 import { MLV_SCROLLBAR_I18N } from '@malva-ui/i18n';
 
 /** Controls which scroll axes render a custom scrollbar. */
@@ -410,9 +410,6 @@ export class MlvScrollbar {
   /** @private DestroyRef used to clean up the ResizeObserver, timers, and drag listeners. */
   private readonly _destroyRef = inject(DestroyRef);
 
-  /** @private Renderer2 used so DOM listeners are SSR-safe and unsubscribable. */
-  private readonly _renderer = inject(Renderer2);
-
   /** @private Zone reference; the scroll listener is registered outside it. */
   private readonly _ngZone = inject(NgZone);
 
@@ -577,19 +574,33 @@ export class MlvScrollbar {
   }
 
   /**
-   * @protected Handles `pointerdown` on a scrollbar thumb.
-   * Captures the pointer and translates subsequent `pointermove` deltas into
-   * viewport scroll offsets. Releases on `pointerup` or `pointercancel`.
+   * @protected Handles a primary-button `pointerdown` on a scrollbar thumb.
+   * Captures the pointer and translates that pointer's subsequent
+   * `pointermove` deltas into viewport scroll offsets. The drag ends on
+   * `pointerup`, `pointercancel` or the thumb losing capture, and on destroy;
+   * its listeners are scoped to the gesture, so a finished drag leaves no
+   * listener and no `DestroyRef` registration behind.
    */
   protected _onThumbPointerDown(
     event: PointerEvent,
     axis: 'vertical' | 'horizontal',
   ): void {
+    // A secondary press opens the context menu, whose pointerup never reaches
+    // the thumb — it must not start a drag.
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
 
     const thumb = event.currentTarget as HTMLElement;
-    thumb.setPointerCapture(event.pointerId);
+    const pointerId = event.pointerId;
+    let captured: Element | null = thumb;
+    try {
+      thumb.setPointerCapture(pointerId);
+    } catch {
+      // An inactive pointer (a synthetic event) cannot be captured; the
+      // gesture still ends on the thumb's pointerup / pointercancel.
+      captured = null;
+    }
 
     const viewportEl = this._scrollerElement();
 
@@ -616,48 +627,26 @@ export class MlvScrollbar {
 
     this._isDragging.set(true);
 
-    const onPointerMove = (moveEvent: PointerEvent): void => {
-      const delta =
-        (axis === 'vertical' ? moveEvent.clientY : moveEvent.clientX) -
-        startPointer;
-      if (axis === 'vertical') {
-        viewportEl.scrollTop = startScroll + delta * scrollPerPixel;
-      } else {
-        viewportEl.scrollLeft = startScroll + delta * scrollPerPixel;
-      }
-    };
-
-    let releaseListeners: (() => void) | null = null;
-    const onPointerUp = (): void => {
-      this._isDragging.set(false);
-      releaseListeners?.();
-      releaseListeners = null;
-    };
-
-    const moveDispose = this._renderer.listen(
-      thumb,
-      'pointermove',
-      onPointerMove,
-    );
-    const upDispose = this._renderer.listen(thumb, 'pointerup', onPointerUp);
-    const cancelDispose = this._renderer.listen(
-      thumb,
-      'pointercancel',
-      onPointerUp,
-    );
-
-    releaseListeners = () => {
-      moveDispose();
-      upDispose();
-      cancelDispose();
-    };
-
-    // Guarantee cleanup if the component is destroyed mid-drag — without this
-    // the listeners would leak against the detached thumb element and
-    // _isDragging would stay true.
-    this._destroyRef.onDestroy(() => {
-      releaseListeners?.();
-    });
+    // `takeUntil` ends the listener with the gesture, `takeUntilDestroyed`
+    // with the component; the second's `onDestroy` registration is released
+    // with the subscription, so drags do not accumulate registrations.
+    fromEvent<PointerEvent>(thumb, 'pointermove')
+      .pipe(
+        filter((moveEvent) => moveEvent.pointerId === pointerId),
+        takeUntil(mlvPointerGestureEnd(thumb, pointerId, captured)),
+        finalize(() => this._isDragging.set(false)),
+        takeUntilDestroyed(this._destroyRef),
+      )
+      .subscribe((moveEvent) => {
+        const delta =
+          (axis === 'vertical' ? moveEvent.clientY : moveEvent.clientX) -
+          startPointer;
+        if (axis === 'vertical') {
+          viewportEl.scrollTop = startScroll + delta * scrollPerPixel;
+        } else {
+          viewportEl.scrollLeft = startScroll + delta * scrollPerPixel;
+        }
+      });
   }
 
   /**

@@ -41,6 +41,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `MlvDirectionTarget` | Type | `Element \| ElementRef<Element> \| null \| undefined` accepted by the scoped direction helpers |
 | `mlvMirrorInlineOffsets` | Function | `mlvMirrorInlineOffsets(positions, direction)` — negates `ConnectedPosition.offsetX` in RTL, which CDK leaves physical |
 | `provideMlvScopedDirectionality` | Function | **`@internal`** — provides a CDK `Directionality` that follows the providing element's nearest `[dir]`, for Malva hosts of `@angular/aria` patterns. Exported only so core leaves can reach it; not consumer API |
+| `mlvPointerGestureEnd` | Function (**`@internal`**) | `mlvPointerGestureEnd(target, pointerId, captureElement?)` — the one end-of-drag stream: `pointerup` \| `pointercancel` \| target-guarded `lostpointercapture` (on the captured element, or at the document once that element has left it), one pointer, `take(1)` (#338). Exported only because core leaves reach cdk through its barrel; not public API |
 | `MlvChromeColor` | Directive | Paints an element as application chrome in an arbitrary colour and picks a readable foreground — `[mlvChromeColor]` |
 
 ---
@@ -488,6 +489,61 @@ function, not because of the tag: `@internal` is filtered only on class
 members, so a top-level class or injection token tagged `@internal` in a barrel
 **would** be extracted and published — do not copy this arrangement for one.
 Promoting the helper to consumer API is a separate, deliberate change.
+
+---
+
+### `mlvPointerGestureEnd(target, pointerId, captureElement?)` — `@internal`
+
+**File:** `libs/cdk/utils/src/lib/pointer/pointer-gesture-end.ts`
+
+Emits the first `PointerEvent` that ends the gesture started by `pointerId`,
+then completes (#338):
+
+- `pointerup` / `pointercancel` on `target` — the captured element, or a
+  `Document` / `Window` the events bubble to;
+- `lostpointercapture` on `captureElement`, admitted only when
+  `event.target === captureElement` (it bubbles; a descendant releasing its own
+  capture is not this gesture ending). `null` → no lost-capture arm;
+- `lostpointercapture` on `captureElement.ownerDocument`, admitted only while
+  `captureElement.isConnected` is `false`: when the captured element is
+  removed, or an ancestor of it is, the browser dispatches the event at the
+  **document**, not at the detached element, and sends the later `pointerup`
+  to whatever is under the pointer — so an element-level listener hears
+  neither. Measured in Chromium 153 and Firefox 146 (`target === document`,
+  `isConnected === false`, identical for removal and ancestor removal; a
+  re-parented element instead gets the event itself, still connected); WebKit
+  **not measured**. jsdom has no pointer capture, so the specs dispatch what
+  those engines dispatch. While the element is connected, a
+  `lostpointercapture` reaching the document is only the bubble of the
+  element arm and is ignored. **No target guard, deliberately:** once the
+  element is detached its capture is gone, so a `lostpointercapture` for the
+  pointer dispatched at a connected ancestor also ends the gesture (pinned by
+  a spec that goes red with `e.target === e.currentTarget` added);
+- events from another `pointerId` are ignored (a second finger lifting does not
+  end the first finger's drag);
+- `take(1)`: a `pointerup` is followed by the implicit `lostpointercapture`, and
+  the first wins, so `event.type === 'pointerup'` tells a **release** from an
+  **interruption**. The drawer (no swipe-dismiss) and sidebar rail (no toggle)
+  act on that distinction.
+
+**Why it exists.** Every drag gesture in the library ended on `pointerup`
+alone, or on `pointerup` + `pointercancel` with no lost capture, each written by
+hand. A touch drag the browser turns into a scroll, a palm rejection, or a
+captured element that is removed fires no `pointerup`, so the drag class, the
+page-wide `cursor` / `user-select` and the move listener stayed latched. One
+definition closes the class for split pane, sidebar rail, drawer resize, slider
+and scrollbar. Lives in cdk because the core leaves reach cdk only through its
+published barrel; `@internal` keeps it out of the semver surface (precedent:
+`BREAKPOINT_ORDER`). Pair with `takeUntil()` on the move stream **and**
+`takeUntilDestroyed()` last (best-practices § _DOM Listeners_). Not adopted by
+`mlv-compare` (already ends on all three, through `Renderer2.listen`) or the
+scheduler (ends on `pointerup` / `pointercancel` / Escape; its listener
+conversion is #595, and a lint guard against `pointerup`-only drags is #596).
+
+Spec: `pointer-gesture-end.spec.ts` (each end, other pointer, bubbled lost
+capture, `take(1)`, no capture element, captured element or an ancestor
+removed mid-gesture, the connected-ancestor dispatch, listeners on element and
+document released).
 
 ---
 

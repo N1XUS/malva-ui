@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Type } from '@angular/core';
 import { Component } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvDrawerResize } from './drawer-resize';
 
@@ -305,5 +306,261 @@ describe('MlvDrawerResize — scoped direction', () => {
     keydown(handle, 'ArrowRight');
     fixture.detectChanges();
     expect(size(panel)).toBe('400px');
+  });
+});
+
+/** A bottom sheet whose nearest snap point can be 0 — the dismiss branch. */
+@Component({
+  template: `
+    <div class="panel">
+      <div
+        mlvDrawerResize
+        position="bottom"
+        [snapPoints]="[0, 50, 100]"
+        (dismissed)="dismissals = dismissals + 1"
+      ></div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+})
+class DismissibleHostComponent {
+  dismissals = 0;
+}
+
+// #338 — the drag ended on `pointerup` alone. A touch drag the browser turns
+// into a scroll (or a palm rejection, or lost capture) fires `pointercancel` /
+// `lostpointercapture` instead, which left `mlv-drawer--dragging` latched —
+// the snap transition off for good — and the next hover over the handle still
+// resizing the sheet.
+describe('MlvDrawerResize — gesture end (#338)', () => {
+  const innerHeight = window.innerHeight;
+  let fixture: ComponentFixture<DismissibleHostComponent>;
+  let handle: HTMLElement;
+  let panel: HTMLElement;
+
+  /** A pointer event at `clientY`, from pointer `pointerId`. */
+  function pointerAt(
+    type: string,
+    clientY: number,
+    pointerId = 1,
+  ): PointerEvent {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientY,
+    });
+    Object.defineProperty(event, 'pointerId', { value: pointerId });
+    return event as unknown as PointerEvent;
+  }
+
+  function size(): string {
+    return panel.style.getPropertyValue('--mlv-drawer-current-size');
+  }
+
+  beforeEach(async () => {
+    fixture = await createFixture(DismissibleHostComponent);
+    handle = fixture.nativeElement.querySelector(
+      '[mlvDrawerResize]',
+    ) as HTMLElement;
+    panel = fixture.nativeElement.querySelector('.panel') as HTMLElement;
+    Object.defineProperty(handle, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    // A 1000px viewport; jsdom lays nothing out, so the box follows the size
+    // the drag writes, starting at 800px (80%).
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 1000,
+    });
+    vi.spyOn(panel, 'getBoundingClientRect').mockImplementation(
+      () =>
+        ({
+          width: 400,
+          height: parseFloat(size()) || 800,
+        }) as DOMRect,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: innerHeight,
+    });
+  });
+
+  /** Drags the sheet 700px down — to 100px (10%), fast, toward closed. */
+  function dragNearlyClosed(): void {
+    handle.dispatchEvent(pointerAt('pointerdown', 200));
+    handle.dispatchEvent(pointerAt('pointermove', 900));
+    expect(panel.classList.contains('mlv-drawer--dragging')).toBe(true);
+    expect(size()).toBe('100px');
+  }
+
+  it('dismisses on a release near 0 — the control for the interruptions below', () => {
+    dragNearlyClosed();
+    handle.dispatchEvent(pointerAt('pointerup', 900));
+
+    expect(fixture.componentInstance.dismissals).toBe(1);
+    expect(panel.classList.contains('mlv-drawer--dragging')).toBe(false);
+  });
+
+  it.each(['pointercancel', 'lostpointercapture'])(
+    'ends the drag on %s: clears the drag class, snaps, never dismisses',
+    (type) => {
+      dragNearlyClosed();
+
+      handle.dispatchEvent(pointerAt(type, 900));
+      fixture.detectChanges();
+
+      expect(panel.classList.contains('mlv-drawer--dragging')).toBe(false);
+      // Neither the fling nor the 0 snap point dismisses a sheet the user
+      // never let go of; it settles on the nearest point that keeps it open.
+      expect(fixture.componentInstance.dismissals).toBe(0);
+      expect(size()).toBe('500px');
+      expect(handle.getAttribute('aria-valuenow')).toBe('50');
+
+      // The move listener is gone: a later hover no longer resizes.
+      handle.dispatchEvent(pointerAt('pointermove', 300));
+      expect(size()).toBe('500px');
+    },
+  );
+
+  it('ignores the interruption of another pointer', () => {
+    dragNearlyClosed();
+
+    handle.dispatchEvent(pointerAt('pointercancel', 900, 2));
+    handle.dispatchEvent(pointerAt('lostpointercapture', 900, 2));
+    handle.dispatchEvent(pointerAt('pointermove', 600, 2));
+
+    expect(panel.classList.contains('mlv-drawer--dragging')).toBe(true);
+    expect(size()).toBe('100px');
+  });
+
+  it('clears the drag class when destroyed mid-drag', () => {
+    dragNearlyClosed();
+
+    fixture.destroy();
+
+    expect(panel.classList.contains('mlv-drawer--dragging')).toBe(false);
+  });
+});
+
+/**
+ * A stand-in for the injected `DOCUMENT`: only the two members the handle
+ * reads the viewport size from. jsdom's own window is 768px tall, so a size
+ * derived from it cannot pass for one derived from this.
+ */
+function viewportDocument(
+  view: { innerHeight: number; innerWidth: number } | null,
+  root = { clientHeight: 0, clientWidth: 0 },
+): Document {
+  return { defaultView: view, documentElement: root } as unknown as Document;
+}
+
+@Component({
+  template: `
+    <div class="panel">
+      <div mlvDrawerResize position="bottom" [snapPoints]="[50, 100]"></div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+  providers: [
+    {
+      provide: DOCUMENT,
+      useValue: viewportDocument({ innerHeight: 1000, innerWidth: 400 }),
+    },
+  ],
+})
+class InjectedWindowHostComponent {}
+
+@Component({
+  template: `
+    <div class="panel">
+      <div mlvDrawerResize position="bottom" [snapPoints]="[50, 100]"></div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+  providers: [
+    {
+      provide: DOCUMENT,
+      useValue: viewportDocument(null, { clientHeight: 600, clientWidth: 400 }),
+    },
+  ],
+})
+class WindowlessDocumentHostComponent {}
+
+// #338 (adjacent) — the handle read the viewport from the ambient `window`
+// global instead of the injected `DOCUMENT`.
+describe('MlvDrawerResize — viewport from the injected DOCUMENT', () => {
+  function parts(fixture: ComponentFixture<unknown>): {
+    handle: HTMLElement;
+    panel: HTMLElement;
+  } {
+    const root = fixture.nativeElement as HTMLElement;
+    const handle = root.querySelector('[mlvDrawerResize]') as HTMLElement;
+    Object.defineProperty(handle, 'setPointerCapture', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    return { handle, panel: root.querySelector('.panel') as HTMLElement };
+  }
+
+  function home(handle: HTMLElement): void {
+    handle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true }),
+    );
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("steps the keyboard against the injected document's window", async () => {
+    const fixture = await createFixture(InjectedWindowHostComponent);
+    const { handle, panel } = parts(fixture);
+
+    home(handle);
+
+    expect(panel.style.getPropertyValue('--mlv-drawer-current-size')).toBe(
+      '500px',
+    );
+  });
+
+  it("measures a drag against the injected document's window", async () => {
+    const fixture = await createFixture(InjectedWindowHostComponent);
+    const { handle, panel } = parts(fixture);
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      width: 400,
+      height: 800,
+    } as DOMRect);
+    const at = (type: string, clientY: number): PointerEvent => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientY,
+      });
+      Object.defineProperty(event, 'pointerId', { value: 1 });
+      return event as unknown as PointerEvent;
+    };
+
+    handle.dispatchEvent(at('pointerdown', 200));
+    handle.dispatchEvent(at('pointermove', 900));
+    fixture.detectChanges();
+
+    // 100px of a 1000px viewport; the ambient 768px window would read 13.
+    expect(handle.getAttribute('aria-valuenow')).toBe('10');
+  });
+
+  it('falls back to the root element box for a document with no window', async () => {
+    const fixture = await createFixture(WindowlessDocumentHostComponent);
+    const { handle, panel } = parts(fixture);
+
+    home(handle);
+
+    expect(panel.style.getPropertyValue('--mlv-drawer-current-size')).toBe(
+      '300px',
+    );
   });
 });
