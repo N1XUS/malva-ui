@@ -621,13 +621,26 @@ function oracleResolve<T>(
   return options.find((o) => compare(o.value, value))?.value ?? value;
 }
 
+/**
+ * The scan `find()` is defined as: the matching option **itself**, which is
+ * what a control needs to render the option's label rather than one derived
+ * from the committed value (#349).
+ */
+function oracleFind<O extends { value: T }, T>(
+  options: readonly O[],
+  value: T,
+  compare: (a: T, b: T) => boolean,
+): O | undefined {
+  return options.find((o) => compare(o.value, value));
+}
+
 /** The controls index the mapped option values, so the oracle takes options. */
 const asOptions = <T>(values: readonly T[]): { value: T }[] =>
   values.map((value) => ({ value }));
 
 describe('valueIndex — matches the pairwise scan it replaces', () => {
   for (const [name, compare] of COMPARATORS) {
-    it(`has()/resolve() agree with the oracle over 600 random inputs under ${name}`, () => {
+    it(`has()/resolve()/find() agree with the oracle over 600 random inputs under ${name}`, () => {
       for (let seed = 1; seed <= 600; seed++) {
         const rnd = mulberry32(seed);
         const draw = () => {
@@ -645,9 +658,11 @@ describe('valueIndex — matches the pairwise scan it replaces', () => {
   queries: ${JSON.stringify(queries.map(String))}`;
 
         // The controls index through a projection (`option => option.value`),
-        // so drive both overloads against the same oracle.
+        // so drive both overloads against the same oracle. `options` is held
+        // so `find()` can be checked for the very instance the oracle finds.
+        const options = asOptions(values);
         const projected = valueIndex(
-          asOptions(values),
+          options,
           compare,
           (option) => option.value,
         );
@@ -678,6 +693,21 @@ describe('valueIndex — matches the pairwise scan it replaces', () => {
               `${context} [${shape}]\n  query: ${String(query)}`,
             ).toBe(true);
           }
+          // `find()` hands back the matched source **item** — the option
+          // instance through the projection, the value itself without one — so
+          // identity, not equality, is the assertion. Interleaved with the
+          // other two, so it shares their cursor and must not depend on it.
+          expect(
+            projected.find(query),
+            `${context} [projected find]\n  query: ${String(query)}`,
+          ).toBe(oracleFind(options, query, compare));
+          expect(
+            Object.is(
+              index.find(query),
+              values.find((value) => compare(value, query)),
+            ),
+            `${context} [plain find]\n  query: ${String(query)}`,
+          ).toBe(true);
         }
       }
     });
@@ -1090,6 +1120,104 @@ describe('valueIndex — progressive walk (cursor state)', () => {
     expect(counted.reads()).toBe(before);
     expect(index.has('c')).toBe(true);
     expect(counted.reads()).toBe(before + 1);
+  });
+});
+
+// ─── find(): the matched source item (#349) ─────────────────────────────────
+
+/**
+ * An option control that renders a committed value needs the **option** that
+ * matched it — `{ label: 'Ukraine', value: 'UA' }` — not the value `'UA'`, from
+ * which no label can be derived. `find()` is that answer, off the same walk as
+ * `has()` / `resolve()`. The fuzz above pins it against the scan it is defined
+ * as; these pin the paths the fuzz reaches only by chance.
+ */
+describe('valueIndex — find() returns the matched source item', () => {
+  const ua = { label: 'Ukraine', value: 'UA' };
+  const fr = { label: 'France', value: 'FR' };
+
+  it('hands back the option instance, and undefined on a miss', () => {
+    const index = valueIndex([ua, fr], defaultCompareWith, (o) => o.value);
+    expect(index.find('FR')).toBe(fr);
+    expect(index.find('UA')).toBe(ua);
+    expect(index.find('DE')).toBeUndefined();
+    expect(valueIndex([], defaultCompareWith).find('UA')).toBeUndefined();
+  });
+
+  it('returns the FIRST match on the keyed path (±0 under `===`)', () => {
+    // Same observation channel as resolve()'s ±0 test: the two zeros share a
+    // SameValueZero key, so only first-wins storage keeps the first item.
+    const first = { tag: 'first', value: 0 };
+    const second = { tag: 'second', value: -0 };
+    const index = valueIndex(
+      [first, second],
+      defaultCompareWith,
+      (o) => o.value,
+    );
+    expect(index.find(0)).toBe(first);
+    expect(index.find(-0)).toBe(first);
+  });
+
+  it('keeps the first match after a walk that PASSED the duplicate', () => {
+    const first = { tag: 'first', value: 0 };
+    const second = { tag: 'second', value: -0 };
+    const tail = { tag: 'tail', value: 'x' };
+    const index = valueIndex(
+      [first, second, tail],
+      defaultCompareWith,
+      (o) => o.value,
+    );
+    expect(index.has('x')).toBe(true); // walks all three
+    expect(index.find(-0)).toBe(first);
+    expect(index.find('x')).toBe(tail);
+  });
+
+  it('returns the first match on the pairwise path (custom comparator)', () => {
+    const a = { value: objA };
+    const aDupe = { value: objADupe };
+    const index = valueIndex([a, aDupe], byId, (o) => o.value);
+    expect(index.find(objADupe)).toBe(a);
+    expect(index.find(objB)).toBeUndefined();
+  });
+
+  it('answers pairwise once a haystack hazard has bailed the index', () => {
+    const nan = { value: Number.NaN };
+    const c = { value: 'c' };
+    const index = valueIndex(
+      [{ value: 'a' }, nan, c],
+      defaultCompareWith,
+      (o) => o.value,
+    );
+    expect(index.find('c')).toBe(c); // walk reaches NaN → bail → pairwise
+    expect(index.find(Number.NaN)).toBeUndefined(); // `NaN === NaN` is false
+    expect(index.find('a')?.value).toBe('a');
+  });
+
+  it('answers a hazardous QUERY pairwise (-0 under Object.is)', () => {
+    const zero = { value: 0 };
+    const index = valueIndex([zero], Object.is, (o) => o.value);
+    expect(index.find(-0)).toBeUndefined();
+    expect(index.find(0)).toBe(zero);
+  });
+
+  it('agrees with resolve(): resolve(v) is find(v)?.value ?? v', () => {
+    const index = valueIndex([ua, fr], defaultCompareWith, (o) => o.value);
+    for (const query of ['UA', 'FR', 'DE']) {
+      expect(index.resolve(query)).toBe(index.find(query)?.value ?? query);
+    }
+  });
+
+  it('shares the walk: a prefix hit reads nothing, all-miss queries walk once', () => {
+    const letters = ['a', 'b', 'c', 'd', 'e'];
+    const counted = countingArray(letters);
+    const index = valueIndex(counted.array, defaultCompareWith);
+    expect(index.find('c')).toBe('c'); // walks a, b, c
+    expect(counted.reads()).toBe(3);
+    expect(index.find('a')).toBe('a'); // inside the built prefix
+    expect(counted.reads()).toBe(3);
+    expect(index.find('zz')).toBeUndefined(); // finishes the walk
+    expect(index.find('yy')).toBeUndefined(); // cursor exhausted → free
+    expect(counted.reads()).toBe(letters.length);
   });
 });
 

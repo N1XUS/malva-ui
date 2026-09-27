@@ -7,6 +7,7 @@ import {
   forwardRef,
   inject,
   input,
+  linkedSignal,
   model,
   output,
   signal,
@@ -359,9 +360,11 @@ export class MlvCombobox<T>
    * resolution queries under {@link compareWith}. Rebuilt only when the option
    * list or the comparator changes, and shared by every value-vs-options check
    * in this control ({@link _allValuesMatched}, {@link _chipOptions},
-   * `_applyPendingValues`) — each of those used to run its own nested
-   * `selected × options` scan, so with a lazily paged source the total cost of
-   * a scroll session grew quadratically as pages accumulated.
+   * `_applyPendingValues`, and {@link _selection}'s `find`) — each of those
+   * used to run its own nested `selected × options` scan, so with a lazily
+   * paged source the total cost of a scroll session grew quadratically as
+   * pages accumulated. Typed with the option as its source item so `find`
+   * hands back the option a value matched (#349).
    *
    * Carries an explicit type annotation for the same reason {@link _adapter}
    * does: it is a new node on that documented inference cycle
@@ -371,7 +374,9 @@ export class MlvCombobox<T>
    * evaluates it during field initialisation — the adapter reads `eager` only
    * from its effects, which run after construction.
    */
-  private readonly _optionValueIndex: Signal<MlvValueIndex<T>> = computed(() =>
+  private readonly _optionValueIndex: Signal<
+    MlvValueIndex<T, MlvSelectOption<T>>
+  > = computed(() =>
     valueIndex(
       this.resolvedOptions(),
       this.compareWith(),
@@ -456,13 +461,98 @@ export class MlvCombobox<T>
     this._searching() ? this.searchQuery().trim() : '',
   );
 
-  /** @protected The options currently selected, resolved to `MlvSelectOption` for chip / template rendering. */
-  protected readonly selectedOptions = computed<MlvSelectOption<T>[]>(() => {
-    const transform = this.toOption();
-    return this.selectionService
-      .selectedValues()
-      .map((value) => transform(value));
+  /**
+   * @private The selection resolved to options (`options`, one per selected
+   * value, in selection order), plus every selected value that resolved to a
+   * real option, paired with that option (`matched`) — the memory the next
+   * resolution keeps labels from.
+   *
+   * Each value resolves to, in order:
+   * 1. the option it matches (by {@link compareWith}) in the current list —
+   *    `index.find`, so a `{ label, value }` option shows its label, not its
+   *    value (#349);
+   * 2. the option it resolved to last time, when it was selected then too. A
+   *    remote source (`searchFn`, `MlvDataSource`) lists only the current
+   *    query's results, so without this a chip would flip from "Ukraine" to
+   *    "UA" as soon as the user searched for something else, and a
+   *    single-select input would lose its label to the re-search every commit
+   *    starts;
+   * 3. `toOption(value)` — a value no option has matched while it stayed
+   *    selected (an `allowCreate` token, or a value written before any option
+   *    listed it).
+   *
+   * The memory is bounded by the selection: only values selected at the
+   * previous resolution are carried forward, so a value deselected while the
+   * control rendered forgets its label, and a changed {@link toOption}
+   * discards all of it (the kept options came from the old transform). It is
+   * keyed by the **selected value** rather than by `option.value`, so step 2
+   * reads no option field — which also keeps it out of the value-read budget
+   * the cost specs pin.
+   *
+   * A `linkedSignal` only for the `previous` value its computation receives;
+   * nothing ever writes it. "Previous" is the last resolution anything read,
+   * so a value deselected and selected again with no read in between keeps
+   * its option — which is still that value's option.
+   */
+  private readonly _selection = linkedSignal<
+    {
+      readonly values: readonly T[];
+      readonly index: MlvValueIndex<T, MlvSelectOption<T>>;
+      readonly transform: MlvSelectOptionTransform<T>;
+      readonly compare: (a: T, b: T) => boolean;
+    },
+    {
+      readonly options: MlvSelectOption<T>[];
+      readonly matched: readonly {
+        readonly value: T;
+        readonly option: MlvSelectOption<T>;
+      }[];
+    }
+  >({
+    source: () => ({
+      values: this.selectionService.selectedValues(),
+      index: this._optionValueIndex(),
+      transform: this.toOption(),
+      compare: this.compareWith(),
+    }),
+    computation: ({ values, index, transform, compare }, previous) => {
+      const kept =
+        previous && previous.source.transform === transform
+          ? previous.value.matched
+          : [];
+      // Built on the first miss only: with every value listed, the memory is
+      // never consulted and costs nothing.
+      let keptIndex: MlvValueIndex<T, (typeof kept)[number]> | null = null;
+      const options: MlvSelectOption<T>[] = [];
+      const matched: { value: T; option: MlvSelectOption<T> }[] = [];
+      for (const value of values) {
+        let option = index.find(value);
+        if (option === undefined && kept.length > 0) {
+          keptIndex ??= valueIndex(kept, compare, (entry) => entry.value);
+          option = keptIndex.find(value)?.option;
+        }
+        if (option === undefined) {
+          options.push(transform(value));
+        } else {
+          options.push(option);
+          matched.push({ value, option });
+        }
+      }
+      return { options, matched };
+    },
   });
+
+  /**
+   * @protected The options currently selected, one per selected value in
+   * selection order, for chip / template rendering and the single-select
+   * committed label. Each is the option the value matched — the current list
+   * first, then the option it matched earlier while it stayed selected — and
+   * only a value no option has matched falls back to `toOption(value)`. See
+   * {@link _selection}.
+   */
+  protected readonly selectedOptions = computed<MlvSelectOption<T>[]>(
+    () => this._selection().options,
+  );
 
   /** @protected The single-select committed label, or `''` when nothing is selected. */
   protected readonly _committedLabel = computed(() => {
