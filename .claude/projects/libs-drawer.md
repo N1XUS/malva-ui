@@ -650,6 +650,26 @@ clamp is what gets announced rather than the size that was asked for; the raw
 request still lives in `--mlv-drawer-current-size`. A zero-sized box (no
 layout) leaves the value alone.
 
+**Gesture end (#338).** A drag starts from a primary-button press (a
+`setPointerCapture` that throws for an inactive pointer is caught), follows
+only its own `pointerId`, and ends on `pointerup`, `pointercancel` or the
+handle losing capture (`mlvPointerGestureEnd`, `@malva-ui/cdk/utils`,
+internal) — and on destroy, since `takeUntilDestroyed` sits last in the pipe.
+Every end drops `mlv-drawer--dragging` (a `finalize` covers destroy). Only a
+**release** (`pointerup`) may swipe-dismiss: an **interruption** (touch
+`pointercancel`, lost capture) snaps to the nearest non-zero snap point, or
+keeps the free-resize size, and never emits `dismissed` — the user never let
+go, so a fast touch the browser took for a scroll must not close the drawer.
+Before, only `pointerup` ended a drag: a cancelled drag left `--dragging` on
+the panel (transitions off) and the `pointermove` listener live until the next
+release. Pinned by `drawer-resize.spec.ts` § _gesture end (#338)_.
+
+**Viewport size.** The drag and the keyboard steps measure against the
+**injected `DOCUMENT`**'s window (`defaultView.innerHeight` / `innerWidth`),
+falling back to its root element's client box when the document has no window
+(`_viewportSize()`). Before #338 both read the ambient `window` global.
+Pinned by `drawer-resize.spec.ts` § _viewport from the injected DOCUMENT_.
+
 ---
 
 ## Services

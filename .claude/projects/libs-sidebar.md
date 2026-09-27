@@ -480,7 +480,7 @@ host: {
 | ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `_onDoubleClick` | `(): void`                     | Toggles the sidebar collapsed state.                                                                                                                                                                                       |
 | `_onKeydown`     | `(event: KeyboardEvent): void` | `ArrowLeft`/`ArrowRight` adjust width by ±10px (logical: `ArrowLeft` widens in RTL), stepping from the sidebar's rendered width. `Home` collapses (no-op if already collapsed). `End` expands (no-op if already expanded). |
-| `_onPointerDown` | `(event: PointerEvent): void`  | Starts the drag: captures pointer, disables container transition, attaches `pointermove`/`pointerup` listeners outside Angular zone.                                                                                       |
+| `_onPointerDown` | `(event: PointerEvent): void`  | Starts the drag from a primary-button press while no drag runs: captures pointer, disables container transition, attaches `pointermove` + gesture-end listeners outside Angular zone.                                      |
 
 #### Drag Behavior
 
@@ -492,13 +492,15 @@ host: {
   - `260` is only the fallback: server render, a sidebar that starts collapsed (its 56px icon rail is not the width the rail controls), no `.mlv-sidebar` ancestor.
   - Residual: `aria-valuenow` does not follow an external `width` change until the next rail interaction.
   - Residual: the seed publishes the rendered width **unclamped**, while `aria-valuemin` / `aria-valuemax` and every step clamp to the rail's own `minWidth` / `maxWidth` (200 / 480), not the sidebar's. A sidebar outside that band reports an out-of-range value at rest, and the first step jumps to the band edge in the wrong direction: `<mlv-sidebar width="150px" [minWidth]="100">` → `aria-valuenow` 150 under `aria-valuemin` 200, ArrowLeft **widens** it to 200; `width="520px" [maxWidth]="600"` → 520 over `aria-valuemax` 480, ArrowRight **narrows** it to 480. Pre-existing (the old 260 base jumped further); the fix is the deferred rail `minWidth` / `maxWidth` deprecation in favour of the sidebar's.
-- On pointer release, restores the container's CSS transition. If snap flag is set, calls `toggle()` to collapse.
-- Cleans up document listeners and resets `user-select`/`cursor` overrides on destroy. `_cleanup()` is the single exit for both `pointerup` and `DestroyRef.onDestroy`, so a rail destroyed mid-drag leaves nothing bound (asserted in `sidebar-rail.spec.ts`).
+- **Gesture end (#338):** the drag follows only its own `pointerId` and ends on `pointerup`, `pointercancel` or the rail losing capture (`mlvPointerGestureEnd`, `@malva-ui/cdk/utils`, internal). A secondary-button press, or a second press while dragging, starts nothing. Before, only `pointerup` ended it: a touch drag the browser turned into a scroll left `--dragging`, `user-select: none` / `cursor: col-resize` on `<body>`, and a live document `pointermove` that kept resizing on hover. The handle carries `touch-action: none`, so a touch drag resizes instead of panning.
+- On pointer release (`pointerup`), restores the container's CSS transition; a set snap flag calls `toggle()` to collapse, a set expand flag expands. An **interruption** (`pointercancel`, lost capture) restores the transition too but keeps the width the drag last applied and toggles nothing — the user never let go.
+- `_cleanup()` is the single exit for every gesture end and for `DestroyRef.onDestroy`: releases the listeners and, **only while a drag is in progress**, restores body `user-select` / `cursor`, the sidebar `transition` and `_isDragging`. A rail destroyed mid-drag leaves nothing bound and nothing styled; one destroyed between drags leaves the page's own body styles alone (before, it cleared them unconditionally). Asserted in `sidebar-rail.spec.ts` § _gesture end (#338)_.
 - The listeners go on the **injected `DOCUMENT`**, not the ambient global: under server rendering the two are different objects and the global is defined, so an ambient binding would attach a per-render component to a process-wide object no teardown reaches, without throwing. Changed in #76.
 
 #### Inline Style Summary
 
 - **Block `.mlv-sidebar-rail`:** `position: absolute`, `inset-inline-end: -0.0625rem` (the sidebar's inline-end edge, its left edge in RTL), `width: 2px`, transparent background, `cursor: col-resize`, `z-index: 1`. `::before` pseudo-element provides a wider hit area (±4px).
+- **`touch-action: none`** (#338): a touch drag on the handle resizes instead of panning the page, which would otherwise end the gesture with `pointercancel` after the first few pixels.
 - **`:hover`:** expands to `width: 4px`, shows `--mlv-background-accent-1`.
 - **`:focus-visible`:** standard focus ring (`--mlv-border-focus`).
 - **Modifier `--dragging`:** same visual as hover (4px accent bar).

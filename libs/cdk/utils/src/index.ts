@@ -21,3 +21,4 @@ export * from './lib/rtl/rtl.service';
 export * from './lib/rtl/mirror-inline-offsets';
 export * from './lib/rtl/scoped-directionality';
 export * from './lib/chrome/chrome-color';
+export * from './lib/pointer/pointer-gesture-end';

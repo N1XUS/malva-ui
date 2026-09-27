@@ -8,7 +8,18 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { fromEvent, race, switchMap, take, takeUntil, tap, timer } from 'rxjs';
+import { DOCUMENT } from '@angular/common';
+import {
+  EMPTY,
+  finalize,
+  fromEvent,
+  race,
+  switchMap,
+  take,
+  takeUntil,
+  tap,
+  timer,
+} from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 import {
@@ -17,7 +28,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MlvRtlService, mlvPointerGestureEnd } from '@malva-ui/cdk/utils';
 import type { MlvDrawerPosition } from './drawer.service';
 
 /** Velocity threshold (px/s) for swipe-to-dismiss. */
@@ -67,6 +78,12 @@ export class MlvDrawerResize {
   private readonly _zone = inject(NgZone);
   /** @private Normalizes horizontal resize arrows for RTL layouts. */
   private readonly _rtlService = inject(MlvRtlService);
+  /**
+   * @private The document the drawer renders into; its window supplies the
+   * viewport size the drag and the keyboard steps are measured against. The
+   * injected token, never the ambient `window` global.
+   */
+  private readonly _document = inject(DOCUMENT);
 
   /**
    * @private Direction applying to this handle, resolved once and cached
@@ -110,22 +127,31 @@ export class MlvDrawerResize {
   constructor() {
     const handle = this._el.nativeElement;
 
+    // The gesture ends on `pointerup`, `pointercancel` or the handle losing
+    // capture (`mlvPointerGestureEnd`) — a touch drag the browser turns into a
+    // scroll fires the second, not the first — and on destroy. `finalize`
+    // clears the drag class on every one of those; only a release may fling
+    // the sheet shut or snap it to 0 (see `_onGestureEnd`).
     fromEvent<PointerEvent>(handle, 'pointerdown')
       .pipe(
-        takeUntilDestroyed(this._destroyRef),
         filter((e) => e.button === 0),
         switchMap((startEvent) => {
           startEvent.preventDefault();
-          handle.setPointerCapture(startEvent.pointerId);
+          const pointerId = startEvent.pointerId;
+          try {
+            handle.setPointerCapture(pointerId);
+          } catch {
+            // An inactive pointer (a synthetic event) cannot be captured.
+            // Throwing here would error the stream and leave the handle dead;
+            // the gesture still ends on pointerup / pointercancel.
+          }
 
           const panel = this._getPanelElement();
-          if (!panel) return [];
+          if (!panel) return EMPTY;
 
           const pos = this.position();
           const isVertical = pos === 'bottom' || pos === 'top';
-          const viewportSize = isVertical
-            ? window.innerHeight
-            : window.innerWidth;
+          const viewportSize = this._viewportSize(isVertical);
           const rect = panel.getBoundingClientRect();
           const startPanelSize = isVertical ? rect.height : rect.width;
           const startPointerPos = isVertical
@@ -140,12 +166,19 @@ export class MlvDrawerResize {
           panel.classList.add('mlv-drawer--dragging');
 
           return fromEvent<PointerEvent>(handle, 'pointermove').pipe(
+            filter((moveEvent) => moveEvent.pointerId === pointerId),
             takeUntil(
-              fromEvent<PointerEvent>(handle, 'pointerup').pipe(
-                tap(() => {
+              mlvPointerGestureEnd(handle, pointerId, handle).pipe(
+                tap((endEvent) => {
                   panel.classList.remove('mlv-drawer--dragging');
                   this._zone.run(() =>
-                    this._onPointerUp(panel, pos, isVertical, viewportSize),
+                    this._onGestureEnd(
+                      panel,
+                      pos,
+                      isVertical,
+                      viewportSize,
+                      endEvent.type === 'pointerup',
+                    ),
                   );
                 }),
               ),
@@ -173,8 +206,14 @@ export class MlvDrawerResize {
               newSize = Math.max(0, Math.min(viewportSize, newSize));
               this._updatePanelSize(panel, newSize, viewportSize);
             }),
+            // Also runs on destroy mid-drag and when a new press replaces
+            // this gesture, neither of which reaches the end handler above.
+            finalize(() => panel.classList.remove('mlv-drawer--dragging')),
           );
         }),
+        // Last, so a destroy mid-drag tears down the active inner stream and
+        // runs its `finalize`; placed before `switchMap` it would not.
+        takeUntilDestroyed(this._destroyRef),
       )
       .subscribe();
   }
@@ -187,13 +226,37 @@ export class MlvDrawerResize {
   }
 
   /**
-   * @private Applies snap logic (or dismiss) after pointer is released.
+   * @private The viewport length on the drag axis: the injected document's
+   * window `innerHeight` / `innerWidth`, falling back to its root element's
+   * client box when the document has no window (`defaultView` is `null` for a
+   * document built with `createHTMLDocument`).
+   *
+   * @param isVertical — `true` for a top / bottom sheet (block axis).
    */
-  private _onPointerUp(
+  private _viewportSize(isVertical: boolean): number {
+    const view = this._document.defaultView;
+    if (view) return isVertical ? view.innerHeight : view.innerWidth;
+    const root = this._document.documentElement;
+    return isVertical ? root.clientHeight : root.clientWidth;
+  }
+
+  /**
+   * @private Applies snap logic (or dismiss) once the gesture ends.
+   *
+   * A release (`pointerup`) may fling the panel shut past the velocity
+   * threshold and snaps to the nearest point, dismissing on 0. An interruption
+   * — `pointercancel` or lost capture — never dismisses, because the user never
+   * let go: no fling, and the snap considers only the points that keep the
+   * panel open. With none of those it is a free resize and keeps the box.
+   *
+   * @param released — Whether the gesture ended on `pointerup`.
+   */
+  private _onGestureEnd(
     panel: HTMLElement,
     pos: MlvDrawerPosition,
     isVertical: boolean,
     viewportSize: number,
+    released: boolean,
   ): void {
     // Determine effective dismiss velocity: positive means "closing direction"
     const dismissVelocity =
@@ -205,12 +268,14 @@ export class MlvDrawerResize {
             ? this._velocity
             : -this._velocity;
 
-    if (dismissVelocity > DISMISS_VELOCITY_THRESHOLD) {
+    if (released && dismissVelocity > DISMISS_VELOCITY_THRESHOLD) {
       this.dismissed.emit();
       return;
     }
 
-    const snapPoints = this.snapPoints();
+    const snapPoints = released
+      ? this.snapPoints()
+      : this.snapPoints().filter((point) => point > 0);
     if (snapPoints.length === 0) {
       // Free resize: the box may have stopped at the panel's `minSize` /
       // `maxSize` while the drag kept asking for more.
@@ -320,7 +385,7 @@ export class MlvDrawerResize {
     const panel = this._getPanelElement();
     if (!panel) return;
 
-    const viewportSize = isVertical ? window.innerHeight : window.innerWidth;
+    const viewportSize = this._viewportSize(isVertical);
     const currentSizePx = isVertical
       ? panel.getBoundingClientRect().height
       : panel.getBoundingClientRect().width;

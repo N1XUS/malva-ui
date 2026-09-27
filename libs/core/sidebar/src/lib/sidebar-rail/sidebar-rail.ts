@@ -12,9 +12,13 @@ import {
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subscription, fromEvent, take, takeUntil } from 'rxjs';
+import { Subscription, filter, fromEvent, takeUntil } from 'rxjs';
 import { LEFT_ARROW, RIGHT_ARROW } from '@angular/cdk/keycodes';
-import { MlvRtlService, clamp } from '@malva-ui/cdk/utils';
+import {
+  MlvRtlService,
+  clamp,
+  mlvPointerGestureEnd,
+} from '@malva-ui/cdk/utils';
 import { SIDEBAR_CONTEXT } from '../sidebar-context';
 
 @Component({
@@ -105,10 +109,9 @@ export class MlvSidebarRail {
 
   /**
    * @private Teardown for the listeners of the drag currently in progress, or
-   * `null` between drags. Replacing it is what makes a re-entrant
-   * `pointerdown` idempotent — the previous gesture's streams are unsubscribed
-   * before the next pair is created, so a second contact cannot stack a second
-   * set of listeners.
+   * `null` between drags. A `pointerdown` arriving while a drag is in progress
+   * is ignored, so a second contact can neither stack a second set of
+   * listeners nor take over the first contact's gesture.
    */
   private _dragSubscription: Subscription | null = null;
 
@@ -182,8 +185,12 @@ export class MlvSidebarRail {
     }
   }
 
-  /** @protected Handle pointer down to start drag. */
+  /**
+   * @protected Starts a drag from a primary-button press. A press with another
+   * button, or while a drag is already in progress, is ignored.
+   */
   protected _onPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 || this._isDragging()) return;
     event.preventDefault();
     this._isDragging.set(true);
     this._shouldSnap = false;
@@ -202,7 +209,14 @@ export class MlvSidebarRail {
       this._currentWidthPx.set(this._sidebarEl.getBoundingClientRect().width);
     }
 
-    this._elementRef.nativeElement.setPointerCapture(event.pointerId);
+    const host: HTMLElement = this._elementRef.nativeElement;
+    const pointerId = event.pointerId;
+    try {
+      host.setPointerCapture(pointerId);
+    } catch {
+      // An inactive pointer (a synthetic event) cannot be captured; the
+      // gesture still ends on the document's pointerup / pointercancel.
+    }
 
     // A drag protocol, so the listeners take the scoped form: `takeUntil` for
     // the gesture, `takeUntilDestroyed` so a rail destroyed mid-drag still
@@ -211,23 +225,27 @@ export class MlvSidebarRail {
     // The `DestroyRef` is passed explicitly because this runs from an event
     // handler, which is not an injection context.
     //
-    // `_cleanup()` unsubscribes as well, so the four exits it already serves
-    // (pointerup, destroy, and a re-entrant pointerdown) all converge on one
-    // idempotent teardown; `unsubscribe()` on a closed `Subscription` is a
-    // no-op, which is what the stable bound handler references used to buy.
-    this._cleanup();
-    const pointerUp$ = fromEvent<PointerEvent>(this._document, 'pointerup');
+    // The gesture ends on `pointerup`, `pointercancel` or the rail losing
+    // capture — a touch drag the browser turns into a scroll fires the second,
+    // not the first. Only a `pointerup` commits a snap or an expand.
+    const end$ = mlvPointerGestureEnd(this._document, pointerId, host);
     this._ngZone.runOutsideAngular(() => {
       const subscription = new Subscription();
       subscription.add(
         fromEvent<PointerEvent>(this._document, 'pointermove')
-          .pipe(takeUntil(pointerUp$), takeUntilDestroyed(this._destroyRef))
+          .pipe(
+            filter((moveEvent) => moveEvent.pointerId === pointerId),
+            takeUntil(end$),
+            takeUntilDestroyed(this._destroyRef),
+          )
           .subscribe((moveEvent) => this._onPointerMove(moveEvent)),
       );
       subscription.add(
-        pointerUp$
-          .pipe(take(1), takeUntilDestroyed(this._destroyRef))
-          .subscribe((upEvent) => this._onPointerUp(upEvent)),
+        end$
+          .pipe(takeUntilDestroyed(this._destroyRef))
+          .subscribe((endEvent) =>
+            this._onGestureEnd(endEvent.type === 'pointerup'),
+          ),
       );
       this._dragSubscription = subscription;
     });
@@ -276,16 +294,18 @@ export class MlvSidebarRail {
     });
   }
 
-  /** @private Handle pointer up to end drag. */
-  private _onPointerUp(_event: PointerEvent): void {
-    this._cleanup();
-
-    if (this._sidebarEl) {
-      this._sidebarEl.style.transition = this._savedTransition;
-    }
-
+  /**
+   * @private Ends the drag. A release (`pointerup`) applies the snap to
+   * collapsed or the expand the drag marked; an interruption — `pointercancel`
+   * or lost capture — keeps the width the drag last applied and toggles
+   * nothing, because the user never let go there.
+   *
+   * @param released — Whether the gesture ended on `pointerup`.
+   */
+  private _onGestureEnd(released: boolean): void {
     this._ngZone.run(() => {
-      this._isDragging.set(false);
+      this._cleanup();
+      if (!released) return;
 
       if (this._shouldSnap) {
         this._context.toggle();
@@ -298,18 +318,26 @@ export class MlvSidebarRail {
   }
 
   /**
-   * @private Release the drag listeners and reset drag state. Idempotent — it
-   * is the single exit for pointerup, destroy, and a re-entrant pointerdown.
+   * @private Release the drag listeners and put back everything the drag set —
+   * the body cursor and `user-select`, the sidebar's `transition` and the
+   * dragging flag. Idempotent, and the single exit for every gesture end and
+   * for destroy. The restores run only while a drag is in progress, so a rail
+   * destroyed between drags leaves the body styles the page set alone.
    */
   private _cleanup(): void {
     this._dragSubscription?.unsubscribe();
     this._dragSubscription = null;
-    this._document.body.style.userSelect = '';
-    this._document.body.style.cursor = '';
     if (this._rafId) {
       cancelAnimationFrame(this._rafId);
       this._rafId = 0;
     }
+    if (!this._isDragging()) return;
+    this._document.body.style.userSelect = '';
+    this._document.body.style.cursor = '';
+    if (this._sidebarEl) {
+      this._sidebarEl.style.transition = this._savedTransition;
+    }
+    this._isDragging.set(false);
   }
 
   /**

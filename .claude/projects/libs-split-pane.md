@@ -69,7 +69,8 @@ None.
 #### Behaviour
 
 - `ngAfterContentInit`: reads `_panels()`, calls `_computeInitialSizes()` to distribute percentages, then inserts a `div.mlv-split-pane__handle` DOM node after every panel except the last via `Renderer2`.
-- **Drag**: each handle wires a `pointerdown → pointermove → pointerup` RxJS chain using `fromEvent` + `switchMap` + `takeUntilDestroyed`. Pointer capture is set on `pointerdown` to track the pointer even when it leaves the element. Only the two panels adjacent to the dragged handle resize; all others are unaffected. **The stream runs via `NgZone.runOutsideAngular`**: each `pointermove` writes the grid template imperatively (`_applyGridTemplate`) and buffers the running sizes in `_dragSizes` **without touching a signal**, so a fast drag no longer schedules an OnPush change-detection pass per move. Only `_isDragging` (a host-class binding) and the single final `_sizes` commit re-enter the zone (`NgZone.run`) — `_isDragging` on `pointerdown`, and both `_isDragging=false` + `_sizes.set(_dragSizes)` once on `pointerup`. There are no per-move outputs, so no emission-timing contract is affected.
+- **Drag**: each handle wires a `pointerdown → pointermove → end` RxJS chain using `fromEvent` + `switchMap` + `takeUntilDestroyed` (last in the pipe, so a destroy tears down the active gesture). Pointer capture is set on `pointerdown` to track the pointer even when it leaves the element (a `setPointerCapture` that throws — an inactive pointer — is caught). Only the two panels adjacent to the dragged handle resize; all others are unaffected. **The stream runs via `NgZone.runOutsideAngular`**: each `pointermove` writes the grid template imperatively (`_applyGridTemplate`) and buffers the running sizes in `_dragSizes` **without touching a signal**, so a fast drag no longer schedules an OnPush change-detection pass per move. Only `_isDragging` (a host-class binding) and the single final `_sizes` commit re-enter the zone (`NgZone.run`) — `_isDragging` on `pointerdown`, and both `_isDragging=false` + `_sizes.set(_dragSizes)` once when the gesture ends. There are no per-move outputs, so no emission-timing contract is affected.
+- **Gesture end (#338)**: a drag starts from a primary-button press while no drag is running, follows only its own `pointerId`, and ends on `pointerup`, `pointercancel` or the handle losing capture (`mlvPointerGestureEnd`, `@malva-ui/cdk/utils`, internal) — and on destroy. Every end runs `_endDrag()` from `finalize`: clears the page-wide `cursor` / `user-select` (on the **injected `DOCUMENT`**'s root, not the ambient global), drops `--dragging`, commits `_dragSizes` once. An interrupted drag keeps the size it reached. A second pointer pressing any handle mid-drag starts nothing (no capture, no resize) and its release does not end the first drag. A handle removed from the document mid-drag also ends it, through the document-level lost-capture arm of `mlvPointerGestureEnd`. Before, only `pointerup` ended it: a cancelled touch drag or a destroy mid-drag left both styles on `<html>` and the class latched. Pinned by `split-pane-gesture-end.spec.ts`.
 - **Keyboard**: `keydown` listeners on each handle handle `ArrowLeft`/`ArrowRight` (horizontal) and `ArrowUp`/`ArrowDown` (vertical) for ±1% steps, and `Home`/`End` to snap to min-size boundaries.
 - **Grid template**: sizes are stored as `number[]` in `fr` units (≈ percentage). `_applyGridTemplate()` rebuilds `grid-template-columns` (or `grid-template-rows`) with `0.125rem` fixed tracks for handles between panel tracks.
 
@@ -232,8 +233,11 @@ export class LayoutComponent {
 
 - `@angular/core` — `Component`, `contentChildren`, `signal`, `inject`, `DestroyRef`, `Renderer2`, `ElementRef`, `NgZone`
 - `@angular/core/rxjs-interop` — `takeUntilDestroyed`
-- `rxjs` — `fromEvent`, `switchMap`, `filter`, `map`, `tap`, `takeUntil`
+- `@angular/common` — `DOCUMENT`
+- `rxjs` — `fromEvent`, `switchMap`, `filter`, `map`, `finalize`, `takeUntil`
 
 ### Internal Malva UI packages
+
+- `@malva-ui/cdk/utils` — `mlvPointerGestureEnd` (internal gesture-end stream), `MlvRtlService`
 
 - `@malva-ui/styles` — CSS design tokens via `--mlv-*` custom properties
