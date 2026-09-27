@@ -2,12 +2,21 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  ErrorHandler,
+  inject,
   input,
   output,
+  untracked,
   ViewEncapsulation,
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { inject } from '@angular/core';
+import {
+  ActivatedRoute,
+  isActive,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
+import type { IsActiveMatchOptions, UrlTree } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import type { MlvNavItem } from '@malva-ui/cdk/utils';
 import { MlvMenu, MlvMenuItem, MlvMenuTrigger } from '@malva-ui/core/menu';
@@ -16,6 +25,20 @@ import { MLV_BOTTOM_NAV_I18N } from '@malva-ui/i18n';
 
 /** Maximum visible items before overflow is triggered. */
 const MAX_VISIBLE = 5;
+
+/**
+ * When a route counts as the current destination: the whole path and the
+ * query must match, fragment and matrix parameters are ignored. This is what
+ * `routerLinkActiveOptions: { exact: true }` resolves to inside
+ * `RouterLinkActive`, written out so the bar's links and the overflow items
+ * read one object and cannot disagree.
+ */
+const ACTIVE_MATCH_OPTIONS: IsActiveMatchOptions = {
+  paths: 'exact',
+  queryParams: 'exact',
+  fragment: 'ignored',
+  matrixParams: 'ignored',
+};
 
 /** MlvLayout direction for icon and label within each navigation item. */
 export type MlvBottomNavStacking = 'vertical' | 'horizontal';
@@ -37,6 +60,11 @@ export type MlvBottomNavLabelVisibility = 'always' | 'active-only';
  *
  * Also supports vertical/horizontal stacking, active-only label visibility,
  * and per-item disabled state.
+ *
+ * An item moved into the "More" menu keeps its contract: a disabled item is
+ * inert there too, a relative `route` resolves as it would on a bar link, and
+ * when the current item is behind "More" the trigger shows it (`--active`,
+ * `aria-current="true"`) and the menu row carries `aria-current="page"`.
  *
  * @example
  * <mlv-bottom-nav *mlvBreakpointDown="'md'" [items]="navItems" />
@@ -108,13 +136,37 @@ export class MlvBottomNav {
   readonly activeIndex = input<number>();
 
   /**
-   * Emits the index of the clicked item in managed mode.
-   * Not emitted for disabled items or in router mode.
+   * Emits the index of the clicked item in managed mode — its index in
+   * `items`, so an item chosen from the "More" menu emits its global index.
+   * Not emitted for disabled items (in the bar or in the "More" menu) or in
+   * router mode.
    */
   readonly itemClick = output<number>();
 
   /** @private Router for programmatic navigation from overflow menu items. */
   private readonly _router = inject(Router);
+
+  /**
+   * @private The route the bar's `routerLink`s resolve relative paths
+   * against — `RouterLink` injects the same `ActivatedRoute` from this
+   * component's injector — so an overflow item resolves `route` exactly as a
+   * bar item would.
+   *
+   * Optional: `ActivatedRoute` is provided only by `provideRouter()` /
+   * `RouterModule.forRoot()`, while `Router` is root-provided, and managed
+   * mode renders no `routerLink` — it must work in an app with no router
+   * providers at all. `null` makes `createUrlTree` resolve from the root.
+   */
+  private readonly _route = inject(ActivatedRoute, { optional: true });
+
+  /**
+   * @private Receives a failed overflow navigation, where `RouterLink` sends
+   * a failed bar navigation, instead of leaving an unhandled rejection.
+   */
+  private readonly _errorHandler = inject(ErrorHandler);
+
+  /** @protected Match options shared by the bar's `routerLinkActive` and the overflow items. */
+  protected readonly _activeMatchOptions = ACTIVE_MATCH_OPTIONS;
 
   /**
    * @protected Whether the component is in managed (non-router) mode.
@@ -152,6 +204,51 @@ export class MlvBottomNav {
   );
 
   /**
+   * @protected Per overflow item, whether it is the current destination — the
+   * answer the bar gives for its own items. Managed mode: its global index is
+   * `activeIndex`, disabled or not (as a bar button is). Router mode: an
+   * enabled item whose URL matches the router's under
+   * {@link ACTIVE_MATCH_OPTIONS}, which is when `routerLinkActive` marks a bar
+   * link; a disabled bar item renders no link and is never router-active, so
+   * a disabled overflow item is not either.
+   *
+   * Router mode reads `lastSuccessfulNavigation()` itself rather than relying
+   * on the signal `isActive()` returns: a relative route's URL tree depends on
+   * the `ActivatedRoute` snapshot, so the trees are rebuilt on every
+   * navigation, as `RouterLink` rebuilds its own. Before the first navigation
+   * nothing is active, matching `RouterLinkActive`'s `router.navigated` guard.
+   */
+  protected readonly _overflowActive = computed<readonly boolean[]>(() => {
+    const overflow = this._overflowItems();
+    if (this._isManaged()) {
+      const offset = this._displayItems().length;
+      const active = this.activeIndex();
+      return overflow.map((_, index) => offset + index === active);
+    }
+    if (!this._router.lastSuccessfulNavigation()) {
+      return overflow.map(() => false);
+    }
+    return overflow.map((item) => {
+      if (item.disabled) return false;
+      const urlTree = this._urlTreeFor(item);
+      return (
+        urlTree !== null &&
+        untracked(isActive(urlTree, this._router, ACTIVE_MATCH_OPTIONS))
+      );
+    });
+  });
+
+  /**
+   * @protected Whether the current destination sits behind "More". The bar
+   * then has no current item of its own, so the "More" trigger carries the
+   * active look and `aria-current="true"`; the menu row itself carries
+   * `aria-current="page"`.
+   */
+  protected readonly _moreActive = computed(() =>
+    this._overflowActive().includes(true),
+  );
+
+  /**
    * @protected Handles click on a visible item in managed mode.
    * Emits the item's index on `itemClick`.
    */
@@ -160,19 +257,38 @@ export class MlvBottomNav {
   }
 
   /**
-   * @protected Handles click on an overflow menu item.
-   * In managed mode, emits the global index on `itemClick`.
-   * In router mode, navigates to the item's route.
+   * @protected Handles activation of an overflow menu item. A disabled item
+   * does nothing — its menu row is disabled too, this guards any other path.
+   * In managed mode, emits the item's global index on `itemClick`.
+   * In router mode, navigates to the same URL tree a bar `routerLink` builds.
    */
   protected _onOverflowItemClick(overflowIndex: number): void {
+    const item = this._overflowItems()[overflowIndex];
+    if (!item || item.disabled) return;
+
     if (this._isManaged()) {
-      const globalIndex = this._displayItems().length + overflowIndex;
-      this.itemClick.emit(globalIndex);
-    } else {
-      const item = this._overflowItems()[overflowIndex];
-      if (item?.route) {
-        this._router.navigateByUrl(item.route);
-      }
+      this.itemClick.emit(this._displayItems().length + overflowIndex);
+      return;
     }
+
+    const urlTree = this._urlTreeFor(item);
+    if (urlTree) {
+      this._router
+        .navigateByUrl(urlTree)
+        .catch((error: unknown) => this._errorHandler.handleError(error));
+    }
+  }
+
+  /**
+   * @private The URL tree an item's `route` resolves to, built the way
+   * `RouterLink` builds one: a non-array value is wrapped in an array and
+   * resolved relative to the injected route, and a nullish one yields no tree.
+   * A leading `/` stays absolute; anything else is relative, as on a bar link.
+   */
+  private _urlTreeFor(item: MlvNavItem): UrlTree | null {
+    if (item.route == null) return null;
+    return this._router.createUrlTree([item.route], {
+      relativeTo: this._route,
+    });
   }
 }

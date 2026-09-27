@@ -11,7 +11,7 @@
         [routerLink]="item.route"
         routerLinkActive="mlv-bottom-nav__item--active"
         ariaCurrentWhenActive="page"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="_activeMatchOptions"
       >
         <svg
           class="mlv-bottom-nav__icon"
@@ -47,9 +47,17 @@
     }
   }
   @if (_hasOverflow()) {
+    <!--
+      When the current item is behind More, the bar has no current item of
+      its own: More takes the active look, and aria-current="true" (current
+      item in this set) says so to AT. Not "page" — More is not the page; the
+      menu row it opens carries aria-current="page".
+    -->
     <button
       type="button"
       class="mlv-bottom-nav__item mlv-bottom-nav__more"
+      [class.mlv-bottom-nav__item--active]="_moreActive()"
+      [attr.aria-current]="_moreActive() ? 'true' : null"
       [mlvMenuTrigger]="overflowMenu"
       [attr.aria-label]="_i18n().moreOptions"
     >
@@ -66,7 +74,12 @@
 
     <mlv-menu #overflowMenu [label]="_i18n().moreMenu">
       @for (item of _overflowItems(); track item.label; let j = $index) {
-        <mlv-list-item mlvMenuItem (itemClick)="_onOverflowItemClick(j)">
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="!!item.disabled"
+          [attr.aria-current]="_overflowActive()[j] ? 'page' : null"
+          (itemClick)="_onOverflowItemClick(j)"
+        >
           <svg
             mlvListItemPrefix
             [lucideIcon]="item.icon"
