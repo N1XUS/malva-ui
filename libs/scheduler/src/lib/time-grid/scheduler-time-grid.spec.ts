@@ -87,6 +87,11 @@ describe('MlvSchedulerTimeGrid', () => {
       root,
       `[data-day-index="${dayIndex}"][data-minutes="all-day"]`,
     );
+  /** The focused slot as `dayIndex@minutes`, so a miss names the slot it landed on. */
+  const focusedSlot = () => {
+    const { dayIndex, minutes } = focused().dataset;
+    return `${dayIndex}@${minutes}`;
+  };
   const chip = (id: string) =>
     query<HTMLElement>(root, `[data-event-id="${id}"]`);
   /**
@@ -453,6 +458,32 @@ describe('MlvSchedulerTimeGrid', () => {
     key(slot(0, 0), 'ArrowLeft');
     expect(document.activeElement).toBe(slot(1, 0));
     expect(root.querySelectorAll('[tabindex="0"]').length).toBe(1);
+  });
+
+  it('mirrors horizontal arrows under a scoped [dir] while the document stays LTR', async () => {
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'rtl');
+    await fixture.whenStable();
+    expect(rtl.direction()).toBe('ltr');
+    const start = slot(1, 540);
+    start.focus();
+    key(start, 'ArrowLeft'); // "next" day on the inline axis under RTL
+    expect(focusedSlot()).toBe('2@540');
+    key(slot(2, 540), 'ArrowRight');
+    expect(focusedSlot()).toBe('1@540');
+    key(slot(1, 540), 'ArrowUp'); // the block axis never mirrors
+    expect(focusedSlot()).toBe('1@510');
+  });
+
+  it('keeps horizontal arrows unmirrored in an LTR island inside an RTL document', async () => {
+    rtl.setDirection('rtl');
+    (fixture.nativeElement as HTMLElement).setAttribute('dir', 'ltr');
+    await fixture.whenStable();
+    const start = slot(1, 540);
+    start.focus();
+    key(start, 'ArrowLeft');
+    expect(focusedSlot()).toBe('0@540');
+    key(slot(0, 540), 'ArrowDown');
+    expect(focusedSlot()).toBe('0@570');
   });
 
   it('drops a focus request whose target never renders instead of holding it', async () => {

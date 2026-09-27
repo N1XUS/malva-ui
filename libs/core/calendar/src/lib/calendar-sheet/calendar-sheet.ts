@@ -6,7 +6,7 @@ import {
   RIGHT_ARROW,
   UP_ARROW,
 } from '@angular/cdk/keycodes';
-import type { AfterViewInit, ElementRef } from '@angular/core';
+import type { AfterViewInit } from '@angular/core';
 import {
   afterNextRender,
   ChangeDetectionStrategy,
@@ -14,6 +14,7 @@ import {
   computed,
   DestroyRef,
   effect,
+  ElementRef,
   inject,
   Injector,
   input,
@@ -127,6 +128,27 @@ export class MlvCalendarSheet<D = Date> implements AfterViewInit {
 
   /** @private Mirrors horizontal arrow keys in the day grid under RTL. */
   private readonly _rtlService = inject(MlvRtlService);
+
+  /**
+   * @private Host element: the scope the day grid's horizontal arrow keys
+   * resolve their direction against. The sheet renders inside the pickers'
+   * full-screen popup pane, which CDK stamps with its trigger's `dir`, or
+   * wherever a consumer places it, so the host can sit in a scoped direction
+   * that differs from the document's.
+   */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
+  /**
+   * @private Direction applying to this sheet, resolved once and cached behind
+   * the shared `dir` observer rather than re-walked on every arrow keypress.
+   * Read it only from the keydown handler: the pickers stamp the sheet into
+   * their pane as an embedded view (as does any consumer `@if` / `@for`),
+   * constructed before its host is inserted, and a read at construction would
+   * cache the document's direction.
+   */
+  private readonly _direction = this._rtlService.elementDirection(
+    this._elementRef,
+  );
 
   /** @private Schedules post-render focus and scroll work. */
   private readonly _injector = inject(Injector);
@@ -608,7 +630,10 @@ export class MlvCalendarSheet<D = Date> implements AfterViewInit {
     const active = this._activeDate() ?? this._anchorDay();
     let next: D | null = null;
 
-    switch (this._rtlService.normalizeArrowKey(event) ?? event.key) {
+    switch (
+      this._rtlService.normalizeArrowKey(event, this._direction()) ??
+      event.key
+    ) {
       case LEFT_ARROW:
         next = this._adapter.addCalendarDays(active, -1);
         break;

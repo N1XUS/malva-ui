@@ -428,6 +428,35 @@ describe('MlvSchedulerEventChip', () => {
       handle.dispatchEvent(pointerEvent('pointerup', 190, 10));
     });
 
+    it('maps lane-resize pointer travel through a scoped [dir] while the document stays LTR', async () => {
+      // The pointer half reads the same scoped direction the keyboard half
+      // does, so a chip in a `dir="rtl"` subtree (or in the month popover's
+      // pane) cannot mirror its keys and not its drag, or the reverse.
+      root.setAttribute('dir', 'rtl');
+      await fixture.whenStable();
+      expect(rtl.direction()).toBe('ltr');
+      const chipEl = query<HTMLElement>(
+        root,
+        '.mlv-scheduler-month__lanes .mlv-scheduler-event',
+      );
+      vi.spyOn(
+        closest<HTMLElement>(chipEl, '[data-day-index]'),
+        'getBoundingClientRect',
+      ).mockReturnValue(cellRect);
+      const handle = query<HTMLElement>(
+        chipEl,
+        '.mlv-scheduler-event__resize-handle--end',
+      );
+
+      handle.dispatchEvent(pointerEvent('pointerdown', 330, 10));
+      handle.dispatchEvent(pointerEvent('pointermove', 190, 10)); // −140 px on screen = +1 day in RTL
+      expect(chipEl.style.getPropertyValue('--mlv-scheduler-span')).toBe('3');
+      handle.dispatchEvent(pointerEvent('pointerup', 190, 10));
+      expect(present(ctx.commits.at(-1), 'a commit').next.end).toEqual(
+        new Date(2026, 8, 4),
+      );
+    });
+
     it('resizes the start edge of a timed chip, keeping the end pinned', () => {
       const chipEl = query<HTMLElement>(
         root,
@@ -692,6 +721,38 @@ describe('MlvSchedulerEventChip', () => {
       fixture.detectChanges();
       key(timedChip(), 'ArrowLeft', { altKey: true });
       expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 3, 9));
+    });
+
+    // A chip also renders inside the month "+N more" popover, a CDK pane that
+    // is its own `[dir]` scope; a global flip cannot tell a scoped direction
+    // from a missing one, so these pin the chip against its own host's scope.
+    it('mirrors the horizontal move and resize under a scoped [dir] while the document stays LTR', async () => {
+      root.setAttribute('dir', 'rtl');
+      await fixture.whenStable();
+      expect(rtl.direction()).toBe('ltr');
+
+      key(timedChip(), 'ArrowLeft', { altKey: true }); // "next" day under RTL
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 3, 9));
+
+      key(timedChip(), 'ArrowDown', { altKey: true }); // the block axis never mirrors
+      expect(ctx.commits[1].next.start).toEqual(new Date(2026, 8, 2, 9, 30));
+
+      // Ctrl+Alt+ArrowLeft pulls the start edge one day toward inline-end.
+      key(laneChip(), 'ArrowLeft', { altKey: true, ctrlKey: true });
+      expect(ctx.commits[2].next).toEqual({
+        start: new Date(2026, 8, 2),
+        end: new Date(2026, 8, 3),
+        allDay: true,
+      });
+    });
+
+    it('keeps the horizontal move unmirrored in an LTR island inside an RTL document', async () => {
+      rtl.setDirection('rtl');
+      root.setAttribute('dir', 'ltr');
+      await fixture.whenStable();
+
+      key(timedChip(), 'ArrowLeft', { altKey: true });
+      expect(ctx.commits[0].next.start).toEqual(new Date(2026, 8, 1, 9));
     });
 
     it('moves a lane bar by a week with Alt+ArrowDown', () => {

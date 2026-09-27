@@ -87,6 +87,29 @@ class Host {
 })
 class AttributeHost {}
 
+/**
+ * A scheduler under a `dir="rtl"` that is present from the first render, never
+ * flipped afterwards. The views are stamped by the root's `@switch` and the
+ * chips by `@for`, so each is constructed before its nodes are inserted: a
+ * direction read at construction would resolve against a detached host and
+ * cache the document's, which a flip-after-creation spec cannot see.
+ */
+@Component({
+  imports: [MlvScheduler],
+  template: `
+    <div dir="rtl">
+      <mlv-scheduler [(events)]="events" [(view)]="view" [(date)]="date" />
+    </div>
+  `,
+})
+class StaticRtlHost {
+  readonly events = signal<MlvSchedulerEvent[]>([
+    { id: 'a', title: 'Standup', start: d(2, 9), end: d(2, 9, 30) },
+  ]);
+  readonly view = signal<MlvSchedulerView>('month');
+  readonly date = signal(d(2));
+}
+
 describe('MlvScheduler (root)', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
@@ -839,13 +862,102 @@ describe('MlvScheduler (root)', () => {
       // element-scoped accessor the pointer maths uses does see it.
       expect(rtl.direction()).toBe('ltr');
       expect(rtl.resolveDirection(root)).toBe('rtl');
-      // The keyboard axis is deliberately NOT asserted here. `normalizeArrowKey`
-      // resolves against the document direction for every component in the
-      // library, so a scoped `[dir]` does not currently mirror arrow keys —
-      // an open gap against `.claude/rules/rtl.md`'s scoped-mirroring contract
-      // that belongs to `MlvRtlService`, not to the scheduler. The document-flip
-      // mirror is covered by `scheduler-time-grid.spec.ts` ("roves focus through
-      // slots: … horizontal by day (mirrored in RTL) …").
+      // And so do the arrow keys: each view and chip resolves its own host's
+      // direction (#340), so ArrowLeft is "next" day in the scoped subtree.
+      const start = query<HTMLElement>(
+        root,
+        '[data-day-index="1"][data-minutes="540"]',
+      );
+      start.focus();
+      start.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowLeft',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      fixture.detectChanges();
+      expect(focused().dataset['dayIndex']).toBe('2');
     });
+  });
+});
+
+describe('MlvScheduler under a static [dir] ancestor', () => {
+  let fixture: ComponentFixture<StaticRtlHost>;
+  let host: StaticRtlHost;
+  let root: HTMLElement;
+  let rtl: MlvRtlService;
+
+  const key = (
+    target: HTMLElement,
+    key: string,
+    init: KeyboardEventInit = {},
+  ) => {
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      }),
+    );
+    fixture.detectChanges();
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [StaticRtlHost],
+      providers: [
+        provideMlvI18nTesting(),
+        { provide: MLV_DATE_LOCALE, useValue: 'en-US' },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(StaticRtlHost);
+    host = fixture.componentInstance;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    root = fixture.nativeElement as HTMLElement;
+    rtl = TestBed.inject(MlvRtlService);
+  });
+
+  afterEach(() => rtl.setDirection('ltr'));
+
+  it('mirrors the month grid arrows, keeping the block axis', () => {
+    expect(rtl.direction()).toBe('ltr');
+    // September 2026 opens on Mon 31 Aug: day index 6 is Sun 6 Sep.
+    const cell = (dayIndex: number) =>
+      query<HTMLElement>(
+        root,
+        `.mlv-scheduler-month__cell[data-day-index="${dayIndex}"]`,
+      );
+    cell(6).focus();
+    key(cell(6), 'ArrowLeft');
+    expect(focused().dataset['dayIndex']).toBe('7');
+    key(cell(7), 'ArrowUp');
+    expect(focused().dataset['dayIndex']).toBe('0');
+  });
+
+  it('mirrors a month chip Alt+Arrow move', async () => {
+    key(query<HTMLElement>(root, '[data-event-id="a"]'), 'ArrowLeft', {
+      altKey: true,
+    });
+    await fixture.whenStable();
+    expect(host.events()[0].start).toEqual(d(3, 9));
+  });
+
+  it('mirrors the week grid arrows, keeping the block axis', async () => {
+    host.view.set('week');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const slot = (dayIndex: number, minutes: number) =>
+      query<HTMLElement>(
+        root,
+        `[data-day-index="${dayIndex}"][data-minutes="${minutes}"]`,
+      );
+    slot(1, 540).focus();
+    key(slot(1, 540), 'ArrowLeft');
+    expect(focused().dataset['dayIndex']).toBe('2');
+    key(slot(2, 540), 'ArrowDown');
+    expect(focused().dataset['minutes']).toBe('570');
   });
 });
