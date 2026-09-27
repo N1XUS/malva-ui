@@ -66,6 +66,52 @@ so the trail and the menu cannot disagree about the cut.
   `maxItems` −1…8 (plus 3.5, 4.5, 5.5, `NaN`) × length 1…7.
 - `maxItems` has no effect in projected mode.
 
+#### Overflow menu (#342)
+
+`mlv-popup` + `mlv-list listRole="menu"` (not `mlv-menu`); one `role="menuitem"`
+per hidden crumb, rows `role="none"`. Same branch order as the trail —
+disabled → `routerLink` → `href` → plain — so a crumb means the same in both:
+
+| Crumb    | Menu item                                                                                                         | Arrow keys | Activation               |
+| -------- | ----------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------ |
+| disabled | `<span>` `aria-disabled="true"`, `__overflow-link--disabled`; no `href` / `routerLink` whatever the entry carries | skipped    | nothing; menu stays open |
+| link     | `<a mlvListItemLink>` with `routerLink` / `href`                                                                  | reachable  | navigates, closes        |
+| plain    | `<span>`, **no** `aria-disabled`, `__overflow-link--plain`                                                        | skipped    | closes (no navigation)   |
+
+- Disabled mirrors `mlv-menu`'s disabled items: `aria-disabled`, out of the
+  arrow model (never focused, so no Enter / Space), a click does nothing — no
+  navigation, no close. Guarded in `_onOverflowItemClick`
+  (row `(click)`), since the item is `pointer-events: none` — a pointer lands
+  on the row — and a screen reader's activation clicks the item and bubbles.
+- Escape (in the list): `preventDefault()`, close, focus the ellipsis. No
+  `stopPropagation()`, as `mlv-menu`: the menu overlay is still attached while
+  it animates out (`popup-trigger.ts:136-144`: close starts the leave, the
+  overlay stays attached), and its `keydownEvents()` observer
+  (`popup.service.ts:494`) makes the CDK dispatcher stop there, so an overlay
+  below (dialog, drawer) never sees the key. The list handler runs below
+  `<body>`, so a topmost hover-shown tooltip (#319) hides on the same press —
+  the `mlv-menu` panel shape #319 lists as unchanged.
+- Before #342 — every consumer-visible edge:
+  - Branch order `routerLink → href → aria-disabled span`: a disabled crumb
+    with a destination was a live link (navigated, closed the menu).
+  - A disabled crumb with **no** destination: a click closed the menu; now it
+    stays open, `aria-expanded` still `"true"`.
+  - A plain crumb was announced disabled. Its item class moves from
+    `__overflow-link--disabled` to `__overflow-link __overflow-link--plain` and
+    it loses `pointer-events: none`, so CSS on the old class and a
+    `--mlv-breadcrumb-disabled-color` override no longer reach plain items.
+  - A disabled crumb with a destination was an arrow-key stop; it leaves the
+    set, so the item focused on open moves past it (first live link).
+  - Escape threw `…focus is not a function` (the ellipsis `viewChild` had no
+    `read`, so it returned an `ElementRef`) and dropped focus to `<body>`.
+- VERSIONING row 117 (the trail and `MlvBreadcrumbEntry.disabled` already
+  defined all three kinds) plus row 114 (the new `__overflow-link` element and
+  `--plain` modifier); on 0.x `fix` and `feat` release the same patch.
+- Pinned by `breadcrumb.spec.ts` § _overflow menu states (#342)_, incl. live
+  link activation (an `href` click reaches the document uncancelled, a
+  `routerLink` navigates, both close the menu) and an open-menu axe sweep over
+  `document.body`.
+
 #### Host
 
 | Attribute    | Value                                                                                 |
@@ -203,17 +249,24 @@ crumb. See _Non-interactive crumb states_.
 
 ## CSS Classes
 
-| Class                             | Description                                        |
-| --------------------------------- | -------------------------------------------------- |
-| `.mlv-breadcrumb`                 | Root block on `<nav>`                              |
-| `.mlv-breadcrumb__list`           | The `<ol>` ordered list wrapper                    |
-| `.mlv-breadcrumb__item`           | Each crumb: `<li>` / `<mlv-breadcrumb-item>`       |
-| `.mlv-breadcrumb__link`           | Link or span inside each item                      |
-| `.mlv-breadcrumb__link--current`  | Applied to the current/last item (non-interactive) |
-| `.mlv-breadcrumb__link--plain`    | Applied to a link-less, non-current ancestor crumb |
-| `.mlv-breadcrumb__link--disabled` | Applied to disabled items                          |
-| `.mlv-breadcrumb__separator`      | Separator after every crumb but the last           |
-| `.mlv-breadcrumb__ellipsis`       | Ellipsis shown during overflow truncation          |
+| Class                                      | Description                                        |
+| ------------------------------------------ | -------------------------------------------------- |
+| `.mlv-breadcrumb`                          | Root block on `<nav>`                              |
+| `.mlv-breadcrumb__list`                    | The `<ol>` ordered list wrapper                    |
+| `.mlv-breadcrumb__item`                    | Each crumb: `<li>` / `<mlv-breadcrumb-item>`       |
+| `.mlv-breadcrumb__link`                    | Link or span inside each item                      |
+| `.mlv-breadcrumb__link--current`           | Applied to the current/last item (non-interactive) |
+| `.mlv-breadcrumb__link--plain`             | Applied to a link-less, non-current ancestor crumb |
+| `.mlv-breadcrumb__link--disabled`          | Applied to disabled items                          |
+| `.mlv-breadcrumb__separator`               | Separator after every crumb but the last           |
+| `.mlv-breadcrumb__ellipsis`                | Ellipsis shown during overflow truncation          |
+| `.mlv-breadcrumb__overflow-popup`          | The overflow `mlv-popup` panel                     |
+| `.mlv-breadcrumb__overflow-list`           | The `role="menu"` `mlv-list` in the popup          |
+| `.mlv-breadcrumb__overflow-item`           | Each menu row (`mlv-list-item`, `role="none"`)     |
+| `.mlv-breadcrumb__overflow-nav-item`       | A link menu item (`a[mlvListItemLink]`)            |
+| `.mlv-breadcrumb__overflow-link`           | A menu item that does not navigate (#342)          |
+| `.mlv-breadcrumb__overflow-link--plain`    | …for a plain crumb (#342)                          |
+| `.mlv-breadcrumb__overflow-link--disabled` | …for a disabled crumb                              |
 
 ---
 
@@ -276,7 +329,8 @@ as a `var()` fallback.
 - All interactive links have `:focus-visible` outline using `--mlv-border-focus`
 - One `<ol>` in both modes: data-driven stamps `<li>`s; projected `<mlv-breadcrumb-item>`s are `role="listitem"`; `<li mlvBreadcrumbItem>`s go straight into it, never inside a consumer `<ol>` (#325)
 - Overflow popover focuses the first hidden link when opened
-- Overflow popover supports Arrow Up/Down/Left/Right, Home, End, and Escape keyboard navigation
+- Overflow popover supports Arrow Up/Down/Left/Right, Home, End, and Escape keyboard navigation; the arrows visit links only, and Escape closes the menu and returns focus to the ellipsis (#342)
+- In the overflow menu a disabled crumb is an `aria-disabled` menu item with no destination and a plain crumb an enabled one — see _Overflow menu (#342)_
 - The popover's horizontal arrows mirror in RTL and resolve their direction from the **breadcrumb's own host** — a cached `elementDirection(host)` signal passed to `normalizeArrowKey(event, direction)` (#147) — which matters twice: the menu renders in a CDK overlay pane portaled to `<body>` and stamped with its own `dir`, and the breadcrumb itself can sit in a `[dir="rtl"]` subtree while the document stays LTR. Arrow Up/Down, Home, End and Escape never mirror
 
 > **`MlvBreadcrumbItem` content projection** — the item template exposes a

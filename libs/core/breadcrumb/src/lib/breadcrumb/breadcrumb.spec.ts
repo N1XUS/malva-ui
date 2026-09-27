@@ -1,8 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, ErrorHandler, signal } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -391,6 +391,253 @@ describe('MlvBreadcrumb — overflow/truncation', () => {
       .querySelector('.mlv-popup');
     expect(panel).not.toBeNull();
     expect(panel?.classList.contains('mlv--compact')).toBe(true);
+  });
+});
+
+// ─── Overflow menu: disabled, plain, Escape (#342) ───────────────────────────
+//
+// The menu is the trail's second rendering of the same crumbs, so a crumb has
+// to mean the same thing in both. It did not: the menu tested `routerLink`,
+// then `href`, then fell through to an `aria-disabled` span — so a disabled
+// crumb that still carried a destination rendered as a live link, and a plain
+// ancestor was announced as switched off. And Escape called `focus()` on the
+// `ElementRef` a bare `viewChild` returns, threw, and left focus on `<body>`.
+
+/** Routed target, so a navigation that should not happen can be observed. */
+@Component({ template: '' })
+class RouteStubComponent {}
+
+/** Collects errors Angular routes through its `ErrorHandler` (listener throws). */
+class CapturingErrorHandler implements ErrorHandler {
+  readonly errors: unknown[] = [];
+  handleError(error: unknown): void {
+    this.errors.push(error);
+  }
+}
+
+/**
+ * Every crumb kind the menu can hold, collapsed behind the ellipsis
+ * (`maxItems` 3 keeps `Home › … › Current`): two disabled crumbs that still
+ * carry a destination — a router link and a plain href — a plain ancestor with
+ * nowhere to go, and two live links.
+ */
+@Component({
+  imports: [MlvBreadcrumb],
+  template: `<nav mlvBreadcrumb [items]="items" [maxItems]="3"></nav>`,
+})
+class OverflowStatesHostComponent {
+  readonly items: MlvBreadcrumbEntry[] = [
+    { label: 'Home', href: '/' },
+    { label: 'Billing', routerLink: '/billing', disabled: true },
+    { label: 'Invoices', href: '/invoices', disabled: true },
+    { label: 'Settings' },
+    { label: 'Team', routerLink: '/team' },
+    { label: 'Profile', href: '/profile' },
+    { label: 'Current' },
+  ];
+}
+
+describe('MlvBreadcrumb — overflow menu states (#342)', () => {
+  let fixture: ComponentFixture<OverflowStatesHostComponent>;
+  let overlayContainer: OverlayContainer;
+  let errorHandler: CapturingErrorHandler;
+
+  const ellipsis = (): HTMLButtonElement =>
+    fixture.nativeElement.querySelector('.mlv-breadcrumb__ellipsis');
+
+  /** The menu item labelled `label`, looked up in the portaled pane. */
+  const menuItem = (label: string): HTMLElement => {
+    const item = Array.from(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ).find((el) => el.textContent?.trim() === label);
+    if (!item) throw new Error(`no menu item "${label}"`);
+    return item;
+  };
+
+  /** Label of the focused element — a string, never the node itself. */
+  const focusedLabel = (): string =>
+    document.activeElement?.textContent?.trim() ?? '';
+
+  async function openMenu(): Promise<void> {
+    ellipsis().click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  async function press(key: string): Promise<KeyboardEvent> {
+    const event = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.activeElement?.dispatchEvent(event);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return event;
+  }
+
+  beforeEach(async () => {
+    errorHandler = new CapturingErrorHandler();
+    await TestBed.configureTestingModule({
+      imports: [OverflowStatesHostComponent],
+      providers: [
+        provideMlvI18nTesting(),
+        provideRouter([{ path: '**', component: RouteStubComponent }]),
+        { provide: ErrorHandler, useValue: errorHandler },
+      ],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(OverflowStatesHostComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    overlayContainer.ngOnDestroy();
+  });
+
+  it('renders a disabled crumb as a disabled menu item with no destination', async () => {
+    await openMenu();
+
+    for (const label of ['Billing', 'Invoices']) {
+      const item = menuItem(label);
+      expect(item.tagName).toBe('SPAN');
+      expect(item.hasAttribute('href')).toBe(false);
+      expect(item.getAttribute('aria-disabled')).toBe('true');
+      expect(item.classList.contains('mlv-breadcrumb__overflow-link')).toBe(
+        true,
+      );
+      expect(
+        item.classList.contains('mlv-breadcrumb__overflow-link--disabled'),
+      ).toBe(true);
+    }
+  });
+
+  it('renders a plain crumb as an enabled menu item — not a disabled one', async () => {
+    await openMenu();
+
+    const settings = menuItem('Settings');
+    expect(settings.tagName).toBe('SPAN');
+    expect(settings.hasAttribute('href')).toBe(false);
+    expect(settings.hasAttribute('aria-disabled')).toBe(false);
+    expect(
+      settings.classList.contains('mlv-breadcrumb__overflow-link--plain'),
+    ).toBe(true);
+    expect(
+      settings.classList.contains('mlv-breadcrumb__overflow-link--disabled'),
+    ).toBe(false);
+
+    // The live links are untouched.
+    for (const label of ['Team', 'Profile']) {
+      const link = menuItem(label);
+      expect(link.tagName).toBe('A');
+      expect(link.hasAttribute('href')).toBe(true);
+      expect(link.hasAttribute('aria-disabled')).toBe(false);
+    }
+  });
+
+  it('does not navigate or close when a disabled crumb is clicked', async () => {
+    const router = TestBed.inject(Router);
+    await openMenu();
+
+    for (const label of ['Billing', 'Invoices']) {
+      const item = menuItem(label);
+      // A screen reader's activation is a click on the item itself; a pointer
+      // lands on the row, since the item is `pointer-events: none`.
+      item.click();
+      (item.closest('mlv-list-item') as HTMLElement).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/');
+      expect(ellipsis().getAttribute('aria-expanded')).toBe('true');
+    }
+  });
+
+  it('lets a live crumb navigate natively and close the menu', async () => {
+    const router = TestBed.inject(Router);
+    // Bubble phase, so it reads the event after every listener in the menu —
+    // a row listener returning `false` would have `preventDefault()`ed it by
+    // then — and cancels it last so jsdom does not attempt the navigation.
+    const cancelledByMenu: boolean[] = [];
+    const record = (event: Event): void => {
+      cancelledByMenu.push(event.defaultPrevented);
+      event.preventDefault();
+    };
+
+    await openMenu();
+    document.addEventListener('click', record);
+    try {
+      menuItem('Profile').click();
+    } finally {
+      document.removeEventListener('click', record);
+    }
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(cancelledByMenu).toEqual([false]);
+    expect(ellipsis().getAttribute('aria-expanded')).toBe('false');
+
+    // The leave animation never ends under jsdom; the pane detaches on the
+    // popup's watchdog, and only a detached popup can open again.
+    await vi.waitFor(() =>
+      expect(
+        overlayContainer.getContainerElement().querySelector('.mlv-popup'),
+      ).toBeNull(),
+    );
+
+    await openMenu();
+    menuItem('Team').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/team');
+    expect(ellipsis().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps disabled crumbs out of the arrow-key model', async () => {
+    await openMenu();
+    expect(focusedLabel()).toBe('Team');
+
+    await press('ArrowDown');
+    expect(focusedLabel()).toBe('Profile');
+    await press('ArrowDown');
+    expect(focusedLabel()).toBe('Team'); // wraps past Billing / Invoices
+    await press('ArrowUp');
+    expect(focusedLabel()).toBe('Profile');
+    await press('Home');
+    expect(focusedLabel()).toBe('Team');
+  });
+
+  it('closes on Escape and returns focus to the ellipsis', async () => {
+    await openMenu();
+    const menu = overlayContainer
+      .getContainerElement()
+      .querySelector('[role="menu"]') as HTMLElement;
+    expect(menu.contains(document.activeElement)).toBe(true);
+
+    const escape = await press('Escape');
+
+    expect(escape.defaultPrevented).toBe(true);
+    expect(ellipsis().getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement === ellipsis()).toBe(true);
+    expect(errorHandler.errors.map(String)).toEqual([]);
+  });
+
+  it('has no axe violations with disabled, plain and live crumbs in the open menu', async () => {
+    await openMenu();
+
+    // State: five menu items — two disabled, one plain, two links.
+    const menu = overlayContainer
+      .getContainerElement()
+      .querySelector('[role="menu"]') as HTMLElement;
+    expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(5);
+    expect(menu.querySelectorAll('[aria-disabled="true"]')).toHaveLength(2);
+
+    await expectNoAxeViolations(document.body);
   });
 });
 
@@ -1272,8 +1519,8 @@ describe('MlvBreadcrumb — scoped direction', () => {
  * `<ol>` through `<ng-content>`. Truncation adds a third shape — a named
  * `aria-haspopup="menu"` ellipsis button and, once opened, a `role="menu"`
  * portaled into the CDK overlay container with a `role="menuitem"` per hidden
- * crumb (including the `aria-disabled` span branch). Each is swept in the mode
- * that produces it.
+ * crumb. Each is swept in the mode that produces it; the menu holding disabled
+ * and plain crumbs beside links is swept in § _overflow menu states (#342)_.
  */
 describe('MlvBreadcrumb accessibility', () => {
   async function mount<T>(type: new (...args: never[]) => T) {
