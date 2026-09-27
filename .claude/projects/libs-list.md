@@ -275,6 +275,10 @@ Applies `@angular/aria`'s `Listbox` (`ngListbox`) as a host directive and re-exp
 
 Aria's pointer selection resolves the clicked option via `closest('[role="option"]')`. Because `mlv-list-item` binds `[attr.role]="itemRole()"` (default `listitem`), a selectable list must set `listRole="listbox"` on the `mlv-list` and `itemRole="option"` on each `mlv-list-item` for click selection to work. `mlv-dropdown-panel` sets both automatically.
 
+#### Direction (#339)
+
+In an `orientation="horizontal"` list, aria's `Listbox` swaps `ArrowLeft` / `ArrowRight` in RTL using the CDK `Directionality` it injects. The root instance follows only the document, so before #339 a horizontal list inside a `dir="rtl"` subtree mirrored while `ArrowLeft` still moved back. `MlvListSelectable` now has `providers: [provideMlvScopedDirectionality()]` (`@malva-ui/cdk/utils`, `@internal`), following the list's nearest `[dir]` — `providers`, not `viewProviders`, because `Listbox` is a host directive and cannot see `viewProviders` on its own node. A vertical list (every `mlv-dropdown-panel`) is unaffected: aria reads the direction only for the horizontal pair. Pinned by `list-selectable-scoped-direction.spec.ts` (scoped RTL, LTR island). List of record: `.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_.
+
 ### `MlvListItemSelectable`
 
 **Selector:** `mlv-list-item[value]`
@@ -336,4 +340,5 @@ Exposes `templateRef: TemplateRef<MlvListItemTemplateContext<T>>` for custom lis
 - `@angular/router` — `RouterLinkActive` for active linked rows
 - `@angular/cdk/coercion` — boolean coercion
 - `@angular/aria/listbox` — `Listbox` / `Option` headless selection patterns (`ngListbox` / `ngOption`) behind `mlv-list[selectable]` / `mlv-list-item[value]`
+- `@malva-ui/cdk/utils` — `provideMlvScopedDirectionality` (`@internal`) on `mlv-list[selectable]`
 - `@lucide/angular` — chevron icons

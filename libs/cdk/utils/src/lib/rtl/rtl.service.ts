@@ -128,6 +128,16 @@ export class MlvRtlService {
    * Walks to the nearest ancestor carrying an explicit `dir="ltr"`/`dir="rtl"`
    * (`dir="auto"` is transparent and the walk continues past it) and falls back
    * to the global {@link direction} when nothing scopes the element.
+   *
+   * The walk crosses an open shadow root to its host. It steps through
+   * `parentNode` for that — a `ShadowRoot` is the `parentNode` of its
+   * top-level children — not `getRootNode()`, which domino (the server DOM)
+   * does not implement: a node not yet inserted (a directive constructed
+   * inside an `@if` view) reaches the top of its detached subtree, where a
+   * `getRootNode()` call would throw during a server render. (In a browser,
+   * a detached subtree rooted at an `<a href>` / `<area href>` threw too:
+   * its root's `host` is the URL host string.) A detached node therefore
+   * resolves the global direction.
    */
   resolveDirection(target: MlvDirectionTarget): MlvDirection {
     const element = this._toElement(target);
@@ -136,7 +146,9 @@ export class MlvRtlService {
       let node: Element | null = element;
       node;
       node =
-        node.parentElement ?? (node.getRootNode() as ShadowRoot).host ?? null
+        node.parentElement ??
+        (node.parentNode as Partial<ShadowRoot> | null)?.host ??
+        null
     ) {
       const dir = node.getAttribute?.('dir')?.toLowerCase();
       if (dir === 'rtl' || dir === 'ltr') return dir;
@@ -156,6 +168,14 @@ export class MlvRtlService {
    * the direction handed to {@link normalizeArrowKey} or to a horizontal
    * `FocusKeyManager`, where re-walking the DOM per keystroke is the
    * alternative.
+   *
+   * Creating the signal is free; **reading** it is what resolves. A read while
+   * `target` is detached — a component or directive constructed inside an
+   * `@if` / `@for` / template view, before Angular inserts its nodes —
+   * resolves the document direction ({@link resolveDirection}), and the signal
+   * keeps that value until some `dir` attribute changes. Under a static
+   * `[dir]` scope nothing changes, so read it from an effect, a handler or a
+   * later lifecycle hook, never in a constructor or field initializer.
    */
   elementDirection(target: MlvDirectionTarget): Signal<MlvDirection> {
     this._observeDirAttributes();

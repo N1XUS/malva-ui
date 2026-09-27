@@ -259,6 +259,49 @@ describe('MlvRtlService scoped direction', () => {
     expect(service.resolveDirection(null)).toBe('rtl');
   });
 
+  it('crosses an open shadow root to the scope around its host', () => {
+    const scope = document.createElement('div');
+    scope.setAttribute('dir', 'rtl');
+    const shadowHost = document.createElement('div');
+    scope.appendChild(shadowHost);
+    host.appendChild(scope);
+    const inner = document.createElement('span');
+    shadowHost.attachShadow({ mode: 'open' }).appendChild(inner);
+
+    expect(service.resolveDirection(inner)).toBe('rtl');
+  });
+
+  it('resolves a detached node on a DOM without getRootNode instead of throwing', () => {
+    // A directive in an `@if` view is constructed before its nodes are
+    // inserted, and domino — the server DOM — implements no `getRootNode`.
+    const detachedRoot = document.createElement('div');
+    const child = document.createElement('span');
+    detachedRoot.appendChild(child);
+    for (const node of [detachedRoot, child]) {
+      Object.defineProperty(node, 'getRootNode', { value: undefined });
+    }
+    service.setDirection('rtl');
+
+    expect(service.resolveDirection(child)).toBe('rtl');
+  });
+
+  it('resolves a detached subtree rooted at <a href> or <area href> instead of throwing', () => {
+    // `host` on these is the URL host string. A `getRootNode()`-based walk
+    // took the detached root's `host` for a shadow host and stepped onto the
+    // string, which has no DOM methods.
+    const anchor = document.createElement('a');
+    anchor.href = 'https://x/';
+    const child = document.createElement('span');
+    anchor.appendChild(child);
+    const area = document.createElement('area');
+    area.href = 'https://x/';
+    service.setDirection('rtl');
+
+    expect(service.resolveDirection(child)).toBe('rtl');
+    expect(service.resolveDirection(anchor)).toBe('rtl');
+    expect(service.resolveDirection(area)).toBe('rtl');
+  });
+
   it('exposes a scoped direction signal that reacts to a global change', () => {
     const direction = TestBed.runInInjectionContext(() =>
       service.elementDirection(host),

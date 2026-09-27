@@ -1,5 +1,6 @@
 import { Directive, inject } from '@angular/core';
 import { Listbox, Option } from '@angular/aria/listbox';
+import { provideMlvScopedDirectionality } from '@malva-ui/cdk/utils';
 
 /**
  * Turns a `mlv-list` into a single- or multi-select listbox, backed by
@@ -37,6 +38,9 @@ import { Listbox, Option } from '@angular/aria/listbox';
  * `mlv-dropdown-panel` wires this from its `listboxId` input). A host
  * directive's exposed inputs cannot be set from this wrapper's own `host`
  * metadata, so `listboxId` is bound where the `<mlv-list>` element is used.
+ *
+ * In an `orientation="horizontal"` list the Left / Right arrows follow the
+ * nearest `[dir]` above the list, not only the document's.
  */
 @Directive({
   // eslint-disable-next-line @angular-eslint/directive-selector
@@ -59,6 +63,14 @@ import { Listbox, Option } from '@angular/aria/listbox';
       outputs: ['valueChange'],
     },
   ],
+  // `@angular/aria`'s `Listbox` (the host directive above) injects the CDK
+  // `Directionality` to decide which horizontal arrow means *next* in a
+  // horizontal list. A host directive resolves against the node's `providers`
+  // only (`viewProviders` are invisible to directives on the host node
+  // itself), so the scoped provider goes here. The projected options see it
+  // too: it reports the list's direction, so a projected descendant under its
+  // own `dir` island needs its own provider or CDK `Dir`.
+  providers: [provideMlvScopedDirectionality()],
 })
 export class MlvListSelectable<T> {
   /** @protected The host `ngListbox` pattern instance. */

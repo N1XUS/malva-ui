@@ -40,6 +40,7 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `MlvRtlService` | Service | Signal-based direction state, document/CDK `Directionality` synchronization, RTL-aware arrow-key normalization, and scoped direction resolution |
 | `MlvDirectionTarget` | Type | `Element \| ElementRef<Element> \| null \| undefined` accepted by the scoped direction helpers |
 | `mlvMirrorInlineOffsets` | Function | `mlvMirrorInlineOffsets(positions, direction)` — negates `ConnectedPosition.offsetX` in RTL, which CDK leaves physical |
+| `provideMlvScopedDirectionality` | Function | **`@internal`** — provides a CDK `Directionality` that follows the providing element's nearest `[dir]`, for Malva hosts of `@angular/aria` patterns. Exported only so core leaves can reach it; not consumer API |
 | `MlvChromeColor` | Directive | Paints an element as application chrome in an arbitrary colour and picks a readable foreground — `[mlvChromeColor]` |
 
 ---
@@ -282,7 +283,12 @@ switch (
 Resolves the direction that actually applies to `target` by walking to the
 nearest ancestor carrying an explicit `dir="ltr"`/`dir="rtl"` (`dir="auto"` is
 transparent and the walk continues past it), falling back to the global
-`direction()`. Crosses shadow boundaries via the host element.
+`direction()`. Crosses shadow boundaries via the host element, stepping
+through `parentNode` (a `ShadowRoot` is the `parentNode` of its top-level
+children) rather than `getRootNode()`, which domino — the server DOM — lacks.
+A detached node (not yet inserted, e.g. a directive constructed inside an
+`@if` view) therefore resolves the global direction on either platform instead
+of throwing on the server (#339).
 
 **Direction is scoped**, so this is not the same as `direction()`: an element
 inside a `[dir="rtl"]` subtree is RTL even while the document is LTR. This
@@ -306,6 +312,15 @@ The shared observer is gated on `isPlatformBrowser(PLATFORM_ID)`, not on
 because it is not a browser `Node`, throwing out of the server render. On the
 server the signal simply resolves once from the static `dir` attributes.
 Covered by `libs/core/src/ssr-smoke.spec.ts`.
+
+**Read it late.** Creating the signal is free; reading it resolves. A read while
+`target` is detached — a component or directive constructed inside an `@if` /
+`@for` / template view, before Angular inserts its nodes — resolves the
+document direction, and the signal keeps it until some `dir` attribute changes,
+which under a static `[dir]` scope is never. Read it from an effect, a handler or
+a later hook, not in a constructor or field initializer (#339 review: the
+scoped-`Directionality` helper did, and a tab group inside an `@if` under a
+static `dir="rtl"` kept LTR keys).
 
 Use it as an explicit dependency for anything that must be re-derived on a
 direction flip: **JS-measured geometry** (mirroring a container moves its
@@ -339,6 +354,7 @@ constructor() {
 | `MlvTabGroup`, `MlvSegmented`                        | re-measure the sliding indicator / pill on a direction flip                                                                                   |
 | `MlvSlider`, `MlvRating`, `MlvSplitPane`             | mirror pointer-coordinate → value mapping                                                                                                     |
 | Every horizontal arrow handler                       | `normalizeArrowKey(event, this._direction())` — one cached `elementDirection()` per component, so keys and layout agree                       |
+| Six `@angular/aria` hosts                            | `provideMlvScopedDirectionality()` — the aria pattern's own arrow keys follow the host's scoped `[dir]` (see below)                           |
 
 ---
 
@@ -413,6 +429,65 @@ callback and from `setPositionOrigin`, since nothing re-parents an open pane) an
 can never disagree. `.claude/rules/rtl.md` § Overlays, point 4 carries the rule
 and the rejected alternative (a logical `margin-inline-*`, which is invisible to
 `_getOverlayFit` and to `withPush`).
+
+---
+
+### `provideMlvScopedDirectionality()` — `@internal`
+
+**File:** `libs/cdk/utils/src/lib/rtl/scoped-directionality.ts` · issue #339
+
+Returns a `Provider` for the CDK `Directionality` token whose `value` /
+`valueSignal` report the direction applying to **the providing element** —
+`MlvRtlService.elementDirection(host)`, so the nearest `[dir]` above it, else
+the global direction — instead of the document's.
+
+**Why it has to exist.** `@angular/aria` patterns (`TabList`, `Toolbar`,
+`Tree`, `Listbox`, `Grid`, `GridCell`, …) do
+`textDirection = inject(Directionality).valueSignal` to pick which horizontal
+arrow key means _next_ (in a tree also _expand_ / _collapse_). The root
+instance follows only the document, so inside a `dir="rtl"` subtree the host's
+logical CSS mirrors and aria's keys do not.
+
+- **Read-through.** `valueSignal` is a `linkedSignal` over the scoped
+  direction (a writable signal because `Listbox` calls `.asReadonly()` on it;
+  nothing writes it), not a signal an effect copies into — so a key pressed
+  right after a flip, before change detection runs, already sees it. The
+  scrubber's earlier effect-fed factory lagged by one change-detection pass.
+- **`change`** emits once per flip (not for the initial value) and completes
+  when the providing node is destroyed, through its `DestroyRef`: Angular
+  never calls a factory provider's own `ngOnDestroy`.
+- **Placement.** `viewProviders` when the pattern sits in the host's own
+  template (consumer content projected into the host keeps its own
+  `Directionality`); `providers` when the pattern is a host directive, which
+  cannot see `viewProviders` on its own node.
+- **No read at construction.** The `change` effect takes its baseline on its
+  first run, during change detection. A read in the factory would resolve a
+  host constructed inside an `@if` / `@for` / template view while still
+  detached: the document direction, cached until some `dir` attribute changes
+  — never, under a static scope. On the server it also reached
+  `getRootNode()`, which domino lacks (`ssr-smoke.spec.ts` went red for the
+  pickers and form-controls hosts). `resolveDirection` now walks
+  `parentNode` → `ShadowRoot.host` instead, so a detached read resolves the
+  global direction on either platform.
+
+**Hosts:** `mlv-scrubber`, `mlv-tab-group`, `mlv-toolbar[mlvToolbarRoving]`,
+`mlv-tree`, `mlv-list[selectable]`, `mlv-data-table` (cell navigation).
+`.claude/rules/rtl.md` § _Sanctioned `Directionality` providers_ is the list of
+record and the rules for adding one. Specs: `scoped-directionality.spec.ts`
+(scoped value, island, global follow, read-through before change detection,
+one `change` per flip, completion on destroy, and a static `dir="rtl"` around
+an `@if`) plus one scoped-`[dir]` spec per host.
+
+**Why `@internal` in a public barrel.** It exists for cross-package use: core
+leaves import only published entry points, so the helper has to live in
+`@malva-ui/cdk/utils`'s barrel. VERSIONING § 2 is the rationale — members tagged
+`@internal` are not public API — even though best-practices otherwise keeps
+implementation helpers out of public barrels. `docs:extract-api` leaves it off
+the docs because its `classifyAndExtract` returns `null` for **every** exported
+function, not because of the tag: `@internal` is filtered only on class
+members, so a top-level class or injection token tagged `@internal` in a barrel
+**would** be extracted and published — do not copy this arrangement for one.
+Promoting the helper to consumer API is a separate, deliberate change.
 
 ---
 
@@ -633,4 +708,5 @@ readonly navItems: MlvNavItem[] = [
 - `@malva-ui/cdk/accessibility` — `MlvTabbableElementService` (used by `MlvAutofocus`)
 - `@angular/cdk/coercion` — `coerceElement`, `BooleanInput`
 - `@angular/cdk/layout` — `BreakpointObserver` (used by `MlvBreakpointService`)
+- `@angular/cdk/bidi` — `Directionality` (provided by `provideMlvScopedDirectionality`, never injected)
 - `rxjs` — `Observable`, `Subject`
