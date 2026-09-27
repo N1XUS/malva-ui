@@ -275,9 +275,17 @@ export class MlvBreadcrumb implements MlvBreadcrumbAccessor {
     return items[items.length - 1];
   });
 
-  /** @protected Ellipsis trigger used to restore focus after keyboard close. */
-  protected readonly _overflowTriggerRef =
-    viewChild<HTMLButtonElement>('overflowTrigger');
+  /**
+   * @protected Ellipsis trigger used to restore focus after keyboard close.
+   * Read as an `ElementRef`: a string query on a plain element resolves to one
+   * whatever type argument it is given, so the old
+   * `viewChild<HTMLButtonElement>` was typed as a button, had no `focus()`,
+   * and Escape threw instead of returning focus (#342).
+   */
+  protected readonly _overflowTriggerRef = viewChild<
+    string,
+    ElementRef<HTMLButtonElement>
+  >('overflowTrigger', { read: ElementRef });
 
   /**
    * @private The focusable overflow-popover link elements, in DOM order. They are
@@ -398,9 +406,12 @@ export class MlvBreadcrumb implements MlvBreadcrumbAccessor {
         nextIndex = items.length - 1;
         break;
       case 'Escape':
+        // Not `stopPropagation()`, as in `mlv-menu`: the menu's own overlay is
+        // still attached while it animates out, so the CDK dispatcher hands
+        // this key to it and no overlay below (a dialog, a drawer) closes.
         event.preventDefault();
         popup.opened.set(false);
-        this._overflowTriggerRef()?.focus();
+        this._overflowTriggerRef()?.nativeElement.focus();
         return;
       default:
         return;
@@ -411,9 +422,18 @@ export class MlvBreadcrumb implements MlvBreadcrumbAccessor {
   }
 
   /**
-   * @protected Closes the overflow popup after an item is activated.
+   * @protected Closes the overflow popup when a row is activated — a link
+   * (whose click bubbles here), a plain crumb, or the row's padding around
+   * either. A disabled crumb's row does nothing: its item is
+   * `pointer-events: none`, so a pointer lands on the row, and a screen
+   * reader's activation is a click on the item that bubbles to it. Returns
+   * nothing, never `false`, so Angular does not cancel a link's own click.
    */
-  protected _closeOverflowPopup(popup: MlvPopup): void {
+  protected _onOverflowItemClick(
+    item: MlvBreadcrumbEntry,
+    popup: MlvPopup,
+  ): void {
+    if (item.disabled) return;
     popup.opened.set(false);
   }
 

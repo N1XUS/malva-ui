@@ -91,20 +91,35 @@
       class="mlv-breadcrumb__overflow-list"
       (keydown)="_onOverflowKeydown($event, overflowPopup)"
     >
+      <!--
+        Same branch order as the trail above — disabled, routerLink, href,
+        plain — so a crumb means the same thing in both renderings: a disabled
+        crumb never becomes a link however much destination it carries, and a
+        plain ancestor is never announced as switched off (#342). Only the
+        links are `#overflowNavItem`s, so the arrow keys skip the two inert
+        kinds, as `mlv-menu` skips its disabled items.
+      -->
       @for (hidden of _hiddenItems(); track hidden.label) {
         <mlv-list-item
           itemRole="none"
           class="mlv-breadcrumb__overflow-item"
-          (click)="overflowPopup.opened.set(false)"
+          (click)="_onOverflowItemClick(hidden, overflowPopup)"
         >
-          @if (hidden.routerLink) {
+          @if (hidden.disabled) {
+            <span
+              class="mlv-breadcrumb__overflow-link mlv-breadcrumb__overflow-link--disabled"
+              role="menuitem"
+              aria-disabled="true"
+            >
+              {{ hidden.label }}
+            </span>
+          } @else if (hidden.routerLink) {
             <a
               #overflowNavItem
               class="mlv-breadcrumb__overflow-nav-item"
               mlvListItemLink
               role="menuitem"
               [routerLink]="hidden.routerLink"
-              (click)="_closeOverflowPopup(overflowPopup)"
             >
               {{ hidden.label }}
             </a>
@@ -115,15 +130,13 @@
               mlvListItemLink
               role="menuitem"
               [href]="hidden.href"
-              (click)="_closeOverflowPopup(overflowPopup)"
             >
               {{ hidden.label }}
             </a>
           } @else {
             <span
-              class="mlv-breadcrumb__overflow-link--disabled"
+              class="mlv-breadcrumb__overflow-link mlv-breadcrumb__overflow-link--plain"
               role="menuitem"
-              aria-disabled="true"
             >
               {{ hidden.label }}
             </span>
