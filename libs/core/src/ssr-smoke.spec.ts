@@ -1793,6 +1793,27 @@ describe('@malva-ui/core SSR safety', () => {
     ).toBe(false);
   });
 
+  it('server-renders an info alert as a polite status region', async () => {
+    const { html } = await renderAllHosts();
+
+    // #333. The live role follows the tone — `status` for info / success,
+    // `alert` for warning / danger — through a host binding over a
+    // `computed`, so the pre-hydration document must already carry it, and
+    // no explicit `aria-live` that would contradict it.
+    const open = (html.match(/<mlv-alert\b[^>]*>/g) ?? []).find((tag) =>
+      tag.includes('mlv-alert--tone-info'),
+    );
+    expect(
+      open,
+      'no info mlv-alert in the server markup — SsrDisplayHost did not render it',
+    ).toBeTruthy();
+    expect(open).toContain('role="status"');
+    expect(
+      /\saria-live="/.test(open as string),
+      `the server-rendered alert carries aria-live: ${open}`,
+    ).toBe(false);
+  });
+
   it('server-renders a projected progress label as the progressbar name', async () => {
     const { html } = await renderAllHosts();
 
