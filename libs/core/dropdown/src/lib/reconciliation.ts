@@ -200,20 +200,41 @@ export function filteredOutCommitted<T>(
  * A membership / resolution index over a fixed array of values — built at most
  * once, queried many times. Produced by {@link valueIndex}.
  *
- * Both methods are defined by the pairwise scan they replace, so an index is
- * observationally indistinguishable from one:
+ * Every method is defined by the pairwise scan it replaces, so an index is
+ * observationally indistinguishable from one.
+ *
+ * `S` is the type of a **source item** — what {@link find} hands back. It
+ * defaults to `unknown` rather than `T` so a projected index
+ * (`valueIndex(options, compare, (o) => o.value)`) still assigns to a bare
+ * `MlvValueIndex<T>` annotation written before `find` existed; annotate
+ * `MlvValueIndex<T, S>` to read the item typed.
  */
-export interface MlvValueIndex<T> {
+export interface MlvValueIndex<T, S = unknown> {
   /** `source.some((item) => compare(project(item), value))`. */
   has(value: T): boolean;
   /** `source.find((item) => compare(project(item), value))?.projected ?? value`. */
   resolve(value: T): T;
+  /**
+   * `source.find((item) => compare(project(item), value))` — the matching
+   * source item **itself**, or `undefined` when none matches.
+   *
+   * For an option list indexed by value this is the option a committed value
+   * matched, which is what a control needs to render that option's `label`: a
+   * `{ label: 'Ukraine', value: 'UA' }` option committed as `'UA'` cannot be
+   * relabelled from `'UA'` alone (#349). Shares the walk with {@link has} and
+   * {@link resolve}; on the first overload (no projection) the item is the
+   * value.
+   */
+  find(value: T): S | undefined;
 }
 
 /**
  * Indexes a source array for repeated "does this match one of them?" queries
  * under `compare`, replacing the O(queries × source) nested scan an option
- * control would otherwise run every time its option list grows.
+ * control would otherwise run every time its option list grows. Besides
+ * membership (`has`) and value normalisation (`resolve`) it answers "which
+ * source item matched" (`find`) — the option a committed value belongs to, for
+ * rendering its label (#349). All three share one walk.
  *
  * Strategy is chosen up front, from `compare` alone (see {@link hazardOf}):
  *
@@ -280,35 +301,42 @@ export interface MlvValueIndex<T> {
 export function valueIndex<T>(
   source: readonly T[],
   compare: (a: T, b: T) => boolean,
-): MlvValueIndex<T>;
+): MlvValueIndex<T, T>;
 export function valueIndex<S, T>(
   source: readonly S[],
   compare: (a: T, b: T) => boolean,
   project: (item: S) => T,
-): MlvValueIndex<T>;
+): MlvValueIndex<T, S>;
 export function valueIndex<S, T>(
   source: readonly S[],
   compare: (a: T, b: T) => boolean,
   project?: (item: S) => T,
-): MlvValueIndex<T> {
+): MlvValueIndex<T, S> {
   // Without `project` the source already holds the values: `S` and `T` are the
   // same type, which only the overloads above can express.
   const projected: (item: S) => T = project ?? ((item) => item as unknown as T);
 
   const someMatch = (value: T): boolean =>
     source.some((item) => compare(projected(item), value));
+  const findItem = (value: T): S | undefined =>
+    source.find((item) => compare(projected(item), value));
   const findMatch = (value: T): T => {
-    const found = source.find((item) => compare(projected(item), value));
+    const found = findItem(value);
     // Reproduces `find(...)?.value ?? value`: a miss and a nullish match both
     // fall through to the queried value.
     return found === undefined ? value : (projected(found) ?? value);
   };
 
   const isHazard = hazardOf(compare);
-  if (!isHazard) return { has: someMatch, resolve: findMatch };
+  if (!isHazard) return { has: someMatch, resolve: findMatch, find: findItem };
 
-  /** Projected values from `source[0 .. cursor)`, first occurrence winning. */
-  const seen = new Map<T, T>();
+  /**
+   * Source items from `source[0 .. cursor)`, keyed by their projected value,
+   * first occurrence winning. The **item** is stored rather than the value so
+   * `find` can answer from the prefix; `resolve` re-projects it, which is the
+   * extra `.value` read its pairwise definition (`find(...)?.value`) makes too.
+   */
+  const seen = new Map<T, S>();
   /** How far the walk has got. Everything before it is in `seen`. */
   let cursor = 0;
   /** Latched when the walk passes a hazard; the index is pairwise from then on. */
@@ -318,13 +346,17 @@ export function valueIndex<S, T>(
    * Resumes the left-to-right walk, materialising each value as it passes,
    * and stops at the first match — exactly where `find`/`some` would stop.
    *
-   * Returns the match boxed (the matched value may legitimately be nullish),
-   * or `undefined` for "no match in the whole source" — or for "bailed", which
-   * the callers tell apart by re-reading {@link bailed}.
+   * Returns the match boxed — its projected value and the source item it came
+   * from (either may legitimately be nullish) — or `undefined` for "no match in
+   * the whole source" — or for "bailed", which the callers tell apart by
+   * re-reading {@link bailed}.
    */
-  const walkTo = (value: T): { readonly hit: T } | undefined => {
+  const walkTo = (
+    value: T,
+  ): { readonly hit: T; readonly item: S } | undefined => {
     while (cursor < source.length) {
-      const candidate = projected(source[cursor]);
+      const item = source[cursor];
+      const candidate = projected(item);
       // Latch *before* consuming the element: a hazard anywhere in the source
       // makes SameValueZero and `compare` disagree, so no keyed answer past
       // this point can be trusted. Answers already returned from the
@@ -339,13 +371,13 @@ export function valueIndex<S, T>(
       // load-bearing: `Map.set` on an existing SameValueZero key replaces the
       // **value** while keeping the original key, so an unguarded `set` would
       // be observably last-wins for `+0`/`-0`.
-      if (!seen.has(candidate)) seen.set(candidate, candidate);
+      if (!seen.has(candidate)) seen.set(candidate, item);
       // `compare(indexed, queried)`, matching the pairwise scans above. Both
       // comparators that reach here are symmetric, so transposing this would
       // not be observable *today* — it is written in the correct order anyway,
       // because the day a third, asymmetric comparator is recognised by
       // `hazardOf` the transpose becomes a silent wrong answer.
-      if (compare(candidate, value)) return { hit: candidate };
+      if (compare(candidate, value)) return { hit: candidate, item };
     }
     return undefined;
   };
@@ -364,10 +396,19 @@ export function valueIndex<S, T>(
     },
     resolve: (value) => {
       if (bailed || isHazard(value)) return findMatch(value);
-      if (seen.has(value)) return seen.get(value) ?? value;
+      if (seen.has(value)) return projected(seen.get(value) as S) ?? value;
       const found = walkTo(value);
       if (bailed) return findMatch(value);
       return found === undefined ? value : (found.hit ?? value);
+    },
+    find: (value) => {
+      if (bailed || isHazard(value)) return findItem(value);
+      // Same soundness argument as `has`: the prefix is hazard-free, so a
+      // SameValueZero hit there is the first `compare` match.
+      if (seen.has(value)) return seen.get(value);
+      const found = walkTo(value);
+      if (bailed) return findItem(value);
+      return found?.item;
     },
   };
 }

@@ -2826,10 +2826,9 @@ describe('MlvCombobox — dropdown inline-axis fallback (#154)', () => {
  * typing its label found nothing, a pick committed the object instead of the
  * value, and a bound falsy value never matched its row.
  *
- * The input's committed text is deliberately not asserted: `selectedOptions`
- * maps the committed *value* through `toOption` rather than the matched option,
- * so it reads the raw value for every `{ label, value }` option, truthy or not
- * — #349, a separate defect.
+ * The committed input text and chips for these options are asserted in
+ * `combobox-option-labels.spec.ts` (#349), which fixed them reading the raw
+ * value instead of the matched option's label.
  */
 describe('MlvCombobox — options whose label or value is falsy (#300)', () => {
   const FALSY_OPTIONS: MlvSelectOption<unknown>[] = [
