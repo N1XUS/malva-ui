@@ -357,7 +357,6 @@ export const ROLLOUT_PENDING = [
     ],
   },
   'core-speed-dial',
-  'core-split-pane',
   {
     // #301 swept default with a value and its clear button, readonly, disabled.
     project: 'core-textarea',
