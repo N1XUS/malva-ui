@@ -154,8 +154,21 @@
       }
     }
 
-    &--disabled > &__track {
-      opacity: var(--mlv-disabled-opacity);
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366).
+    // The track takes the disabled surface; the pill keeps the neutral raised
+    // surface whatever the tone, drops its shadow and carries the disabled ink,
+    // so the selection stays legible. After the tone loop at equal
+    // specificity, so it outranks every tone. The track used to be dimmed to
+    // 0.4 here and every item (whose `isDisabled` includes the group) to 0.4
+    // again — labels at 16 % alpha.
+    &--disabled {
+      --mlv-segmented-track-bg: var(--mlv-background-disabled);
+      --mlv-segmented-pill-bg: var(--mlv-elevation-bg-4);
+      --mlv-segmented-active-color: var(--mlv-text-disabled);
+    }
+
+    &--disabled > &__track > &__indicator {
+      box-shadow: none;
     }
 
     // Validation state (SF-R6): only `error` gets a tinted inset stroke on the

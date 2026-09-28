@@ -277,14 +277,23 @@
       grid-template-rows: minmax(var(--mlv-slider-thumb-size), auto);
     }
 
-    // Disabled state
+    // Disabled state — a declared ink, not an opacity multiply (SF-R4, #366;
+    // the old `var(--mlv-disabled-opacity, 0.56)` carried a dead fallback).
+    // The rail keeps its resting border token, so only the fill and thumbs
+    // change; the thumb's `--mlv-background-base` ring keeps it apart from the
+    // fill. The error rail (`--state-error`) is untouched.
     &--disabled {
-      opacity: var(--mlv-disabled-opacity, 0.56);
       cursor: not-allowed;
       pointer-events: none;
 
+      .#{$block}__fill {
+        background-color: var(--mlv-text-disabled);
+      }
+
       .#{$block}__thumb {
         cursor: not-allowed;
+        background-color: var(--mlv-text-disabled);
+        box-shadow: none;
       }
 
       .#{$block}__tooltip {

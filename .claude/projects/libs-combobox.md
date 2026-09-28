@@ -451,3 +451,9 @@ for one source of truth with the projected case; the rendered attribute is
 byte-identical. `combobox-own-label.spec.ts` pins it, so a future change that
 moved `id()` onto the `__trigger` div would fail rather than silently drop the
 name.
+
+## Disabled surface (2026-09, #366)
+
+- Arrow `:disabled`: `cursor: not-allowed`, no opacity — the glyph keeps its tertiary ink, like `mlv-select`'s chevron; the field surface comes from `mlv-form-control-wrapper`.
+- Spec: `combobox-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

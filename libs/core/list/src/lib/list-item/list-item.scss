@@ -120,12 +120,6 @@
       transition: transform var(--mlv-duration-fast) var(--mlv-ease-out-strong);
     }
 
-    &[aria-disabled='true'] {
-      cursor: not-allowed;
-      pointer-events: none;
-      opacity: var(--mlv-disabled-opacity);
-    }
-
     // -------------------------------------------------------------------------
     // State hierarchy — hover / focus-visible / active / selected / pressed
     // -------------------------------------------------------------------------
@@ -178,6 +172,23 @@
       &:hover {
         --mlv-list-item-bg: var(--mlv-list-item-bg-selected-hover);
       }
+    }
+
+    // Disabled is a declared ink, not an opacity multiply (SF-R4, #366), and
+    // it outranks selection the way `mlv-tree`'s does: no fill, disabled ink
+    // for the row, its leading bar and every text token inside it (inner
+    // BEM elements read `--mlv-text-*` through the global `[class*='mlv']`
+    // rule, not the row's `color`). The doubled class (0,3,0) ties
+    // `[aria-current]:not(…)` and `[aria-selected]:hover`, so it stays after
+    // them.
+    &#{&}[aria-disabled='true'] {
+      --mlv-list-item-bg: transparent;
+      --mlv-list-item-color: var(--mlv-text-disabled);
+      --mlv-list-item-accent-color: var(--mlv-text-disabled);
+      --mlv-text-primary: var(--mlv-text-disabled);
+      --mlv-text-secondary: var(--mlv-text-disabled);
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
     // Explicit accent input forces the bar on regardless of selection.

@@ -331,3 +331,11 @@ scope, else `MlvDensityService`. Before it was CSS-only, so a nested scope
 resolved by stylesheet order (a checkbox in `spacious > compact` read 16px).
 New public input: `mlvDensity: MlvDensity | undefined`. `mlv-checkbox-group`
 is unchanged. Pinned by `checkbox-density.spec.ts`.
+
+## Disabled surface (2026-09, #366)
+
+- `.mlv-checkbox--disabled` was a host `opacity: var(--mlv-disabled-opacity)`; now a declared surface (SF-R4): `--check-background: var(--mlv-background-disabled)`, `--check-border-color: var(--mlv-border-normal)` (resets a checked accent border), check glyph `--mlv-text-disabled`, and the label remaps `--mlv-text-primary` → `--mlv-text-disabled` (inner BEM text reads the token through the global `[class*='mlv']` rule, not the host `color`).
+- Emitted after `--checked`, so a checked disabled box takes the disabled fill. The error border (`__visual--error`) is kept.
+- Glyph on box, before → after: light 1.71 → 3.76, dark 2.34 → 3.44, HC 2.59 → 3.72. Label on page: light 2.53 → 4.54, dark 3.82 → 3.78.
+- Spec: `checkbox-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

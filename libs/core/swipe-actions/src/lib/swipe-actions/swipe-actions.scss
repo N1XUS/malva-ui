@@ -202,8 +202,14 @@
         outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
       }
 
+      // Disabled is a declared surface, not an opacity multiply (SF-R4,
+      // #366): a 0.4 tone fill let the row behind bleed through. (0,2,0),
+      // so it outranks every `--tone-*` pair.
       &:disabled {
-        opacity: var(--mlv-disabled-opacity);
+        --mlv-swipe-action-bg: var(--mlv-background-disabled);
+        --mlv-swipe-action-bg-hover: var(--mlv-background-disabled);
+        --mlv-swipe-action-bg-active: var(--mlv-background-disabled);
+        --mlv-swipe-action-color: var(--mlv-text-disabled);
         cursor: not-allowed;
       }
     }

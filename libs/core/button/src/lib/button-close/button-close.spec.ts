@@ -64,6 +64,26 @@ describe('MlvButtonClose', () => {
       expect(button.classList).toContain(`mlv-button--${density}`);
     });
   });
+
+  it('is enabled by default and forwards `disabled` to the native button', () => {
+    const host = fixture.nativeElement.querySelector(
+      'mlv-button-close',
+    ) as HTMLElement;
+    const button = host.querySelector('button.mlv-button') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+
+    const closeFixture = TestBed.createComponent(MlvButtonClose);
+    closeFixture.componentRef.setInput('ariaLabel', 'Remove file');
+    closeFixture.componentRef.setInput('disabled', true);
+    closeFixture.detectChanges();
+    const inner = (closeFixture.nativeElement as HTMLElement).querySelector(
+      'button.mlv-button',
+    ) as HTMLButtonElement;
+
+    expect(inner.disabled).toBe(true);
+    expect(inner.getAttribute('aria-disabled')).toBe('true');
+    expect(inner.classList).toContain('mlv-button--disabled');
+  });
 });
 
 describe('MlvButtonClose focus ring', () => {

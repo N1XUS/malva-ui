@@ -128,10 +128,28 @@
       display: none;
     }
 
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366):
+    // the old 0.4 multiply put the white check at 1.69:1 on a translucent
+    // accent box. Emitted after `--checked` at equal specificity, so a ticked
+    // disabled box drops the accent fill and border too; the glyph keeps its
+    // `--check-opacity`, so ticked still reads as ticked. The error border
+    // stays — it is declared on the swatch, which outranks the host.
     &--disabled {
+      --check-background: var(--mlv-background-disabled);
+      --check-border-color: var(--mlv-border-normal);
       pointer-events: none;
       cursor: not-allowed;
-      opacity: var(--mlv-disabled-opacity);
+    }
+
+    &--disabled &__check {
+      color: var(--mlv-text-disabled);
+    }
+
+    // The label text carries an `mlv` class, so it reads `--mlv-text-primary`
+    // directly (the global `[class*='mlv']` rule) and ignores an inherited
+    // `color`: remap the token for the label subtree instead.
+    &--disabled &__label {
+      --mlv-text-primary: var(--mlv-text-disabled);
     }
   }
 

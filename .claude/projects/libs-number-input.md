@@ -153,3 +153,9 @@ it into `mlv-form-field` names it with a plain `for`.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Disabled surface (2026-09, #366)
+
+- Stepper `:disabled`: `--mlv-text-disabled` glyph + `cursor: not-allowed`, no opacity (SF-R4); the field surface comes from `mlv-form-control-wrapper`.
+- Spec: `number-input-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

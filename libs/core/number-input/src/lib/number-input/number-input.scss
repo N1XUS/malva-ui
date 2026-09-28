@@ -1,114 +1,116 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-number-input;
+  $block: mlv-number-input;
 
-.#{$block} {
-  display: block;
+  .#{$block} {
+    display: block;
 
-  .mlv-form-control-wrapper__control-container {
-    align-items: stretch;
-    gap: 0;
-    overflow: hidden;
-    padding: 0;
-  }
-
-  &__native {
-    flex: 1;
-    border: none;
-    outline: none;
-    background: none;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-    color: var(--mlv-text-primary);
-    font-family: var(--mlv-typography-family-text);
-    font-size: var(--form-ctrl-font-size, var(--mlv-font-size-m));
-    min-width: 0;
-    padding: 0 var(--form-ctrl-h-padding);
-    width: 100%;
-    height: 100%;
-    -webkit-appearance: none;
-    -moz-appearance: textfield;
-
-    &::-webkit-inner-spin-button,
-    &::-webkit-outer-spin-button {
-      display: none;
+    .mlv-form-control-wrapper__control-container {
+      align-items: stretch;
+      gap: 0;
+      overflow: hidden;
+      padding: 0;
     }
 
-    &::placeholder {
-      color: var(--mlv-text-tertiary);
-    }
-  }
-
-  &__stepper {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    align-self: stretch;
-    inline-size: var(--form-ctrl-height);
-    min-inline-size: var(--form-ctrl-height);
-    block-size: 100%;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--mlv-text-secondary);
-    padding: 0;
-    transition-property: color, background-color, transform;
-    transition-duration: var(--mlv-duration-fast);
-    transition-timing-function: var(--mlv-ease-out);
-    border-radius: 0;
-    margin: 0;
-
-    &:hover:not(:disabled) {
+    &__native {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: none;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
       color: var(--mlv-text-primary);
-      background-color: var(--mlv-background-neutral-1-hover);
+      font-family: var(--mlv-typography-family-text);
+      font-size: var(--form-ctrl-font-size, var(--mlv-font-size-m));
+      min-width: 0;
+      padding: 0 var(--form-ctrl-h-padding);
+      width: 100%;
+      height: 100%;
+      -webkit-appearance: none;
+      -moz-appearance: textfield;
+
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        display: none;
+      }
+
+      &::placeholder {
+        color: var(--mlv-text-tertiary);
+      }
     }
 
-    &:active:not(:disabled) {
-      transform: scale(0.97);
+    &__stepper {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      align-self: stretch;
+      inline-size: var(--form-ctrl-height);
+      min-inline-size: var(--form-ctrl-height);
+      block-size: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--mlv-text-secondary);
+      padding: 0;
+      transition-property: color, background-color, transform;
+      transition-duration: var(--mlv-duration-fast);
+      transition-timing-function: var(--mlv-ease-out);
+      border-radius: 0;
+      margin: 0;
+
+      &:hover:not(:disabled) {
+        color: var(--mlv-text-primary);
+        background-color: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+
+      // A declared ink, not an opacity multiply (SF-R4, #366). A stepper is
+      // disabled at a bound as well as with the field, so it owns this rule.
+      &:disabled {
+        color: var(--mlv-text-disabled);
+        cursor: not-allowed;
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      // Shared form-control affordance-glyph size ramp (2026-08-26) — CSS
+      // overrides the Lucide directive's own `[size]="16"` (an SVG's `width`/
+      // `height` CSS properties win over the presentation attribute the
+      // directive sets). Colour is deliberately left as-is
+      // (`--mlv-text-secondary` → `--mlv-text-primary` on hover): unlike a
+      // passive decorative affordance (chevron, leading icon), a stepper
+      // button is a primary, constantly-visible interactive control roughly
+      // the size of the field itself — the button's own transparent-variant
+      // neutral treatment (AB-R1), not the tertiary-at-rest decorative ramp.
+      svg {
+        width: var(--form-ctrl-icon-size, 1rem);
+        height: var(--form-ctrl-icon-size, 1rem);
+      }
     }
 
-    &:disabled {
-      opacity: var(--mlv-disabled-opacity);
-      cursor: not-allowed;
+    &__steppers {
+      display: flex;
+      flex: 0 0 var(--form-ctrl-height);
+      flex-direction: column;
+      align-self: stretch;
+      inline-size: var(--form-ctrl-height);
     }
 
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: var(--mlv-focus-ring-offset);
-    }
-
-    // Shared form-control affordance-glyph size ramp (2026-08-26) — CSS
-    // overrides the Lucide directive's own `[size]="16"` (an SVG's `width`/
-    // `height` CSS properties win over the presentation attribute the
-    // directive sets). Colour is deliberately left as-is
-    // (`--mlv-text-secondary` → `--mlv-text-primary` on hover): unlike a
-    // passive decorative affordance (chevron, leading icon), a stepper
-    // button is a primary, constantly-visible interactive control roughly
-    // the size of the field itself — the button's own transparent-variant
-    // neutral treatment (AB-R1), not the tertiary-at-rest decorative ramp.
-    svg {
-      width: var(--form-ctrl-icon-size, 1rem);
-      height: var(--form-ctrl-icon-size, 1rem);
+    &__steppers &__stepper {
+      block-size: 50%;
+      inline-size: 100%;
+      min-block-size: 0;
+      min-inline-size: 0;
     }
   }
 
-  &__steppers {
-    display: flex;
-    flex: 0 0 var(--form-ctrl-height);
-    flex-direction: column;
-    align-self: stretch;
-    inline-size: var(--form-ctrl-height);
-  }
-
-  &__steppers &__stepper {
-    block-size: 50%;
-    inline-size: 100%;
-    min-block-size: 0;
-    min-inline-size: 0;
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

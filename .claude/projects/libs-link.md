@@ -29,10 +29,10 @@
 
 #### Inputs
 
-| Name       | Type             | Default     | Description                                                                                                                                                          |
-| ---------- | ---------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `variant`  | `MlvLinkVariant` | `'default'` | Visual style variant: `'default'` (action color), `'subtle'` (secondary text color), `'emphasized'` (bold + underline).                                              |
-| `disabled` | `boolean`        | `false`     | When `true`, blocks activation (see _Disabled activation guard_), sets `aria-disabled="true"`, removes from tab order, and applies disabled opacity. `href` is kept. |
+| Name       | Type             | Default     | Description                                                                                                                                                                            |
+| ---------- | ---------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant`  | `MlvLinkVariant` | `'default'` | Visual style variant: `'default'` (action color), `'subtle'` (secondary text color), `'emphasized'` (bold + underline).                                                                |
+| `disabled` | `boolean`        | `false`     | When `true`, blocks activation (see _Disabled activation guard_), sets `aria-disabled="true"`, removes from tab order, and draws the `--mlv-text-disabled` ink (#366). `href` is kept. |
 
 #### Outputs
 
@@ -114,15 +114,15 @@ None.
 
 Uses `ViewEncapsulation.None` — BEM class names provide style isolation. Imports `@malva-ui/styles` mixins via `@use "../../../../styles/src/lib/mixins" as mixins`.
 
-| BEM Class                 | Description                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `.mlv-link`               | Block — base styles: `color: var(--mlv-text-action)`, no underline, pointer cursor, color transition. Applies `mixins.base()`. |
-| `.mlv-link:hover`         | Hover state — `color: var(--mlv-text-action-hover)`, underline applied.                                                        |
-| `.mlv-link:focus-visible` | Focus-visible state — same as hover (color + underline).                                                                       |
-| `.mlv-link--default`      | Modifier — default variant (inherits block color).                                                                             |
-| `.mlv-link--subtle`       | Modifier — `color: var(--mlv-text-secondary)`; hover uses `var(--mlv-link-subtle-hover-color, #333)`.                          |
-| `.mlv-link--emphasized`   | Modifier — `font-weight: 600`, `text-decoration: underline`.                                                                   |
-| `.mlv-link--disabled`     | Modifier — `cursor: not-allowed`, `pointer-events: none`, `opacity: var(--mlv-disabled-opacity)`.                              |
+| BEM Class                 | Description                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.mlv-link`               | Block — base styles: `color: var(--mlv-text-action)`, no underline, pointer cursor, color transition. Applies `mixins.base()`.                                              |
+| `.mlv-link:hover`         | Hover state — `color: var(--mlv-text-action-hover)`, underline applied.                                                                                                     |
+| `.mlv-link:focus-visible` | Focus-visible state — same as hover (color + underline).                                                                                                                    |
+| `.mlv-link--default`      | Modifier — default variant (inherits block color).                                                                                                                          |
+| `.mlv-link--subtle`       | Modifier — `color: var(--mlv-text-secondary)`; hover uses `var(--mlv-link-subtle-hover-color, #333)`.                                                                       |
+| `.mlv-link--emphasized`   | Modifier — `font-weight: 600`, `text-decoration: underline`.                                                                                                                |
+| `.mlv-link--disabled`     | Modifier — `color: var(--mlv-text-disabled)` as `.mlv-link.mlv-link--disabled` (0,2,0, after hover / focus / subtle), `cursor: not-allowed`, `pointer-events: none` (#366). |
 
 **CSS custom properties consumed:**
 
@@ -132,7 +132,7 @@ Uses `ViewEncapsulation.None` — BEM class names provide style isolation. Impor
 | `--mlv-text-action-hover`       | Hover/focus-visible link color.               |
 | `--mlv-text-secondary`          | Subtle variant color.                         |
 | `--mlv-link-subtle-hover-color` | Subtle variant hover color (fallback `#333`). |
-| `--mlv-disabled-opacity`        | Opacity for disabled state.                   |
+| `--mlv-text-disabled`           | Disabled ink.                                 |
 | `--mlv-duration-normal`         | Transition duration.                          |
 | `--mlv-ease-default`            | Transition easing function.                   |
 
@@ -200,3 +200,8 @@ export class MyComponent {
 | `@angular/core`    | External (peer) | `Component`, `ChangeDetectionStrategy`, `ViewEncapsulation`, `input`, `inject`, `ElementRef`; `takeUntilDestroyed` from `@angular/core/rxjs-interop` |
 | `rxjs`             | External (peer) | `fromEvent` + `filter` for the disabled activation guard                                                                                             |
 | `@malva-ui/styles` | Workspace lib   | SCSS mixins (`mixins.base()`) and design tokens                                                                                                      |
+
+## Disabled surface (2026-09, #366)
+
+- Spec: `link-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

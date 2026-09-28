@@ -315,10 +315,11 @@ unless some `test` target actually runs it — an executor-driven or
 `nx:run-commands` target that enumerates files (`node --test a.spec.mjs …`),
 or a project with no `test` target at all, must have each of its specs named
 verbatim in some `test` command anywhere in the workspace. That last rule is
-what keeps the two deliberate cross-project arrangements honest —
-`scripts/testing/strip-css-layers.spec.js` runs through the root target and
-`scripts/check-padding-tokens.spec.mjs` through `styles:test` — so dropping
-either file from the command that runs it fails the check instead of silently
+what keeps the deliberate cross-project arrangements honest —
+`scripts/testing/strip-css-layers.spec.js` runs through the root target, and
+`scripts/check-padding-tokens.spec.mjs` and
+`scripts/check-disabled-surface.spec.mjs` through `styles:test` — so dropping
+any of them from the command that runs it fails the check instead of silently
 retiring the suite.
 
 Because the guard's answer depends on the shape of the whole workspace, the
@@ -372,6 +373,7 @@ Rules:
 - Use rem-based values rather than px for all properties. For example, use `padding: 0.5rem` instead of `padding: 8px` to ensure better scalability and accessibility across different devices and user settings.
 - Inline-axis CSS is **logical**: `margin-inline-start`, `inset-inline-end`, `text-align: start`, `border-start-start-radius`, `float: inline-start` — never `margin-left`, `left`, `text-align: left`. Physical `left`/`right` stay only for JS-fed coordinates, `left: 50%` centering pairs and collision-resolved overlay arrows, each with a `// physical: <reason>` comment. `transform`/`transform-origin`/`box-shadow` offsets go through `mixins.inline-distance()` / `--mlv-inline-direction`. See `.claude/rules/rtl.md`.
 - `--mlv-padding-{xs,s,m,l,xl,2xl}` are **two-value `block inline` pairs** — use them only as the whole `padding:` value; per-side, `padding-inline/block`, `gap`, `margin`, `top`, `calc()` and multi-value shorthands take the matching `--mlv-spacing-*` half instead (see `.claude/rules/bem-scss.md`). Enforced by `yarn nx run styles:check-padding-tokens` (a `styles:lint` dependency, so it gates CI).
+- **Disabled is a declared surface, and only error tints.** A disabled control paints `--mlv-background-disabled` + `--mlv-text-disabled` — never `opacity` on a disabled selector; `--state-success` / `--state-warning` / `--state-info` declare nothing (SF-R4 / SF-R6, #366; see `.claude/rules/bem-scss.md` § _Disabled is a declared surface_). Enforced by `yarn nx run styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency beside `check-padding-tokens`); the few colour-data / chromeless sites that keep `var(--mlv-disabled-opacity)` are on its `OPACITY_ALLOWED` list.
 - Every animated BEM block must provide a reduced-motion path. Prefer
   `@include mixins.reduced-motion('<block>')` for the standard instantaneous
   fallback, or the narrower motion helpers when a bespoke fallback is needed.

@@ -157,7 +157,7 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 | `.mlv-bottom-nav__bar`               | Inner flex row (`display: flex; justify-content: space-around`)                                                                                                                                                                                       |
 | `.mlv-bottom-nav__item`              | Individual navigation link or button (flex column by default, flex row when horizontal)                                                                                                                                                               |
 | `.mlv-bottom-nav__item--active`      | Applied by `routerLinkActive` (router mode) or `activeIndex` match (managed mode); on the "More" button while the current destination is an overflow row                                                                                              |
-| `.mlv-bottom-nav__item--disabled`    | Visually muted (`--mlv-disabled-opacity`) and non-interactive (`pointer-events: none`)                                                                                                                                                                |
+| `.mlv-bottom-nav__item--disabled`    | `--mlv-text-disabled` ink (icon + label inherit, #366) and non-interactive (`pointer-events: none`)                                                                                                                                                   |
 | `.mlv-bottom-nav__more`              | Additional class on the "More" overflow button                                                                                                                                                                                                        |
 | `.mlv-bottom-nav__icon`              | Icon wrapper (`display: flex; align-items: center`)                                                                                                                                                                                                   |
 | `.mlv-bottom-nav__label`             | Text label (xs font size, no wrap); animated via `max-height`/`max-width` + `opacity` in active-only mode                                                                                                                                             |
@@ -173,6 +173,7 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 | `:active`        | `--mlv-background-subtle` background, `scale(0.95)` transform                                               |
 | `--active`       | `--mlv-text-action` color (via `routerLinkActive`, `activeIndex`, or on "More" for an overflow destination) |
 | `:focus-visible` | `--mlv-border-focus` outline ring                                                                           |
+| `--disabled`     | `--mlv-text-disabled` color after `--active`, `pointer-events: none`, no opacity (#366)                     |
 
 ---
 
@@ -198,7 +199,7 @@ Fixed bottom navigation bar for mobile contexts. Renders up to 5 navigation item
 | `--mlv-line-height-tight`      | Label line height                        |
 | `--mlv-typography-family-text` | Font family (via `mixins.base()`)        |
 | `--mlv-font-size-m`            | Base font size (via `mixins.base()`)     |
-| `--mlv-disabled-opacity`       | Opacity for disabled items               |
+| `--mlv-text-disabled`          | Ink for disabled items                   |
 
 The bar uses `padding-bottom: env(safe-area-inset-bottom)` to account for notched devices (iPhone home indicator area).
 
@@ -295,3 +296,9 @@ Strings resolve through `MLV_BOTTOM_NAV_I18N` (`@malva-ui/i18n`): `navigation` (
 - `@malva-ui/core/menu` — `MlvMenu`, `MlvMenuItem`, `MlvMenuTrigger`
 - `@malva-ui/core/list` — `MlvListItem`, `MlvListItemPrefix`
 - `@malva-ui/styles` — design tokens
+
+## Disabled surface (2026-09, #366)
+
+- `__item--disabled`: `color: --mlv-text-disabled` (icon + label inherit) after `--active`, `pointer-events: none`, no opacity.
+- Spec: `bottom-nav-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

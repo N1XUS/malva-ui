@@ -345,3 +345,9 @@ Exposes `templateRef: TemplateRef<MlvListItemTemplateContext<T>>` for custom lis
 - `@angular/aria/listbox` — `Listbox` / `Option` headless selection patterns (`ngListbox` / `ngOption`) behind `mlv-list[selectable]` / `mlv-list-item[value]`
 - `@malva-ui/cdk/utils` — `provideMlvScopedDirectionality` (`@internal`) on `mlv-list[selectable]`
 - `@lucide/angular` — chevron icons
+
+## Disabled surface (2026-09, #366)
+
+- `[aria-disabled='true']` was an opacity multiply that kept the selection fill. Now `.mlv-list-item.mlv-list-item[aria-disabled='true']` (0,3,0, emitted after `[aria-current]:not(…)` and `[aria-selected]:hover`) outranks selection like `mlv-tree`: `--mlv-list-item-bg: transparent`, row / accent bar / `--mlv-text-primary` / `--mlv-text-secondary` → `--mlv-text-disabled`, `cursor: not-allowed`, `pointer-events: none`.
+- Spec: `list-item-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

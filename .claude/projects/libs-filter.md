@@ -69,3 +69,9 @@ The entry point exports `MlvFilterOperator`, `MlvFilterCondition`, `MlvFilterCon
 ## Verification
 
 Run `yarn nx run-many -t test typecheck lint -p core-filter`.
+
+## Disabled surface (2026-09, #366)
+
+- `mlv-smart-filter-bar--disabled` no longer carries `opacity` — every control in a disabled bar is itself disabled (`[disabled]="disabled() || loading()"`) and declares its own surface; the bar used to multiply them a second time. The class is still stamped.
+- Spec: `smart-filter-bar-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

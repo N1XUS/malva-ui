@@ -109,7 +109,7 @@ Strings resolve through `MLV_RATING_I18N` (`@malva-ui/i18n`): `rating` (the `rol
 
 - **`aria-invalid="true"`** on the `role="group"` host while `resolvedState()` is `error`; no attribute otherwise. The stars are toggle buttons (`aria-pressed`), and `button` supports no `aria-invalid`, so the group is the one element that can carry it — as ARIA 1.3's deprecated-global form (1.3 limits `aria-invalid` to a list of roles that `group` is not on), so how it is announced depends on the screen reader.
 - **`aria-describedby`** on the host = `_fieldErrorId()`: the enclosing `mlv-form-field`'s error message id while it renders, no attribute otherwise. Not `_describedBy()`: the rating still renders no description / message of its own (follow-up), so pointing at their ids would dangle.
-- No visual change: the existing `mlv-rating--state-*` host class is untouched (FC-18, the success / warning / info tints, is its own ticket).
+- The `mlv-rating--state-*` host class stays; since #366 (FC-18) only `--state-error` has a rule — the success / warning / info tints are gone (SF-R6).
 - Spec: `rating-validation.spec.ts`.
 
 ## Dependencies
@@ -124,3 +124,9 @@ Strings resolve through `MLV_RATING_I18N` (`@malva-ui/i18n`): `rating` (the `rol
 ## Field surface (2026-08)
 
 - No `aria-required` / `aria-label` forwarding: every star is a `<button>` that already carries its own `aria-label` (the i18n `rateValue` template), and ARIA does not allow `aria-required` on `role="button"`. The inherited `required` and `ariaLabel` inputs therefore have no ARIA effect on `mlv-rating` — express the requirement through the surrounding `mlv-form-field` / label copy.
+
+## Disabled surface (2026-09, #366)
+
+- Disabled: filled stars in `--mlv-text-disabled`, `pointer-events: none`, no opacity (SF-R4). `--state-warning` / `--state-success` / `--state-info` tints deleted; only `--state-error` paints (FC-18, SF-R6).
+- Spec: `rating-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

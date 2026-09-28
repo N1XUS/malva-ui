@@ -347,3 +347,10 @@ name; the binding now also consults the base's `_externallyLabelled()`.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Disabled surface (2026-09, #366)
+
+- `mlv-color-picker--disabled` no longer multiplies the whole picker. The saturation plane (`__canvas-container`) and `__sliders` (hue / opacity strips + preview) keep `opacity: var(--mlv-disabled-opacity)` — colour data with no disabled token, allow-listed in the guard; `__input-label` and the format tabs take `--mlv-text-disabled` (tab indicator too); the HEX / RGB / HSL fields are `mlv-input`s with their own disabled field.
+- `mlv-color-picker-popup--disabled`: only `__swatch` keeps the token opacity (allow-listed); the field and the swatch trigger (`mlvButton`) declare their own surface.
+- Spec: `color-picker-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

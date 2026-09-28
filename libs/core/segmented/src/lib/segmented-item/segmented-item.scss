@@ -2,121 +2,124 @@
 @use '../../../../../styles/src/lib/density' as density;
 
 @layer mlv.components {
-$block: mlv-segmented-item;
+  $block: mlv-segmented-item;
 
-.#{$block} {
-  // Reset native button / anchor chrome — the item is a plain segment.
-  box-sizing: border-box;
-  margin: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-decoration: none;
-  appearance: none;
+  .#{$block} {
+    // Reset native button / anchor chrome — the item is a plain segment.
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-decoration: none;
+    appearance: none;
 
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  white-space: nowrap;
-  cursor: pointer;
-  color: var(--mlv-text-secondary);
-  border-radius: var(--mlv-segmented-inner-radius, var(--mlv-radius-m));
-  outline: none;
-  transition:
-    color var(--mlv-duration-normal),
-    background-color var(--mlv-duration-normal);
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--mlv-text-secondary);
+    border-radius: var(--mlv-segmented-inner-radius, var(--mlv-radius-m));
+    outline: none;
+    transition:
+      color var(--mlv-duration-normal),
+      background-color var(--mlv-duration-normal);
 
-  // Density scales padding + font-size (same steps as mlv-tab-item).
-  @include density.density-tight {
-    padding: 0.375rem 0.625rem;
-    font-size: var(--mlv-font-size-s);
-  }
-  @include density.density-compact {
-    padding: 0.5rem 0.75rem;
-    font-size: var(--mlv-font-size-s);
-  }
-  @include density.density-spacious {
-    padding: 1rem 1.25rem;
-    font-size: var(--mlv-font-size-l);
-  }
-  @include density.density-airy {
-    padding: 1.25rem 1.5rem;
-    font-size: var(--mlv-font-size-l);
-  }
+    // Density scales padding + font-size (same steps as mlv-tab-item).
+    @include density.density-tight {
+      padding: 0.375rem 0.625rem;
+      font-size: var(--mlv-font-size-s);
+    }
+    @include density.density-compact {
+      padding: 0.5rem 0.75rem;
+      font-size: var(--mlv-font-size-s);
+    }
+    @include density.density-spacious {
+      padding: 1rem 1.25rem;
+      font-size: var(--mlv-font-size-l);
+    }
+    @include density.density-airy {
+      padding: 1.25rem 1.5rem;
+      font-size: var(--mlv-font-size-l);
+    }
 
-  // Idle hover: first visible shade above the sunken track.
-  &:hover:not(&--active):not(&--disabled) {
-    background: var(--mlv-background-neutral-1-hover);
-  }
+    // Idle hover: first visible shade above the sunken track.
+    &:hover:not(&--active):not(&--disabled) {
+      background: var(--mlv-background-neutral-1-hover);
+    }
 
-  // Pressed feedback on an idle segment: one shade deeper than hover.
-  &:active:not(&--active):not(&--disabled) {
-    background: var(--mlv-background-neutral-1-active);
-  }
+    // Pressed feedback on an idle segment: one shade deeper than hover.
+    &:active:not(&--active):not(&--disabled) {
+      background: var(--mlv-background-neutral-1-active);
+    }
 
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
-  }
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    }
 
-  &--active {
-    color: var(--mlv-segmented-active-color, var(--mlv-text-primary));
-  }
+    &--active {
+      color: var(--mlv-segmented-active-color, var(--mlv-text-primary));
+    }
 
-  &--disabled {
-    cursor: not-allowed;
-    pointer-events: none;
-    opacity: var(--mlv-disabled-opacity);
-  }
-
-  // Thin separator between two adjacent items, centred in the 0.125rem gap.
-  // Hidden next to the active / hovered / focused item (both sides).
-  & + & {
-    &::before {
-      content: '';
-      position: absolute;
-      inset-inline-start: -0.09375rem;
-      top: 25%;
-      width: 0.0625rem;
-      height: 50%;
-      background: var(
-        --mlv-segmented-separator-color,
-        var(--mlv-border-normal)
-      );
-      opacity: 1;
-      transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+    // Disabled is a declared ink, not an opacity multiply (SF-R4, #366). After
+    // `--active` at equal specificity, so a disabled selected item takes it too;
+    // the disabled group declares the track and pill surfaces.
+    &--disabled {
+      color: var(--mlv-text-disabled);
+      cursor: not-allowed;
       pointer-events: none;
+    }
+
+    // Thin separator between two adjacent items, centred in the 0.125rem gap.
+    // Hidden next to the active / hovered / focused item (both sides).
+    & + & {
+      &::before {
+        content: '';
+        position: absolute;
+        inset-inline-start: -0.09375rem;
+        top: 25%;
+        width: 0.0625rem;
+        height: 50%;
+        background: var(
+          --mlv-segmented-separator-color,
+          var(--mlv-border-normal)
+        );
+        opacity: 1;
+        transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+        pointer-events: none;
+      }
+    }
+
+    // `& + &--active::before` carries the same weight as the `& + &::before`
+    // draw rule above (two classes + a pseudo-element) — the bare
+    // `&--active::before` alone is one class short and would lose to it, leaving
+    // the active segment's leading hairline visible.
+    &--active::before,
+    & + &--active::before,
+    &--active + &::before,
+    &:hover::before,
+    &:hover + &::before,
+    &:active::before,
+    &:active + &::before,
+    &:focus-visible::before,
+    &:focus-visible + &::before {
+      opacity: 0;
+    }
+
+    // Vertical track: the separator becomes a horizontal hairline on top.
+    .mlv-segmented--vertical & + &::before {
+      inset-inline-start: 25%;
+      top: -0.09375rem;
+      width: 50%;
+      height: 0.0625rem;
     }
   }
 
-  // `& + &--active::before` carries the same weight as the `& + &::before`
-  // draw rule above (two classes + a pseudo-element) — the bare
-  // `&--active::before` alone is one class short and would lose to it, leaving
-  // the active segment's leading hairline visible.
-  &--active::before,
-  & + &--active::before,
-  &--active + &::before,
-  &:hover::before,
-  &:hover + &::before,
-  &:active::before,
-  &:active + &::before,
-  &:focus-visible::before,
-  &:focus-visible + &::before {
-    opacity: 0;
-  }
-
-  // Vertical track: the separator becomes a horizontal hairline on top.
-  .mlv-segmented--vertical & + &::before {
-    inset-inline-start: 25%;
-    top: -0.09375rem;
-    width: 50%;
-    height: 0.0625rem;
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

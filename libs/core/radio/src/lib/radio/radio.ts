@@ -175,9 +175,10 @@ export class MlvRadio {
 
   /**
    * @protected Native `disabled` for the inner input: this radio's own
-   * {@link disabled}, or its group's. Kept off the host's
-   * `mlv-radio--disabled` class on purpose — a disabled group already dims its
-   * whole content, and dimming each radio again would compound the opacity.
+   * {@link disabled}, or its group's. The host's `mlv-radio--disabled` class
+   * stays this radio's own state (the public BEM surface); a disabled group
+   * reaches its radios' disabled surface in CSS through
+   * `.mlv-radio-group--disabled .mlv-radio` instead (SF-R4, #366).
    */
   protected readonly _nativeDisabled = computed(
     () => this.disabled() || (this._group?.computedDisabled() ?? false),

@@ -27,14 +27,15 @@
  *     or NO `test` target at all — every owned spec must appear verbatim in
  *     some `test` target's command text, anywhere in the workspace.
  *
- * The last rule is what covers the two deliberate cross-project arrangements
+ * The last rule is what covers the deliberate cross-project arrangements
  * without a hand-maintained allow-list, and keeps verifying them:
  *   - `scripts/testing/strip-css-layers.spec.js` (project
  *     `@malva-ui/internal-testing`, which owns no `test` target) is run by the
  *     root `@malva-ui/source:test`, per .claude/projects/best-practices.md.
- *   - `scripts/check-padding-tokens.spec.mjs` (attributed to the root project,
- *     whose own command does not run it) is run by `styles:test`.
- * Drop either spec from the command that runs it and this check fails, instead
+ *   - `scripts/check-padding-tokens.spec.mjs` and
+ *     `scripts/check-disabled-surface.spec.mjs` (attributed to the root
+ *     project, whose own command runs neither) are run by `styles:test`.
+ * Drop any of them from the command that runs it and this check fails, instead
  * of the suite silently going unrun.
  *
  * It also covers the non-vitest suites (styles, tailwind, i18n, the workspace

@@ -104,3 +104,10 @@ Marker directive for projected rich-header content. Exported for consumer import
 ## Tests
 
 `accordion.spec.ts` (13 specs): trigger roles, `aria-controls`/`aria-labelledby` linkage, collapsed/inert + lazy content, click-to-expand + two-way model reflection, single vs multi expand, disabled non-toggle, every-header-tabbable, ArrowDown focus movement, Space/Enter toggle, `expandAll()`/`collapseAll()`, and rich-header (`mlvAccordionHeader`) slot projection.
+
+## Disabled surface (2026-09, #366)
+
+- The item-level `opacity` is gone; the header already declared `--mlv-text-disabled`. `__trigger[aria-disabled='true']` now also remaps `--mlv-text-primary` (the title reads it through the global `[class*='mlv']` rule, so `color` alone never reached it) and draws the chevron in the ink at full opacity. A disabled but open item's content is no longer dimmed.
+- Header on page: light 1.67 → 4.54, dark 1.62 → 3.78, HC 1.78 → 5.74.
+- Spec: `accordion-item-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

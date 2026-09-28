@@ -57,6 +57,7 @@
     class="mlv-file-upload-item__remove"
     mlvDensity="compact"
     [ariaLabel]="_removeLabel()"
-    (click)="remove.emit()"
+    [disabled]="disabled()"
+    (click)="_onRemove()"
   ></mlv-button-close>
 </div>

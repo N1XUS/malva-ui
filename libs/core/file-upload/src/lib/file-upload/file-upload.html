@@ -131,6 +131,7 @@
         <mlv-file-upload-item
           class="mlv-file-upload-item--entering"
           [file]="file"
+          [disabled]="computedDisabled()"
           (remove)="removeFile(file.id)"
         />
       </li>

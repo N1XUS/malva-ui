@@ -52,8 +52,8 @@
       border-radius: var(--mlv-radius-xs);
       background: var(--mlv-background-base);
       cursor: pointer;
-      transition: background-color var(--mlv-duration-fast)
-          var(--mlv-ease-default),
+      transition:
+        background-color var(--mlv-duration-fast) var(--mlv-ease-default),
         border-color var(--mlv-duration-fast) var(--mlv-ease-default);
 
       // SF-R1: the swatches under the pointer are a persistent selection, not a
@@ -63,9 +63,13 @@
         background: var(--mlv-background-selected);
       }
 
+      // A disabled size cell is a declared surface (SF-R4, #366): the
+      // resting border on the disabled fill, where it used to be the base
+      // cell dimmed to 0.4. After `--selected` at equal specificity.
       &:disabled {
         cursor: default;
-        opacity: var(--mlv-disabled-opacity);
+        background-color: var(--mlv-background-disabled);
+        border-color: var(--mlv-border-normal);
       }
 
       &:focus-visible {

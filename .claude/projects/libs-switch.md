@@ -410,3 +410,10 @@ Identical to `mlv-checkbox` — see `libs-checkbox.md` § _Consumer `id` (#323)_
 - `@malva-ui/cdk/density` — `MlvDensityDirective`, `MLV_DENSITY_ELEMENT`, `provideMlvDensityContext`
 - `@malva-ui/core/form-utils` — `MlvSignalCheckboxControlBase`, `MlvDescription`, `MlvMessage`
 - `@malva-ui/styles` — design tokens, `_mixins.scss`, `_density.scss`
+
+## Disabled surface (2026-09, #366)
+
+- The literal `opacity: 0.5` is gone (SF-R4): `--disabled &__track` → `--mlv-background-disabled`, `&__thumb` → `--mlv-text-disabled` with no shadow, `&__label` remaps `--mlv-text-primary` → `--mlv-text-disabled`; host keeps `pointer-events: none`.
+- Thumb on track, before → after: on light 1.98 → 3.76, off light 1.04 → 3.76; dark on 2.69 → 3.44, dark off 4.71 → 3.44 (the one pair that drops, still ≥ 3:1).
+- Spec: `switch-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

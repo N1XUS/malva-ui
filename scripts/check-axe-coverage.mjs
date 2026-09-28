@@ -302,7 +302,19 @@ export const ROLLOUT_PENDING = [
       '`scrollMode="parent"` inside `mlv-popup`',
     ],
   },
-  'core-file-upload',
+  {
+    // #366 swept a disabled `multiple` upload holding two pending file rows
+    // (remove buttons disabled).
+    project: 'core-file-upload',
+    owes: [
+      'the enabled drop zone and file list',
+      'an uploading row (progress bar), a success row and an error row',
+      'cover mode: image preview, floating toolbar and its buttons',
+      'the rejection list (`role="alert"`)',
+      '`compact`, drag-over, and projected `[mlvFileUploadAction]` controls',
+      'a projected `<mlv-label>` inside `mlv-form-field`',
+    ],
+  },
   {
     // #364 swept a labelled `form[mlvForm]` holding two `mlvFieldset`s with a
     // `legend` input, one of them with an explicit `mlvDensity`.

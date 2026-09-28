@@ -392,7 +392,8 @@ The public `effectiveVariant` computed signal resolves the local `variant`, the 
 
 - **Selector:** `mlv-button-close`
 - Renders an inner native `<button type="button">` using `MlvButton`
-- **Inputs:** `variant` (`transparent` by default), `shape` (`circle` by default), and required `ariaLabel`
+- **Inputs:** `variant` (`transparent` by default), `shape` (`circle` by default), required `ariaLabel`, and `disabled` (`BooleanInput`, default `false`; added 2026-09, #568)
+- `disabled` is forwarded to the inner native button, which takes the `mlvButton` disabled contract: declared disabled surface, out of the tab order, not activatable. A pointer click on the inner button never reaches a `(click)` bound on the host, but a click dispatched on the host element itself still does — a handler that must not act while disabled guards itself (`mlv-file-upload-item` does)
 - Attaches the standard `MlvDensityDirective` as a host directive and supports `tight`, `compact`, `comfortable`, `spacious`, and `airy`
 - Forwards the directive's resolved density to the inner button, so dimensions match a regular icon-only `mlvButton` at every density
 - Applies `ariaLabel` to the inner native button; the role-less custom-element host is not an accessible-name target

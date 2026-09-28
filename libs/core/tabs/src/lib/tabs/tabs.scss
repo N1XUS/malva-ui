@@ -219,7 +219,10 @@
         background: var(--mlv-background-neutral-1-hover);
       }
 
-      &.mlv-tab-item--active {
+      // Not on a disabled tab: at (0,4,0) this would beat `tab-item.scss`'s
+      // `--disabled` ink (#366), and a disabled active boxed tab would read
+      // exactly like an enabled one.
+      &.mlv-tab-item--active:not(.mlv-tab-item--disabled) {
         color: var(--mlv-text-primary);
       }
     }

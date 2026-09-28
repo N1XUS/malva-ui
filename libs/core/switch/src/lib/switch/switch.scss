@@ -202,12 +202,28 @@
       );
     }
 
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366;
+    // this was a literal 0.5 against the 0.4 token). The track is painted
+    // directly rather than through `--mlv-switch-track-bg`, which the label's
+    // hover rules redeclare one level down. The thumb keeps its position, so
+    // on/off still reads; the error ring (`__track--error`) is a `box-shadow`
+    // and survives. The label remaps `--mlv-text-primary` because its text
+    // carries an `mlv` class and reads that token directly.
     &--disabled {
-      opacity: 0.5;
       pointer-events: none;
     }
 
+    &--disabled &__track {
+      background-color: var(--mlv-background-disabled);
+    }
+
+    &--disabled &__thumb {
+      background-color: var(--mlv-text-disabled);
+      box-shadow: none;
+    }
+
     &--disabled &__label {
+      --mlv-text-primary: var(--mlv-text-disabled);
       cursor: not-allowed;
     }
 

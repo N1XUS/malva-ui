@@ -1,144 +1,150 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-color-picker-popup;
+  $block: mlv-color-picker-popup;
 
-.#{$block} {
-  @include mixins.base();
-  display: block;
-  width: 100%;
-
-  &__popup-container,
-  &__control {
+  .#{$block} {
+    @include mixins.base();
     display: block;
     width: 100%;
-  }
 
-  &__control {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-  }
-
-  &__input {
-    position: relative;
-    display: block;
-    flex: 1 1 auto;
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    padding: var(--mlv-spacing-1);
-    border: 0;
-    outline: 0;
-    appearance: none;
-    background: transparent;
-    color: var(--mlv-text-primary);
-    font: inherit;
-
-    &::placeholder {
-      color: var(--mlv-text-tertiary);
-    }
-
-    &:read-only {
-      cursor: default;
-    }
-  }
-
-  &__swatch-button {
-    display: inline-grid;
-    flex: 0 0 auto;
-    width: 1.75rem;
-    height: 1.75rem;
-    margin-inline-start: var(--mlv-spacing-1);
-    padding: 0.1875rem;
-    place-items: center;
-    border: 0;
-    border-radius: var(--mlv-radius-s);
-    outline: 0;
-    background: transparent;
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      background-color: var(--mlv-background-neutral-1-hover);
-    }
-
-    &:focus-visible {
-      // Form B is unavailable — the swatch sits inside a clipped grid — so
-      // `box-shadow` carries the ring, via the shared token (SF-R3).
-      box-shadow: var(--mlv-focus-ring);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-    }
-  }
-
-  &__swatch-trigger {
-    padding: var(--mlv-padding-xs);
-  }
-
-  // The checkerboard is fixed transparency iconography. The nested color
-  // layer lets semi-transparent colors (including resolved CSS variables)
-  // blend over it naturally.
-  &__swatch {
-    position: relative;
-    display: block;
-    width: 1.375rem;
-    height: 1.375rem;
-    overflow: hidden;
-    border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
-    border-radius: var(--mlv-radius-xs, var(--mlv-radius-s));
-    background-color: var(--mlv-background-base);
-    background-image:
-      linear-gradient(45deg, #ccc 25%, transparent 25%),
-      linear-gradient(-45deg, #ccc 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #ccc 75%),
-      linear-gradient(-45deg, transparent 75%, #ccc 75%);
-    background-position:
-      0 0,
-      0 0.25rem,
-      0.25rem -0.25rem,
-      -0.25rem 0;
-    background-size: 0.5rem 0.5rem;
-  }
-
-  &__swatch-color {
-    position: absolute;
-    inset: 0;
-  }
-
-  &__panel {
-    width: min(16rem, calc(100vw - 3.5rem));
-    // Same popover inset every other dropdown surface uses
-    // (mlv-dropdown-panel / mlv-menu / mlv-breadcrumb's overflow menu / the
-    // day-picker and time-picker popups), was --mlv-spacing-2 (8px) — one
-    // step heavier than the shared 4px convention.
-    padding: var(--mlv-popover-inset);
-
-    // The connected popup owns the elevated surface. Flatten the standalone
-    // picker's container so the popover has one border, radius, and shadow.
-    .mlv-color-picker {
+    &__popup-container,
+    &__control {
+      display: block;
       width: 100%;
-      padding: 0;
+    }
+
+    &__control {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    &__input {
+      position: relative;
+      display: block;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      height: 100%;
+      padding: var(--mlv-spacing-1);
       border: 0;
-      border-radius: 0;
+      outline: 0;
+      appearance: none;
       background: transparent;
-      box-shadow: none;
+      color: var(--mlv-text-primary);
+      font: inherit;
+
+      &::placeholder {
+        color: var(--mlv-text-tertiary);
+      }
+
+      &:read-only {
+        cursor: default;
+      }
+    }
+
+    &__swatch-button {
+      display: inline-grid;
+      flex: 0 0 auto;
+      width: 1.75rem;
+      height: 1.75rem;
+      margin-inline-start: var(--mlv-spacing-1);
+      padding: 0.1875rem;
+      place-items: center;
+      border: 0;
+      border-radius: var(--mlv-radius-s);
+      outline: 0;
+      background: transparent;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background-color: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:focus-visible {
+        // Form B is unavailable — the swatch sits inside a clipped grid — so
+        // `box-shadow` carries the ring, via the shared token (SF-R3).
+        box-shadow: var(--mlv-focus-ring);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+      }
+    }
+
+    &__swatch-trigger {
+      padding: var(--mlv-padding-xs);
+    }
+
+    // The checkerboard is fixed transparency iconography. The nested color
+    // layer lets semi-transparent colors (including resolved CSS variables)
+    // blend over it naturally.
+    &__swatch {
+      position: relative;
+      display: block;
+      width: 1.375rem;
+      height: 1.375rem;
+      overflow: hidden;
+      border: var(--mlv-stroke-width) solid var(--mlv-border-normal);
+      border-radius: var(--mlv-radius-xs, var(--mlv-radius-s));
+      background-color: var(--mlv-background-base);
+      background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-position:
+        0 0,
+        0 0.25rem,
+        0.25rem -0.25rem,
+        -0.25rem 0;
+      background-size: 0.5rem 0.5rem;
+    }
+
+    &__swatch-color {
+      position: absolute;
+      inset: 0;
+    }
+
+    &__panel {
+      width: min(16rem, calc(100vw - 3.5rem));
+      // Same popover inset every other dropdown surface uses
+      // (mlv-dropdown-panel / mlv-menu / mlv-breadcrumb's overflow menu / the
+      // day-picker and time-picker popups), was --mlv-spacing-2 (8px) — one
+      // step heavier than the shared 4px convention.
+      padding: var(--mlv-popover-inset);
+
+      // The connected popup owns the elevated surface. Flatten the standalone
+      // picker's container so the popover has one border, radius, and shadow.
+      .mlv-color-picker {
+        width: 100%;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+    }
+
+    &__clear {
+      width: 100%;
+      margin-block-start: var(--mlv-spacing-2);
+    }
+
+    &--swatch {
+      display: inline-flex;
+      width: auto;
+    }
+
+    // Disabled (SF-R4, #366): the field is `mlv-form-control-wrapper` and the
+    // swatch-only trigger an `mlvButton`, both of which declare the disabled
+    // surface. Only the swatch — colour data no token can stand in for — keeps
+    // the shared opacity token (allow-listed in
+    // `scripts/check-disabled-surface.mjs`); the whole control used to be
+    // multiplied instead.
+    &--disabled &__swatch {
+      opacity: var(--mlv-disabled-opacity);
     }
   }
-
-  &__clear {
-    width: 100%;
-    margin-block-start: var(--mlv-spacing-2);
-  }
-
-  &--swatch {
-    display: inline-flex;
-    width: auto;
-  }
-
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
-  }
-}
 }
