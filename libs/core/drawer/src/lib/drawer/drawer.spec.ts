@@ -1,7 +1,8 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
-import { OverlayContainer } from '@angular/cdk/overlay';
+import { Overlay, OverlayContainer } from '@angular/cdk/overlay';
+import { ComponentPortal } from '@angular/cdk/portal';
 import { MlvDrawer } from './drawer';
 import { DrawerBodyDirective } from '../drawer-body';
 import { MlvDrawerContent } from '../drawer-content';
@@ -369,5 +370,197 @@ describe('MlvDrawer — animationend target', () => {
 
     expect(attachedPanels()).toHaveLength(0);
     expect(drawerInstance().animationState()).toBe('idle');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Escape on the resize handle (#344)
+//
+// The handle used to answer Escape itself: it emitted `dismissed`, which the
+// template binds to `close()`, before the keystroke ever reached CDK's
+// `OverlayKeyboardDispatcher` (one `keydown` listener on `<body>`, handing the
+// key to the topmost overlay with a `keydownEvents()` observer). So a drawer
+// opened with `closeOnEscape` false — an unsaved form — still closed from the
+// handle, the same Escape then reached the drawer's own subscription and
+// closed it a second time when `closeOnEscape` was on, and an overlay above
+// the drawer that owns Escape (a hover-shown tooltip, #319) could not stop it.
+// Now Escape on the handle is Escape anywhere in the drawer.
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvDrawer, MlvDrawerContent, DrawerBodyDirective],
+  template: `
+    <button class="trigger">Open</button>
+    <mlv-drawer
+      [(opened)]="open"
+      position="bottom"
+      resizable
+      [closeOnEscape]="closeOnEscape()"
+    >
+      <ng-template mlvDrawerContent>
+        <div mlvDrawerBody><button class="inside">Inside</button></div>
+      </ng-template>
+    </mlv-drawer>
+  `,
+})
+class ResizableDrawerHostComponent {
+  readonly open = signal(false);
+  readonly closeOnEscape = signal(true);
+}
+
+/** Content for a bare CDK overlay standing in for a tooltip above the drawer. */
+@Component({ template: '<p>Above</p>' })
+class AboveDrawerContentComponent {}
+
+describe('MlvDrawer — Escape on the resize handle (#344)', () => {
+  let fixture: ComponentFixture<ResizableDrawerHostComponent>;
+  let host: ResizableDrawerHostComponent;
+  let overlayContainer: OverlayContainer;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ResizableDrawerHostComponent],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+
+    overlayContainer = TestBed.inject(OverlayContainer);
+    fixture = TestBed.createComponent(ResizableDrawerHostComponent);
+    host = fixture.componentInstance;
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.nativeElement.remove();
+    overlayContainer.ngOnDestroy();
+  });
+
+  async function flush(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  function trigger(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.trigger') as HTMLButtonElement;
+  }
+
+  /** Drawer panels attached to the live CDK overlay container right now. */
+  function attachedPanels(): NodeListOf<HTMLElement> {
+    return overlayContainer
+      .getContainerElement()
+      .querySelectorAll<HTMLElement>('.mlv-drawer');
+  }
+
+  function drawerInstance(): MlvDrawer {
+    return fixture.debugElement.children.find(
+      (d) => d.componentInstance instanceof MlvDrawer,
+    )?.componentInstance as MlvDrawer;
+  }
+
+  /**
+   * Counts every `close()` call on the drawer — from the template's
+   * `(dismissed)` binding and from the overlay's Escape subscription alike.
+   * A number, so a failure prints no instance.
+   */
+  function countCloses(): { readonly count: number } {
+    const drawer = drawerInstance();
+    const original = drawer.close.bind(drawer);
+    const counter = { count: 0 };
+    drawer.close = () => {
+      counter.count++;
+      original();
+    };
+    return counter;
+  }
+
+  /** Focuses the trigger, opens the drawer and focuses its resize handle. */
+  async function openAndFocusHandle(): Promise<HTMLElement> {
+    trigger().focus();
+    host.open.set(true);
+    await flush();
+    const handle =
+      attachedPanels()[0]?.querySelector<HTMLElement>('[role="separator"]');
+    expect(handle).toBeTruthy();
+    handle?.focus();
+    expect(document.activeElement).toBe(handle);
+    return handle as HTMLElement;
+  }
+
+  /** Dispatches a bubbling, cancelable Escape keydown, the way a key press does. */
+  function pressEscape(target: HTMLElement): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  it('leaves a closeOnEscape=false drawer open', async () => {
+    host.closeOnEscape.set(false);
+    await flush();
+    const handle = await openAndFocusHandle();
+
+    pressEscape(handle);
+    await flush();
+
+    expect(host.open()).toBe(true);
+    expect(drawerInstance().animationState()).not.toBe('leave');
+    expect(attachedPanels()).toHaveLength(1);
+    expect(document.activeElement).toBe(handle);
+  });
+
+  it('closes once per Escape with closeOnEscape on, and restores focus to the trigger', async () => {
+    const handle = await openAndFocusHandle();
+    const closes = countCloses();
+
+    pressEscape(handle);
+    await flush();
+
+    expect(closes.count).toBe(1);
+    expect(host.open()).toBe(false);
+    expect(drawerInstance().animationState()).toBe('leave');
+
+    attachedPanels()[0].dispatchEvent(
+      new Event('animationend', { bubbles: true }),
+    );
+    await flush();
+
+    expect(attachedPanels()).toHaveLength(0);
+    expect(document.activeElement).toBe(trigger());
+  });
+
+  it('lets an overlay above the drawer take the Escape, then closes on the next one', async () => {
+    const handle = await openAndFocusHandle();
+    const closes = countCloses();
+
+    // A tooltip (#319) owns Escape while it is up: its overlay subscribes to
+    // `keydownEvents()`, so the dispatcher hands it the key and stops there.
+    const above = TestBed.inject(Overlay).create();
+    above.attach(new ComponentPortal(AboveDrawerContentComponent));
+    let aboveEscapes = 0;
+    above.keydownEvents().subscribe((event) => {
+      aboveEscapes++;
+      event.preventDefault();
+      event.stopPropagation();
+      above.dispose();
+    });
+
+    pressEscape(handle);
+    await flush();
+
+    expect(aboveEscapes).toBe(1);
+    expect(closes.count).toBe(0);
+    expect(host.open()).toBe(true);
+    expect(attachedPanels()).toHaveLength(1);
+
+    pressEscape(handle);
+    await flush();
+
+    expect(aboveEscapes).toBe(1);
+    expect(closes.count).toBe(1);
+    expect(host.open()).toBe(false);
   });
 });

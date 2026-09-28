@@ -321,6 +321,95 @@ describe('MlvDrawerService', () => {
       finishClose();
     });
 
+    // #344 — the handle answered Escape itself, through the same `dismissed`
+    // path as a swipe, ahead of the overlay's own `closeOnEscape` wiring.
+    describe('Escape on the resize handle (#344)', () => {
+      let opener: HTMLButtonElement;
+
+      beforeEach(() => {
+        opener = document.createElement('button');
+        opener.textContent = 'Open';
+        document.body.appendChild(opener);
+        opener.focus();
+      });
+
+      afterEach(() => opener.remove());
+
+      /** Opens the sheet, lets initial focus settle, then focuses the handle. */
+      async function openAndFocusHandle(config: MlvDrawerConfig): Promise<{
+        ref: ReturnType<MlvDrawerService['open']>;
+        handle: HTMLElement;
+      }> {
+        const ref = service.open(SheetContentComponent, config);
+        await TestBed.inject(ApplicationRef).whenStable();
+        const handle =
+          panel()?.querySelector<HTMLElement>('[role="separator"]');
+        expect(handle).toBeTruthy();
+        handle?.focus();
+        expect(document.activeElement).toBe(handle);
+        return { ref, handle: handle as HTMLElement };
+      }
+
+      /** Counts every `close()` on `ref`, from the handle and the Escape wiring alike. */
+      function countCloses(ref: ReturnType<MlvDrawerService['open']>): {
+        readonly count: number;
+      } {
+        const original = ref.close.bind(ref);
+        const counter = { count: 0 };
+        ref.close = (result?: unknown) => {
+          counter.count++;
+          original(result);
+        };
+        return counter;
+      }
+
+      function pressEscape(target: HTMLElement): void {
+        target.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Escape',
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+
+      it('leaves a closeOnEscape: false drawer open', async () => {
+        const { ref, handle } = await openAndFocusHandle({
+          ...SHEET,
+          closeOnEscape: false,
+        });
+        let closing = false;
+        ref.beforeClose().subscribe(() => (closing = true));
+
+        pressEscape(handle);
+
+        expect(closing).toBe(false);
+        expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(false);
+        expect(document.activeElement).toBe(handle);
+
+        ref.close();
+        finishClose();
+      });
+
+      it('closes once through the ref and restores focus to the opener', async () => {
+        const { ref, handle } = await openAndFocusHandle(SHEET);
+        const closes = countCloses(ref);
+        let closed = 0;
+        ref.afterClosed().subscribe(() => closed++);
+
+        pressEscape(handle);
+
+        expect(closes.count).toBe(1);
+        expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(true);
+
+        finishClose();
+
+        expect(closed).toBe(1);
+        expect(panel()).toBeNull();
+        expect(document.activeElement).toBe(opener);
+      });
+    });
+
     it('keeps the header one content host below the panel, where the merged band reaches it', async () => {
       const ref = service.open(SheetContentComponent, SHEET);
       await TestBed.inject(ApplicationRef).whenStable();

@@ -12,6 +12,11 @@ import { MlvOverlayServiceBase } from '@malva-ui/cdk/overlay';
 import { MlvDrawerRef } from './drawer-ref';
 import { MlvDrawerPanel } from './drawer/drawer-panel';
 
+/**
+ * The viewport edge a drawer is pinned to. A **physical edge**, not a logical
+ * alias: `'left'` / `'right'` stay on that side of the screen in RTL too, and
+ * the resize handle's arrow keys move it the way they point on screen.
+ */
 export type MlvDrawerPosition = 'left' | 'right' | 'top' | 'bottom';
 
 /**

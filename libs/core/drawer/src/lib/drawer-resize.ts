@@ -3,6 +3,7 @@ import {
   DestroyRef,
   ElementRef,
   NgZone,
+  computed,
   input,
   output,
   inject,
@@ -22,13 +23,7 @@ import {
 } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
-import {
-  DOWN_ARROW,
-  LEFT_ARROW,
-  RIGHT_ARROW,
-  UP_ARROW,
-} from '@angular/cdk/keycodes';
-import { MlvRtlService, mlvPointerGestureEnd } from '@malva-ui/cdk/utils';
+import { mlvPointerGestureEnd } from '@malva-ui/cdk/utils';
 import type { MlvDrawerPosition } from './drawer.service';
 
 /** Velocity threshold (px/s) for swipe-to-dismiss. */
@@ -36,6 +31,27 @@ const DISMISS_VELOCITY_THRESHOLD = 500;
 
 /** Step size as a fraction of viewport size for keyboard resize. */
 const KEYBOARD_STEP_FRACTION = 0.1;
+
+/**
+ * Arrow keys that move each handle, and which way: `1` grows the panel,
+ * `-1` shrinks it. Spatial — the handle moves the way the arrow points, the
+ * APG window-splitter model — so only the two arrows on the drag axis act;
+ * the cross-axis pair falls through untouched (no resize, not prevented).
+ *
+ * physical: `MlvDrawerPosition` names a viewport edge, not a logical side —
+ * `GlobalPositionStrategy` pins a `'right'` drawer to the right edge in RTL
+ * too, and the pointer drag reads physical `clientX` against the same edge —
+ * so the keys follow the edge and never mirror. Keyed by `event.key`, not by
+ * `MlvRtlService.normalizeArrowKey`, for that reason (#344).
+ */
+const SPATIAL_RESIZE_STEPS: Readonly<
+  Record<MlvDrawerPosition, Readonly<Record<string, 1 | -1>>>
+> = {
+  left: { ArrowRight: 1, ArrowLeft: -1 },
+  right: { ArrowLeft: 1, ArrowRight: -1 },
+  top: { ArrowDown: 1, ArrowUp: -1 },
+  bottom: { ArrowUp: 1, ArrowDown: -1 },
+};
 
 /**
  * Upper bound (ms) on the wait for the snap `transitionend`.
@@ -62,35 +78,23 @@ const SNAP_TRANSITION_FALLBACK_MS = 1000;
     '[attr.aria-valuenow]': '_currentPercent()',
     '[attr.aria-valuemin]': '0',
     '[attr.aria-valuemax]': '100',
+    '[attr.aria-orientation]': '_orientation()',
     '(keydown)': '_onKeydown($event)',
   },
 })
 export class MlvDrawerResize {
-  /**
-   * @private Host element ref — the drawer resize handle. Also the scope the
-   * horizontal resize arrows resolve their direction against: a drawer renders
-   * inside a CDK overlay pane, which carries its own `dir`.
-   */
+  /** @private Host element ref — the drawer resize handle. */
   private readonly _el = inject(ElementRef<HTMLElement>);
   /** @private DestroyRef used for observable and listener cleanup. */
   private readonly _destroyRef = inject(DestroyRef);
   /** @private NgZone used to re-enter Angular after out-of-zone pointer handling. */
   private readonly _zone = inject(NgZone);
-  /** @private Normalizes horizontal resize arrows for RTL layouts. */
-  private readonly _rtlService = inject(MlvRtlService);
   /**
    * @private The document the drawer renders into; its window supplies the
    * viewport size the drag and the keyboard steps are measured against. The
    * injected token, never the ambient `window` global.
    */
   private readonly _document = inject(DOCUMENT);
-
-  /**
-   * @private Direction applying to this handle, resolved once and cached
-   * behind the shared `dir` observer rather than re-walked on every arrow
-   * keypress.
-   */
-  private readonly _direction = this._rtlService.elementDirection(this._el);
 
   /**
    * Drawer edge position — determines drag axis and dismiss direction.
@@ -116,6 +120,17 @@ export class MlvDrawerResize {
    * so a plain field left the attribute stale until something else ticked.
    */
   protected readonly _currentPercent = signal(100);
+
+  /**
+   * @protected `aria-orientation` of the separator: the orientation of the
+   * handle's own line, per ARIA. A side drawer's handle is a vertical line
+   * moved left / right; a sheet's is a horizontal line moved up / down — which
+   * is also the axis its arrow keys act on.
+   */
+  protected readonly _orientation = computed(() => {
+    const pos = this.position();
+    return pos === 'left' || pos === 'right' ? 'vertical' : 'horizontal';
+  });
 
   /** @private Last pointer position (px) sampled for velocity tracking. */
   private _lastPos = 0;
@@ -373,14 +388,32 @@ export class MlvDrawerResize {
   /**
    * @protected Handles keyboard interaction on the resize handle.
    *
-   * Arrow Up / Right — increase by 10% of viewport
-   * Arrow Down / Left — decrease by 10% (or dismiss if size would reach zero)
+   * Arrow on the drag axis — moves the handle the way it points, 10% of the
+   * viewport per press: toward the drawer's content grows it, toward its edge
+   * shrinks it (dismissing when the size would reach zero). See
+   * `SPATIAL_RESIZE_STEPS`; cross-axis arrows are ignored.
    * Home — snap to smallest snap point (or dismiss if zero)
    * End — snap to largest snap point (or full viewport)
-   * Escape — dismiss
+   *
+   * Escape is deliberately not handled here: it reaches CDK's
+   * `OverlayKeyboardDispatcher` like Escape anywhere else in the drawer, so
+   * `closeOnEscape` decides, an overlay above the drawer (a visible tooltip)
+   * takes it first, and one press closes the drawer once (#344).
    */
   protected _onKeydown(event: KeyboardEvent): void {
     const pos = this.position();
+
+    // Own-key lookup (`Object.hasOwn` is ES2022, past the `es2020` lib): a
+    // plain index would hand back an `Object.prototype` member for a key
+    // named after one.
+    const steps = SPATIAL_RESIZE_STEPS[pos];
+    const step = Object.prototype.hasOwnProperty.call(steps, event.key)
+      ? steps[event.key]
+      : null;
+    // Resolve the key before touching layout, so Tab, a modifier or an
+    // Escape passing through forces no `getBoundingClientRect()`.
+    if (step === null && event.key !== 'Home' && event.key !== 'End') return;
+
     const isVertical = pos === 'bottom' || pos === 'top';
     const panel = this._getPanelElement();
     if (!panel) return;
@@ -393,45 +426,27 @@ export class MlvDrawerResize {
     const snapPoints = this.snapPoints();
     let newSize: number | null = null;
 
-    switch (
-      this._rtlService.normalizeArrowKey(event, this._direction()) ??
-      event.key
-    ) {
-      case UP_ARROW:
-      case RIGHT_ARROW:
-        newSize = currentSizePx + stepPx;
-        break;
-      case DOWN_ARROW:
-      case LEFT_ARROW:
-        newSize = currentSizePx - stepPx;
+    if (step !== null) {
+      newSize = currentSizePx + step * stepPx;
+      if (newSize <= 0) {
+        event.preventDefault();
+        this.dismissed.emit();
+        return;
+      }
+    } else if (event.key === 'Home') {
+      if (snapPoints.length > 0) {
+        newSize = (viewportSize * snapPoints[0]) / 100;
         if (newSize <= 0) {
           event.preventDefault();
           this.dismissed.emit();
           return;
         }
-        break;
-      case 'Home':
-        if (snapPoints.length > 0) {
-          newSize = (viewportSize * snapPoints[0]) / 100;
-          if (newSize <= 0) {
-            event.preventDefault();
-            this.dismissed.emit();
-            return;
-          }
-        }
-        break;
-      case 'End':
-        newSize =
-          snapPoints.length > 0
-            ? (viewportSize * snapPoints[snapPoints.length - 1]) / 100
-            : viewportSize;
-        break;
-      case 'Escape':
-        event.preventDefault();
-        this.dismissed.emit();
-        return;
-      default:
-        return;
+      }
+    } else if (event.key === 'End') {
+      newSize =
+        snapPoints.length > 0
+          ? (viewportSize * snapPoints[snapPoints.length - 1]) / 100
+          : viewportSize;
     }
 
     if (newSize !== null) {
