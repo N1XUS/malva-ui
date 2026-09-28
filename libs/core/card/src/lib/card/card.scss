@@ -1,153 +1,158 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-card;
+  $block: mlv-card;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  --mlv-card-padding: var(--mlv-spacing-5);
-  --mlv-card-radius: var(--mlv-radius-card);
-  // Consumed only by `bodyLayout="stack"`, so it costs nothing on a plain card.
-  --mlv-card-body-gap: var(--mlv-spacing-3);
-
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--mlv-elevation-bg-2);
-  color: var(--mlv-text-primary);
-  box-shadow: var(--mlv-shadow-raised);
-  border: 0.0625rem solid var(--mlv-border-subtle);
-  overflow: hidden;
-  transition-property: box-shadow, background-color, transform;
-  transition-duration: var(--mlv-duration-fast);
-  transition-timing-function: var(--mlv-ease-default);
-  padding: var(--mlv-card-padding);
-  border-radius: var(--mlv-card-radius);
-
-  &--size-s {
-    --mlv-card-padding: var(--mlv-spacing-3);
-    --mlv-card-body-gap: var(--mlv-spacing-2);
-
-    .#{$block}__header {
-      font-size: var(--mlv-font-size-xl);
-    }
-
-    .#{$block}__subheader {
-      font-size: var(--mlv-font-size-s);
-    }
-  }
-
-  &--size-m {
     --mlv-card-padding: var(--mlv-spacing-5);
+    --mlv-card-radius: var(--mlv-radius-card);
+    // Consumed only by `bodyLayout="stack"`, so it costs nothing on a plain card.
     --mlv-card-body-gap: var(--mlv-spacing-3);
-  }
 
-  &--size-l {
-    --mlv-card-padding: var(--mlv-spacing-8);
-    --mlv-card-body-gap: var(--mlv-spacing-4);
-
-    .#{$block}__header {
-      font-size: var(--mlv-font-size-4xl);
-    }
-
-    .#{$block}__subheader {
-      font-size: var(--mlv-font-size-xl);
-    }
-  }
-
-  > * {
     position: relative;
-    z-index: 1;
-  }
-
-  // Elevation
-  &--elevated {
-    box-shadow: var(--mlv-shadow-floating);
-
-    &:hover {
-      background-color: var(--mlv-elevation-bg-3);
-      box-shadow: var(--mlv-shadow-overlay);
-      transform: translateY(-0.125rem);
-    }
-  }
-
-  // Background image
-  &--has-bg-image {
-    background-image: var(--mlv-card-bg-image);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-
-  // Header row: heading + action icons
-  &__header-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 0;
-
-    ~ .#{$block}__subheader {
-      padding-top: var(--mlv-spacing-2);
-    }
-  }
-
-  &__header {
-    font-size: var(--mlv-font-size-3xl);
-    flex: 1 1 auto;
-    min-width: 0;
+    flex-direction: column;
+    background-color: var(--mlv-elevation-bg-2);
+    color: var(--mlv-text-primary);
+    box-shadow: var(--mlv-shadow-raised);
+    border: 0.0625rem solid var(--mlv-border-subtle);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+    transition-property: box-shadow, background-color, transform;
+    transition-duration: var(--mlv-duration-fast);
+    transition-timing-function: var(--mlv-ease-default);
+    padding: var(--mlv-card-padding);
+    border-radius: var(--mlv-card-radius);
 
-  // Subheading
-  &__subheader {
-    font-size: var(--mlv-font-size-l);
-    color: var(--mlv-text-secondary);
-    line-height: 1.5;
-  }
+    &--size-s {
+      --mlv-card-padding: var(--mlv-spacing-3);
+      --mlv-card-body-gap: var(--mlv-spacing-2);
 
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    flex-shrink: 0;
-  }
+      .#{$block}__header {
+        font-size: var(--mlv-font-size-xl);
+      }
 
-  // Body / content
-  &__body {
-    flex: 1 1 auto;
-    min-height: 0;
+      .#{$block}__subheader {
+        font-size: var(--mlv-font-size-s);
+      }
+    }
 
-    // Opt-in vertical rhythm for multi-child bodies, which otherwise had to be
-    // wrapped in a consumer-owned grid just to get a gap. Gated behind
-    // `bodyLayout="stack"` so a plain card's body stays an untouched block.
-    &--stack {
+    &--size-m {
+      --mlv-card-padding: var(--mlv-spacing-5);
+      --mlv-card-body-gap: var(--mlv-spacing-3);
+    }
+
+    &--size-l {
+      --mlv-card-padding: var(--mlv-spacing-8);
+      --mlv-card-body-gap: var(--mlv-spacing-4);
+
+      .#{$block}__header {
+        font-size: var(--mlv-font-size-4xl);
+      }
+
+      .#{$block}__subheader {
+        font-size: var(--mlv-font-size-xl);
+      }
+    }
+
+    > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    // Elevation
+    &--elevated {
+      box-shadow: var(--mlv-shadow-floating);
+
+      &:hover {
+        background-color: var(--mlv-elevation-bg-3);
+        box-shadow: var(--mlv-shadow-overlay);
+        transform: translateY(-0.125rem);
+      }
+    }
+
+    // Background image
+    &--has-bg-image {
+      background-image: var(--mlv-card-bg-image);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    // Header row: heading + action icons
+    &__header-row {
       display: flex;
-      flex-direction: column;
-      gap: var(--mlv-card-body-gap);
+      align-items: center;
+      justify-content: space-between;
+      min-height: 0;
+
+      ~ .#{$block}__subheader {
+        padding-top: var(--mlv-spacing-2);
+      }
+    }
+
+    &__header {
+      font-size: var(--mlv-font-size-3xl);
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // Subheading
+    &__subheader {
+      font-size: var(--mlv-font-size-l);
+      color: var(--mlv-text-secondary);
+      line-height: 1.5;
+    }
+
+    &__actions {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    // Body / content
+    &__body {
+      flex: 1 1 auto;
+      min-height: 0;
+
+      // Opt-in vertical rhythm for multi-child bodies, which otherwise had to be
+      // wrapped in a consumer-owned grid just to get a gap. Gated behind
+      // `bodyLayout="stack"` so a plain card's body stays an untouched block.
+      &--stack {
+        display: flex;
+        flex-direction: column;
+        gap: var(--mlv-card-body-gap);
+      }
+    }
+
+    // Footer
+    &__footer {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      padding-top: var(--mlv-card-padding);
+      margin-top: auto;
+
+      // `[mlvCardFooter] withBorder`. The directive has always emitted `--border`;
+      // this rule used to target a `--with-border` class nothing emitted (#369).
+      // `--mlv-border-normal`, the in-surface divider token dialog and drawer use
+      // on the same fill: `--mlv-border-subtle` is the card fill itself in dark.
+      &--border {
+        border-block-start: var(--mlv-stroke-width) solid
+          var(--mlv-border-normal);
+      }
+
+      &--full-width > * {
+        flex: 1;
+      }
     }
   }
 
-  // Footer
-  &__footer {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-    padding-top: var(--mlv-card-padding);
-    margin-top: auto;
-
-    &--with-border {
-      border-top: 0.0625rem solid var(--mlv-border-subtle);
-    }
-
-    &--full-width > * {
-      flex: 1;
-    }
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }
