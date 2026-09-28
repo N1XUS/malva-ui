@@ -58,48 +58,25 @@ The leaf libraries under `libs/<leaf-name>` remain the granular Nx implementatio
 
 Exported from `libs/core/src/index.ts`:
 
-- All exports from `@malva-ui/core/accordion`
-- All exports from `@malva-ui/core/action-bar`
-- All exports from `@malva-ui/core/avatar`
-- All exports from `@malva-ui/core/badge`
-- All exports from `@malva-ui/core/button`
-- All exports from `@malva-ui/core/calendar`
-- All exports from `@malva-ui/core/card`
-- All exports from `@malva-ui/core/chat`
-- All exports from `@malva-ui/core/checkbox`
-- All exports from `@malva-ui/core/chip`
-- All exports from `@malva-ui/core/combobox`
-- All exports from `@malva-ui/core/copy-to-clipboard`
-- All exports from `@malva-ui/core/data-table`
-- All exports from `@malva-ui/core/day-picker`
-- All exports from `@malva-ui/core/dialog`
-- All exports from `@malva-ui/core/drawer`
-- All exports from `@malva-ui/core/dropdown`
-- All exports from `@malva-ui/core/filter`
-- All exports from `@malva-ui/core/expand`
-- All exports from `@malva-ui/core/form-utils`
-- All exports from `@malva-ui/core/input`
-- All exports from `@malva-ui/core/link`
-- All exports from `@malva-ui/core/list`
-- All exports from `@malva-ui/core/loader`
-- All exports from `@malva-ui/core/notification`
-- All exports from `@malva-ui/core/pagination`
-- All exports from `@malva-ui/core/popup`
-- All exports from `@malva-ui/core/radio`
-- All exports from `@malva-ui/core/search-field`
-- All exports from `@malva-ui/core/select`
-- All exports from `@malva-ui/core/sidebar`
-- All exports from `@malva-ui/core/slider`
-- All exports from `@malva-ui/core/status-indicator`
-- All exports from `@malva-ui/core/switch`
-- All exports from `@malva-ui/core/swipe-actions`
-- All exports from `@malva-ui/core/tabs`
-- All exports from `@malva-ui/core/tile`
-- All exports from `@malva-ui/core/title`
-- All exports from `@malva-ui/core/toast`
-- All exports from `@malva-ui/core/tokenizer`
-- All exports from `@malva-ui/core/toolbar`
-- All exports from `@malva-ui/core/view-variant`
+- All exports from **every** published secondary entry point — each direct
+  child `libs/core/<entry>/` carrying an `ng-package.json`
+  (`@malva-ui/core/accordion` … `@malva-ui/core/view-variant`). Nested entry
+  points such as `@malva-ui/core/form-utils/testing` stay out of the root.
+  Pinned by `src/root-barrels.spec.ts` (§ _entry-point coverage_): a new
+  entry point missing from the barrel fails `core:test` whenever `core:test`
+  runs. `nx affected` does not select `core` for a PR that only adds a leaf
+  project, so that omission surfaces on the post-merge `run-many` (moving the
+  sweep into the root guard is a filed follow-up).
+- All exports from `@malva-ui/cdk/theme` — the one CDK entry point the core
+  root re-exports directly (`@malva-ui/core/data-table` carries
+  `@malva-ui/cdk/data-source` on its own): `MlvThemeService`, `provideDefaultTheme`, `MLV_THEME`,
+  `MLV_THEME_KEY`, `MlvTheme`, `MlvThemeMode`, `isMlvThemeMode`,
+  `defaultTheme`, `defaultThemeKey`, the same objects as the subpath. They
+  reached the root through `@malva-ui/core/layout` until that shim was deleted,
+  and `docs/migrations/2026-09-layout-removal.md` promises root-barrel imports
+  keep resolving; the line went missing with the shim and shipped that way in
+  `0.2.0` (#372). Pinned by the same spec by identity. Library sources and
+  docs examples still import `@malva-ui/cdk/theme`.
 
 Each secondary entry point in `libs/core/<entry>/src/index.ts` re-exports exactly one corresponding leaf package.
 

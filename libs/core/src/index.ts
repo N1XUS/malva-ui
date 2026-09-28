@@ -75,3 +75,9 @@ export * from '@malva-ui/core/rating';
 export * from '@malva-ui/core/time-picker';
 export * from '@malva-ui/core/tree';
 export * from '@malva-ui/core/view-variant';
+
+// The one CDK entry point this barrel re-exports directly. The theme contract
+// reached `@malva-ui/core` through `@malva-ui/core/layout` until that shim was
+// deleted, and docs/migrations/2026-09-layout-removal.md promises root-barrel
+// imports keep resolving (#372). Pinned by `root-barrels.spec.ts`.
+export * from '@malva-ui/cdk/theme';
