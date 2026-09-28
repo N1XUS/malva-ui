@@ -50,7 +50,7 @@ Exported from `libs/core/items-more/src/index.ts`:
 | `MLV_ITEMS_MORE`             | Injection token      | —                          | Nearest row, as `MlvItemsMoreAccessor`.                                                                  |
 | `MlvItemsMoreAccessor`       | Interface            | —                          | What a trigger needs: `hiddenItems`, `panelOpened`, `panelId`, `openPanel`, `closePanel`, `togglePanel`. |
 
-Internal, not exported: `MlvItemsMoreService` (registry + split), `MlvItemsMoreSlot` (per-rendered-item measuring hook), `computeHiddenFlags` / `overflow-fit.ts` (pure fit arithmetic).
+Internal, not exported: `MlvItemsMoreService` (registry + split), `MlvItemsMoreSlot` (per-rendered-item measuring hook). The pure fit arithmetic (`mlvComputeHiddenFlags`, `MLV_FIT_EPSILON_PX`, `mlvCssPx`, `mlvInlineContentSize`) and the oscillation guard (`mlvOverflowRevealGuard()`) moved to `@malva-ui/cdk/utils` with #358 as `@internal` exports, shared with `mlv-tab-group`; behaviour unchanged.
 
 ## `MlvItemsMore` — `mlv-items-more`
 
@@ -126,16 +126,16 @@ External trigger shape:
 
 ## Split algorithm
 
-`computeHiddenFlags({ candidates, available, gap, triggerWidth })` — pure, `overflow-fit.ts`. `MLV_FIT_EPSILON_PX = 0.5`, always on the **keeping** side.
+`mlvComputeHiddenFlags({ candidates, available, gap, triggerWidth })` — pure, `libs/cdk/utils/src/lib/overflow/overflow-fit.ts` (`@internal` export of `@malva-ui/cdk/utils`, also used by `mlv-tab-group` since #358). `MLV_FIT_EPSILON_PX = 0.5`, always on the **keeping** side.
 
 1. All fit (`laidOut(sum, count, gap) <= available + EPS`, trigger **excluded**) → nothing hidden.
 2. Budget = `available − (triggerWidth > 0 ? triggerWidth + gap : 0) + EPS`.
 3. Reserve every pinned (non-collapsible) width first.
 4. Walk collapsibles in order; first one that does not fit and **every later collapsible** is hidden. Hidden set is always a suffix of the collapsibles.
 
-`available` = row `getBoundingClientRect().width` − inline padding − inline border (`getComputedStyle`); `gap` = `columnGap`. External trigger (no def) reserves `0`.
+`available` = `mlvInlineContentSize(row getBoundingClientRect().width, getComputedStyle(row))` — border box − inline padding − inline border; `gap` = `mlvCssPx(columnGap)`. External trigger (no def) reserves `0`.
 
-Contract unchanged by #357 (#358 ports tabs onto it): `_computeSplit()` filters zero-width items **before** building `candidates`, maps the flags back through its own `measured` list. `computeHiddenFlags([])` → `[]`.
+Contract unchanged by #357 and by the move (#358 ports tabs onto it): `_computeSplit()` filters zero-width items **before** building `candidates`, maps the flags back through its own `measured` list. `mlvComputeHiddenFlags([])` → `[]`.
 
 ### Zero-width items (#357)
 
@@ -158,15 +158,15 @@ Item whose visible template renders nothing — `@if` permission gate false, unl
 
 ## Guarantees
 
-| Guarantee                   | Mechanism                                                                                                                                                                                                                                                                                                                                                                                |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No false-positive hide      | Exact arithmetic over measured widths; `_computeSplit()` returns `null` (commit nothing, render everything) when: no row, row 0×0, any item unmeasured (a box-less slot is not measured; an empty laid-out one is, as `0` — see _Zero-width items_), trigger def present but its width unmeasured. Probe supplies the trigger width before the first hide — no guessed "100px for More". |
-| No hysteresis band          | A band = widths where a fitting item stays hidden = the defect. Oscillation handled by the guard below instead.                                                                                                                                                                                                                                                                          |
-| Oscillation guard           | Reveal records `{at, available, hiddenCount}`. Hide within `_OSCILLATION_WINDOW_MS` (100) of it → `_revealGuard {available, hiddenCount}`. While set, reveals to `≤ hiddenCount` refused until `available > guard.available + EPS`. Engages only after a reveal provably undid itself (e.g. page scrollbar feedback).                                                                    |
-| Frame-ok resize             | Hides commit immediately in the RO callback. Reveals trailing-debounced `_REVEAL_DEBOUNCE_MS` (64), recapture + recompute when the timer fires; a hide cancels a pending reveal. `__row` is `overflow: hidden`, so a late hide clips for ≤1 frame instead of spilling into neighbours. No synchronous `detectChanges` in the RO callback (RO loop-error risk).                           |
-| Structure change same frame | `afterRenderEffect({ read })` tracks slots, trigger, probe, trigger def and every `collapsible()`; commits within the same `ApplicationRef.tick()`, before paint.                                                                                                                                                                                                                        |
-| Cheap                       | Widths cached per item; box-less or unchanged reads skipped (zero from a laid-out slot is cached); entries pruned on unregister. RO targets (row, slots, in-row trigger, probe) diffed, not re-observed. Service `commit()` no-ops on an equivalent set (identity kept).                                                                                                                 |
-| SSR-safe                    | Observer built in `afterRenderEffect` via `MlvResizeObserverFactory`; nothing measures on the server. Covered by `libs/core/src/ssr-smoke.spec.ts` (navigation host).                                                                                                                                                                                                                    |
+| Guarantee                   | Mechanism                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No false-positive hide      | Exact arithmetic over measured widths; `_computeSplit()` returns `null` (commit nothing, render everything) when: no row, row 0×0, any item unmeasured (a box-less slot is not measured; an empty laid-out one is, as `0` — see _Zero-width items_), trigger def present but its width unmeasured. Probe supplies the trigger width before the first hide — no guessed "100px for More".                                           |
+| No hysteresis band          | A band = widths where a fitting item stays hidden = the defect. Oscillation handled by the guard below instead.                                                                                                                                                                                                                                                                                                                    |
+| Oscillation guard           | `_revealGuard` = `mlvOverflowRevealGuard(…)` (`@malva-ui/cdk/utils`, `@internal`, shared with `mlv-tab-group`). Reveal records `{at, available, hiddenCount}`. Hide within `_OSCILLATION_WINDOW_MS` (100) of it → refusal `{available, hiddenCount}`. While set, reveals to `≤ hiddenCount` refused until `available > refusal.available + EPS`. Engages only after a reveal provably undid itself (e.g. page scrollbar feedback). |
+| Frame-ok resize             | Hides commit immediately in the RO callback. Reveals trailing-debounced `_REVEAL_DEBOUNCE_MS` (64), recapture + recompute when the timer fires; a hide cancels a pending reveal. `__row` is `overflow: hidden`, so a late hide clips for ≤1 frame instead of spilling into neighbours. No synchronous `detectChanges` in the RO callback (RO loop-error risk).                                                                     |
+| Structure change same frame | `afterRenderEffect({ read })` tracks slots, trigger, probe, trigger def and every `collapsible()`; commits within the same `ApplicationRef.tick()`, before paint.                                                                                                                                                                                                                                                                  |
+| Cheap                       | Widths cached per item; box-less or unchanged reads skipped (zero from a laid-out slot is cached); entries pruned on unregister. RO targets (row, slots, in-row trigger, probe) diffed, not re-observed. Service `commit()` no-ops on an equivalent set (identity kept).                                                                                                                                                           |
+| SSR-safe                    | Observer built in `afterRenderEffect` via `MlvResizeObserverFactory`; nothing measures on the server. Covered by `libs/core/src/ssr-smoke.spec.ts` (navigation host).                                                                                                                                                                                                                                                              |
 
 ## Focus
 
@@ -217,9 +217,8 @@ Gap feeds the arithmetic through computed `columnGap`, so overriding it is safe.
 
 ## Testing
 
-`yarn nx test core-items-more` — 75 specs.
+`yarn nx test core-items-more` — 62 specs. The fit arithmetic and the guard are tested where they live now, in `cdk-utils`: `libs/cdk/utils/src/lib/overflow/overflow-fit.spec.ts` (22 — the 13 ported with only the function renamed: epsilon, exact 256/255 boundary, trigger reserve, pinned reserve, suffix-only, purity; plus floating-point absorption, the boxed 5 × 100 tab track and the two CSS readers) and `overflow-reveal-guard.spec.ts` (7).
 
-- `overflow-fit.spec.ts` (13) — pure arithmetic: epsilon, exact 256/255 boundary, trigger reserve, pinned reserve, suffix-only, purity.
 - `items-more.service.spec.ts` (6) — DOM-order registry, detached append, partition order, equivalent-commit identity, unregister.
 - `items-more-trigger.spec.ts` (4) — no-owner ARIA, bound input, DI fallback, axe.
 - `items-more/items-more.spec.ts` (52) — stubbed `getBoundingClientRect` (row `rowWidth()`, others nearest `[data-w]`) and `getClientRects` (`[]` at or under `[data-no-box]`, or on a slot whose child carries it — the latter a modelling shortcut: in real engines a slot whose only child is `display: none` has 1 rect, 0 wide), `columnGap: 8px`, synchronous `FakeResizeObserver` with `notify()`; fit, measurement gating, resize timing, oscillation guard, focus across a split (10: resize / existing trigger / structure change → trigger, no-trigger before-wins, no-trigger after fallback, kept item, outside focus, focus moved before the render, reveal removing the focused trigger, fallback walking back past an empty last slot), panel/ARIA, focus return, anchor registration, external trigger, observer lifecycle, three axe sweeps (all-fit, withheld, open panel on `document.body`). Zero-width items (#357, 9, compiled `items-more.scss` injected): split past an empty item, split on resize, no phantom panel entry, empty item trailing / between / leading costs no gap, `--empty` computed out of flow, content arriving rejoins the split, content leaving frees room; plus a box-less subtree keeps its widths (measurement).

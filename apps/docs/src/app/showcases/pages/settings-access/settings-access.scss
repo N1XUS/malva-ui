@@ -143,9 +143,9 @@ $severities: (
   &__tabs {
     min-inline-size: 0;
 
-    // Belt and braces: the group's overflow measurement compares the track
-    // against `headerEl.clientWidth`, so the header must be allowed to be
-    // narrower than its tabs. It lives in the group's own template.
+    // Belt and braces: the group's overflow measurement fits the tabs into the
+    // group's own content box, so the header must be allowed to be narrower
+    // than its tabs. It lives in the group's own template.
     ::ng-deep .mlv-tab-group__header {
       min-inline-size: 0;
     }

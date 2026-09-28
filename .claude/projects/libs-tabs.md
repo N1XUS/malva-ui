@@ -7,7 +7,7 @@ The overflow trigger explicitly uses `type="button"` to remain form-safe.
 
 ## Overview
 
-`@malva-ui/core/tabs` provides a full-featured, accessible tab group component for the Malva UI design system. It supports horizontal and vertical orientations, animated content transitions, overflow handling (tabs that don't fit in the header move to a popup "More" menu), keyboard navigation, and two-way binding for the active tab.
+`@malva-ui/core/tabs` provides a full-featured, accessible tab group component for the Malva UI design system. It supports horizontal and vertical orientations, animated content transitions, overflow handling (tabs that don't fit in the header — its padding and gaps included — move to a popup "More" menu, and come back as soon as they fit), keyboard navigation, and two-way binding for the active tab.
 
 The library is built entirely with Angular signals, uses `ChangeDetectionStrategy.OnPush`, and is compliant with ARIA tab panel patterns (`role="tablist"`, `role="tab"`, `role="tabpanel"`).
 
@@ -221,16 +221,16 @@ Key classes:
 - `.mlv-tab-group__body` — `flex:1; min-width:0; min-height:0`.
 
 **`min-width: 0` on the block and header is load-bearing, not tidiness.** The
-overflow split is computed from `headerEl.clientWidth`, so it only engages when
-the group can actually be narrower than its tab row. A flex or grid item
+overflow split is computed from the group's own content box, so it only engages
+when the group can actually be narrower than its tab row. A flex or grid item
 defaults to `min-width: auto`, whose content-based minimum here is the full
 width of the tab row — `overflow: hidden` on the header suppresses the
 _automatic minimum size_ of a flex item, not the min-content contribution the
 parent track sizes against. Without it, a tab group placed in a grid or flex
-child refuses to shrink, `clientWidth` never drops, "More (N)" never appears,
-and the header silently clips its trailing tabs. `tabs.spec.ts` guards both
-declarations (the stylesheet is asserted directly — component styles are not
-injected under jsdom, so `getComputedStyle` cannot see them).
+child refuses to shrink, the room the split measures never drops, "More (N)"
+never appears, and the header silently clips its trailing tabs. `tabs.spec.ts`
+guards both declarations (the stylesheet is asserted directly — component styles
+are not injected under jsdom, so `getComputedStyle` cannot see them).
 
 CSS variables used:
 
@@ -300,86 +300,203 @@ a panel with no matching `ngTab` as visible.)
 
 #### Overflow / resize behaviour
 
-`MlvTabGroup` observes **every box the split reads** — the header (the width
-available) plus each rendered `mlv-tab-item` and the "More (N)" trigger (the
-width consumed). The target set is kept current by a tracked
-`afterRenderEffect()` on `tabItems()` / `_moreTriggerRef()` / `tabListRef()`, so
-a tab that renders later is still observed. The observer itself comes from
-`MlvResizeObserverFactory` (`@malva-ui/cdk/utils`), not the raw global: its
-`create()` answers `null` where the constructor is absent, so server rendering
-is the seam's own documented case, and a spec can hand the component a double
-without patching `globalThis`. `afterRenderEffect` rather than `effect` because
-the body constructs an observer and that primitive structurally cannot run on
-the server.
+The split is **exact** (#358, #269): a tab is withheld when, and only when, it
+does not fit beside the "More (N)" trigger at the width the group has now, and
+it comes back as soon as it fits again. Measured in Chromium on docs tabs
+example 3 with five 100 px boxed tabs: before, a 505–513 px group clipped up to
+9 px of its fifth tab with no "More", and a group narrowed to 450 px never got
+its tabs back however wide it grew; after, the fifth tab moves to "More (1)" at
+513 px and returns at 514 px, in both directions.
 
-Observations are added and removed incrementally (`_syncResizeTargets`,
-`_observedTargets`) rather than by `disconnect()`-and-re-observe.
-Per the spec a fresh `ResizeObservation` starts at `lastReportedSizes =
-[(-1,-1)]`, so `observe()` on a not-currently-observed target always delivers an
-initial notification — for a `0×0` and a `display: none` box too — while
-`observe()` on a live target is a no-op. `disconnect()` therefore re-arms every
-target, and a settled box that never moved is notified again on each
-repartition. (The trailing debounce absorbs those extra deliveries into the same
-number of recalculations, so the cost is deliveries and retained detached tab
-elements rather than extra work; the spec asserts the delivery count for exactly
-that reason.) That same initial notification is what makes observing the tabs
-work at all — it is how the split gets recomputed once the tabs finally have a
-laid-out box.
+**What the split reads.** The arithmetic is `mlvComputeHiddenFlags` from
+`@malva-ui/cdk/utils` (`@internal`), the same function `mlv-items-more` uses:
 
-A vertical group stays observed even though it never overflows —
-`_recalculateOverflow` owns that case and resets the split to "all visible"
-itself. The guarantee is narrower than "it recovers on switch": it is that a
-group which _started_ vertical still holds a live observer, so the first resize
-notification after a switch to horizontal repartitions it. (Before, the observer
-was created once from `ngAfterViewInit` behind a `vertical` early return, so
-such a group had no observer at all and its overflow was dead for the
-component's lifetime.) `orientation()` is a dependency of nothing that
-recalculates, so recovery rides on the relayout the orientation change itself
-produces, not on the input write.
+- **Room** — the host's content box less the header's inline padding and
+  border (`mlvInlineContentSize`, applied twice). Not the header's
+  `clientWidth`, which is what #358 was about: `clientWidth` includes the boxed
+  track's `0.1875rem` padding either side, is rounded to an integer, and a
+  boxed header is `width: fit-content`, so once it shrank around fewer tabs it
+  no longer said how much room its container had. The header is `border-box`
+  under the shipped base layer, which is what makes the host's content width
+  its maximum border-box width.
+- **Gaps** — the header's `column-gap` between every pair of boxes, the trigger
+  included (the boxed track's `0.125rem`; the underline appearance has none).
+- **Widths** — each tab's `getBoundingClientRect().width`, fractional, cached
+  per tab instance in `_tabWidths`, and the trigger's measured width in
+  `_moreTriggerWidth`. Five rounded `offsetWidth`s can be two pixels off
+  together. Read at the **natural** width (`_naturalWidths`): an item whose
+  computed `flex-grow` is positive gets an inline `flex-grow: 0 !important`
+  for the reads — which outranks a consumer declaration of it in any cascade
+  layer, but not a transition (see _Stretched tabs_) — and its own inline value
+  and priority back, in a `finally`, before the method returns — no frame
+  painted, no resize notification. Every computed value is read before the
+  first write, so the batch costs one style recalculation. Nothing is written
+  when nothing grows, the default.
+- **Tolerance** — `MLV_FIT_EPSILON_PX` (0.5 px) absorbs floating-point error
+  in a row that fits exactly. Measured consequence: a split may leave the last
+  kept box up to 0.5 px past the content edge (0.09 px at a 500 px boxed group),
+  never a whole tab.
+- **The active tab is pinned** — kept whatever its position, with its own width
+  reserved first, which is the slot `MlvTabsService` swaps it into. The split
+  can no longer demote a narrow tab to make room for a wide active one that
+  then overflows anyway.
 
-Observing only the header was the #232 defect: the split is a function of the
-_tabs'_ widths, but the only thing that re-ran it was a change in the _header's_
-size, and a header whose width comes from its parent never resizes when its
-children finally get theirs. A measuring pass landing before the tabs had a
-laid-out box read every `offsetWidth` as `0`, left `_tabWidths` empty and the
-total at `0` — which satisfies `total <= containerWidth` — and so committed "no
-overflow" for the lifetime of the component. The same held for widths that
-changed without moving the header: a webfont swap, a density change, a label
-retranslation.
+The split becomes `maxVisibleCount = tabs − hidden` (or `-1`), which
+`MlvTabsService` turns back into exactly the set the flags describe: the
+leading tabs, with the pinned one swapped into the last slot.
 
-The recalculation is **damped** to eliminate the flickering ("dizzy")
-repartition that a naive per-frame recalc produces:
+**No guessed trigger width.** `_moreButtonWidth || 100` is gone. The first split
+that hides anything reserves the trigger's last measured width, or nothing if it
+has never rendered — which can only keep a tab visible, never withhold one that
+fits — and the trigger's own render re-runs the split inside the same
+`ApplicationRef.tick()`, before the browser paints, now with its measured width.
+The width is kept across overflow episodes. The old 100 px guess withheld two
+tabs at 499 px in the underline appearance where one was enough (measured: the
+trigger is 86–89 px).
 
-1. **Debounce** — ResizeObserver callbacks are coalesced with a trailing
-   `setTimeout` (`_RESIZE_DEBOUNCE_MS = 64`), so a drag — or the burst of
-   notifications one repartition produces across several observed boxes —
-   triggers one recalculation after the widths settle rather than one per frame.
-2. **Width caching (no measure→mutate loop)** — each tab's natural header width
-   is cached by value (`_tabWidths`) the first time all tabs render. Subsequent
-   recalculations compute the split purely from the cache and the container
-   width — they never reset the rendered set to "show all" to re-measure, which
-   was the source of the flicker and the observer feedback loop. The DOM is only
-   expanded-to-measure when the cache is cold or a new tab was added.
-3. **Hysteresis** — `_computeFittingCount(widths, containerWidth, moreButtonWidth,
-currentMax)` is a pure function returning how many leading tabs fit (`-1` when
-   all fit). A tab currently in overflow must clear the boundary by an extra
-   `_HYSTERESIS_PX = 24` before it returns to the visible row, while a visible
-   tab leaves as soon as it no longer fits. This asymmetric threshold makes the
-   split a fixed point at boundary widths, so it cannot oscillate.
+**What re-runs it.** Two paths, both through `_commit`:
 
-Together those three make the observe → notify → recalculate → repartition →
-observe cycle terminate: a cold start settles in **two** recalculations and
-stays there (asserted, from a cold start with nothing hand-fired).
+1. A read-phase `afterRenderEffect` that tracks `tabItems()`, `_moreTriggerRef()`,
+   `tabListRef()`, `orientation()`, `appearance()`, the registered tabs and the
+   pinned value. An orientation flip therefore repartitions on the input write,
+   with no resize notification (#269); before, it recalculated only if the
+   relayout happened to deliver one. A split committed here re-renders the
+   header within the same tick.
+2. The ResizeObserver, pointed at **every box the split reads** — the host (the
+   room), the header (its padding and gap), each rendered `mlv-tab-item` and the
+   trigger (the widths). The host is new with #358: a boxed header does not grow
+   with its container once it has shrunk, so observing only the header never saw
+   the room to return a tab into. The target set is kept current by a tracked
+   `afterRenderEffect()` on `tabItems()` / `_moreTriggerRef()` / `tabListRef()`.
+   The observer comes from `MlvResizeObserverFactory` (`@malva-ui/cdk/utils`),
+   whose `create()` answers `null` where the constructor is absent, so server
+   rendering is the seam's own documented case; `afterRenderEffect` rather than
+   `effect` because that primitive structurally cannot run on the server.
 
-**Settling delta, visible on first load.** Because the "More (N)" trigger is now
-observed, its first appearance delivers an initial notification of its own, and
-the recalculation 64 ms later runs against a _measured_ `_moreButtonWidth`
-instead of `_applyOverflowFit`'s `|| 100` fallback. Where the real trigger is
-narrower than 100 px and one more tab fits in the difference, a group can
-therefore show N tabs at ~70 ms and N+1 at ~140 ms — a single re-partition after
-load that did not happen before, when the fallback was never replaced. It is a
-correctness improvement (the second answer is the right one), but it is a
-behaviour change, and it settles rather than oscillating.
+Each resize batch (`_onResizeBatch`) first re-measures the indicator, in **both**
+orientations: a tab above the active one growing moves the active tab without
+changing any signal the indicator effect reads, so a vertical group's
+`--mlv-tab-indicator-top` used to stay where the tab had been (#269; measured:
+82 px against an active tab at 122 px). The indicator effect also tracks
+`orientation()` and `appearance()`. The indicator is still physical
+(`left` / `top`), measured from `offsetLeft` / `offsetTop`; the logical primitive
+is #397.
+
+**Scheduling is asymmetric.** A batch that withholds more commits immediately: a
+tab that no longer fits is clipped by the header until it goes, so waiting only
+prolongs a visibly broken row. A batch that would return tabs waits for
+`_REVEAL_DEBOUNCE_MS` (64 ms) of quiet and then recomputes from fresh widths, so
+a drag does not re-render the row on every frame on its way wider. A render-driven
+split commits in either direction at once. Measured, a 0.5 px-step drag from 530
+to 490 px and back produced exactly one trigger insertion and one removal, in
+both appearances.
+
+**Oscillation guard, not hysteresis.** The 24 px `_HYSTERESIS_PX` band held a
+tab that fits out of the row until it cleared the boundary by 24 px — measured,
+an underline group widened from 300 to 400 px still showed two tabs and
+"More (3)", where three tabs and the trigger need 389 px (a return to "all fit" was never damped,
+so the band bit partial reveals only). It is
+replaced by `mlvOverflowRevealGuard()` (`@malva-ui/cdk/utils`, `@internal`, shared
+with `mlv-items-more`): a hide is always admitted; a reveal is refused only when
+that same reveal, at that width or narrower, has already undone itself within
+`_OSCILLATION_WINDOW_MS` (100 ms) — the feedback loop where returning a tab adds
+a page scrollbar that narrows the row. Any width past the one that failed brings
+the tab straight back.
+
+**Stretched tabs (#358 review).** Tab items that grow into the free room —
+`flex: 1` on `.mlv-tab-group__header > .mlv-tab-item`, the full-width pattern
+`mlv-color-picker` uses — are wider the fewer of them render, so their laid-out
+box says how much room the row had left, not what the tab needs. An earlier
+revision read the box: hiding tabs let the rest grow, every rendered width
+changed, the withheld entries were dropped as stale, the row expanded to re-read
+them, the tabs shrank back, and round again — measured in Chrome 153 on docs
+tabs example 3 (eight tabs, 390 px) with that rule: 12,460 NG0103 errors and a
+main thread that answered no script. Read at the natural width, the same row
+logs nothing and splits exactly as the unstretched one does at 250, 300, 390,
+600 and 966 px, and through a 5 px-step drag down to 250 px and back. A stretch
+that is **not** flex growth (a grid track) is read as laid out; the bounds
+below keep it from looping, at the cost of a split sized to the stretched
+widths. Two limits of the natural read, both measured in Chrome:
+
+- **A transition covering `flex-grow`** (`transition: all` on the items; the
+  library's own item transition lists only `color` and `background-color`)
+  outranks the inline switch: the write starts a transition, the read returns
+  its start value — the laid-out width — and the row falls back to the
+  non-flex path. Stable at rest (no NG0103, the same split), but a widening
+  drag re-splits on every frame instead of one debounced reveal, and every read
+  fires a `transitionrun` / `transitioncancel` pair. Leave `flex-grow` out of
+  the transition.
+- **`flex: 1; min-width: 0`** lets a tab shrink below its label, so its natural
+  width is its padding alone (32 px measured): labels squeeze before any tab is
+  withheld, which happens only once the padding-only boxes stop fitting (eight
+  tabs: all eight rendered at 300 px with squeezed labels, `4 + More (4)` at
+  250 px). Not a regression — HEAD never withheld a tab in that pattern. Drop
+  `min-width: 0` to keep labels whole.
+
+**Width cache invalidation.** Keyed by tab instance, not value; entries for
+unregistered tabs are pruned on every capture. A withheld tab cannot be measured,
+so its entry is the width it had when last rendered. When every rendered tab, or
+two or more of them, change width between two captures of the **same rendered
+tabs** — a webfont swap, a density change, a retranslation — the withheld tabs'
+entries are dropped and the next commit renders every tab once to re-read them
+(`'unmeasured'`, also taken on first render and when a tab registers). A single
+rendered tab changing among others that did not is its own label and says
+nothing about the rest. Three bounds keep the re-read from feeding itself:
+
+- **Same render only** (`_lastRenderedTabs`). Across a repartition every
+  difference is the repartition's own doing, and invalidating on it would expand
+  the row, whose capture would differ again.
+- **Once per task** (`_invalidatedThisTask`, cleared by a microtask), whatever
+  the widths do — defence in depth: no layout can make it a step of Angular's
+  render loop.
+- **Only from a row that withholds tabs.** `_commit` ignores `'unmeasured'` when
+  nothing is withheld: every tab is rendered, or on the render already asked
+  for, so a second notification in the same batch — which reads the old DOM
+  against the new split — neither resets the guard nor expands again.
+
+A non-flex stretch follows its container, so widening the group while tabs are
+withheld reads like a font swap and re-reads them once per batch (the expanded
+row is re-split in the same tick and never painted). The whole cache is dropped
+while the group is vertical, where a tab is as wide as the column. Residual: a
+withheld tab's own label changing, alone, is not seen until something else
+invalidates it (the same limit `mlv-items-more` documents).
+
+**The host needs its width from its container.** A group whose width comes
+from its own content — `flex: 0 1 auto` in a flex row, `width: fit-content` —
+shrinks around the tabs it keeps and never offers the room back, so tabs
+withheld at a narrow width stay withheld when the container grows (measured:
+eight tabs, `4 + More (4)` at 400 px, unchanged at 1500 px). Stable, no
+oscillation, and the same before #358. Give the host a stretched or definite
+width.
+
+**Observed incrementally.** Observations are added and removed
+(`_syncResizeTargets`, `_observedTargets`) rather than by `disconnect()`-and-
+re-observe. Per the spec a fresh `ResizeObservation` starts at
+`lastReportedSizes = [(-1,-1)]`, so `observe()` on a not-currently-observed
+target always delivers an initial notification — for a `0×0` and a
+`display: none` box too — while `observe()` on a live target is a no-op.
+`disconnect()` would re-arm every target and re-notify every settled box on each
+repartition. That initial notification is also what makes observing the tabs
+work at all (#232): a measuring pass that lands before the tabs have a laid-out
+box skips every zero width, answers `'unmeasured'`, and the tabs' own first
+notification re-runs the split once they have one.
+
+A vertical group stays observed even though it never overflows — its batches
+still re-measure the indicator, and `_recalculateOverflow` resets its split to
+"all visible".
+
+Pinned by `tabs.spec.ts` § _Overflow — exact split (#358, #269)_ (20 specs). Its
+layout stub can stretch the tabs (`SplitGeometry.grow`: `'flex'` answers
+`flex-grow: 1` and honours the inline switch, `'layout'` does not), each
+rendered tab `max(natural, share of the free room)`. Each of the header-padding
+and gap subtraction, the indicator call, the `orientation()` dependency, the
+guard, host observation, host-based room, the measured trigger, cache
+invalidation, the natural-width read, restoring a consumer's own inline
+`flex-grow` (value and priority), the same-render rule, the commit cap and
+the reveal timer's release on destroy was ablated and turns its spec red; the
+epsilon turns `overflow-fit.spec.ts` red. The once-per-task cap alone is
+unreachable while the same-render rule holds (ablated alone: green); ablated
+with it, the test worker dies in the loop.
 
 `MlvTabsService.visibleTabs` / `overflowTabs` guard the `maxVisibleCount === 0` case
 (all tabs overflow): the active/forced tab becomes the sole visible tab instead of

@@ -49,6 +49,11 @@
     >
       More ({{ overflowTabs().length }})
     </button>
+    <!--
+      An empty, zero-width flex item of the header. It adds one column gap
+      after the trigger that the split does not count (2px on a boxed track);
+      only this invisible box can land past the edge, so nothing shows.
+    -->
     <mlv-popup
       #morePopup
       [hasShadow]="true"

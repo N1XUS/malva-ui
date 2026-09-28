@@ -1,5 +1,7 @@
+import type { MlvOverflowFit } from './overflow-types';
+
 /**
- * Tolerance, in px, added to every fit comparison.
+ * @internal Tolerance, in px, added to every fit comparison.
  *
  * Widths come from `getBoundingClientRect()`, which is fractional, while the
  * available width is the row's own fractional content box; a row whose items
@@ -7,32 +9,11 @@
  * is applied on the *keeping* side of every comparison, so the rounding error
  * it absorbs can only ever leave an item visible — never withhold one that
  * fits, which is the property this module exists to hold.
+ *
+ * Exported only so the core overflow rows (`mlv-items-more`,
+ * `mlv-tab-group`) can reach it; not consumer API.
  */
 export const MLV_FIT_EPSILON_PX = 0.5;
-
-/** One item's contribution to the fit calculation. */
-export interface MlvOverflowCandidate {
-  /** Natural width of the item's in-row box, in px. */
-  readonly width: number;
-  /** Whether the item may be withheld at all. */
-  readonly collapsible: boolean;
-}
-
-/** Everything {@link computeHiddenFlags} needs, and nothing from the DOM. */
-export interface MlvOverflowFit {
-  readonly candidates: readonly MlvOverflowCandidate[];
-  /** Content width of the row, in px. */
-  readonly available: number;
-  /** The row's resolved `column-gap`, in px. */
-  readonly gap: number;
-  /**
-   * Width the overflow trigger occupies **in the row**, in px. Zero when the
-   * trigger lives outside the row — a consumer-placed `[mlvItemsMoreTrigger]`
-   * consumes none of the row's width, so reserving for it would withhold an
-   * item that fits.
-   */
-  readonly triggerWidth: number;
-}
 
 /** Width of `count` boxes totalling `sum`, laid out with `gap` between them. */
 function laidOut(sum: number, count: number, gap: number): number {
@@ -40,8 +21,10 @@ function laidOut(sum: number, count: number, gap: number): number {
 }
 
 /**
- * Decides which items are withheld from the row, as a flag per candidate in
- * declaration order.
+ * @internal Decides which items are withheld from the row, as a flag per
+ * candidate in declaration order. The shared split of every Malva overflow
+ * row — `mlv-items-more` and `mlv-tab-group` — exported only so those core
+ * leaves can reach it; not consumer API.
  *
  * Pure and exact: the answer is a function of the widths alone, with no
  * memory of the previous split. That is what makes "no false-positive hides"
@@ -65,7 +48,7 @@ function laidOut(sum: number, count: number, gap: number): number {
  * 3. **The gap is part of the arithmetic**, not an approximation: a row of
  *    eight items at a 0.5rem gap spends 56px on gaps, which is a whole button.
  */
-export function computeHiddenFlags(fit: MlvOverflowFit): boolean[] {
+export function mlvComputeHiddenFlags(fit: MlvOverflowFit): boolean[] {
   const { candidates, available, gap, triggerWidth } = fit;
   const hidden = candidates.map(() => false);
   if (candidates.length === 0) return hidden;
@@ -118,4 +101,35 @@ export function computeHiddenFlags(fit: MlvOverflowFit): boolean[] {
   }
 
   return hidden;
+}
+
+/**
+ * @internal A CSS length as px. `column-gap: normal` and an unresolved length
+ * both parse to `NaN`; the used value of both is zero.
+ */
+export function mlvCssPx(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * @internal The inline content size of a box whose border-box inline size is
+ * `borderBoxWidth`: that width less the inline padding and border in `styles`.
+ *
+ * A split has to compare against the room *inside* the row — what the items
+ * are laid out in — not against `clientWidth`, which still includes the
+ * padding and is rounded to an integer: a boxed tab track with 0.1875rem of
+ * padding either side reported 6px of room nothing could use.
+ */
+export function mlvInlineContentSize(
+  borderBoxWidth: number,
+  styles: CSSStyleDeclaration,
+): number {
+  return (
+    borderBoxWidth -
+    mlvCssPx(styles.paddingInlineStart) -
+    mlvCssPx(styles.paddingInlineEnd) -
+    mlvCssPx(styles.borderInlineStartWidth) -
+    mlvCssPx(styles.borderInlineEndWidth)
+  );
 }

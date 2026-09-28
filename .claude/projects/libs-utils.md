@@ -43,6 +43,10 @@ Exported from `libs/cdk/utils/src/index.ts`:
 | `mlvMirrorInlineOffsets` | Function | `mlvMirrorInlineOffsets(positions, direction)` — negates `ConnectedPosition.offsetX` in RTL, which CDK leaves physical |
 | `provideMlvScopedDirectionality` | Function | **`@internal`** — provides a CDK `Directionality` that follows the providing element's nearest `[dir]`, for Malva hosts of `@angular/aria` patterns. Exported only so core leaves can reach it; not consumer API |
 | `mlvPointerGestureEnd` | Function (**`@internal`**) | `mlvPointerGestureEnd(target, pointerId, captureElement?)` — the one end-of-drag stream: `pointerup` \| `pointercancel` \| target-guarded `lostpointercapture` (on the captured element, or at the document once that element has left it), one pointer, `take(1)` (#338). Exported only because core leaves reach cdk through its barrel; not public API |
+| `mlvComputeHiddenFlags` | Function (**`@internal`**) | Pure overflow split shared by `mlv-items-more` and `mlv-tab-group`: which candidates a row withholds, given measured widths, room, gap and trigger width (#358). Not public API |
+| `MLV_FIT_EPSILON_PX` | Constant (**`@internal`**) | `0.5` px tolerance on the keeping side of every fit comparison. Not public API |
+| `mlvCssPx` / `mlvInlineContentSize` | Function (**`@internal`**) | CSS length → px (`NaN` → `0`); border-box width less inline padding and border. Not public API |
+| `mlvOverflowRevealGuard` | Function (**`@internal`**) | `mlvOverflowRevealGuard(windowMs)` — the oscillation guard overflow rows commit through instead of a hysteresis band. Not public API |
 | `MlvChromeColor` | Directive | Paints an element as application chrome in an arbitrary colour and picks a readable foreground — `[mlvChromeColor]` |
 
 ---
@@ -545,6 +549,48 @@ Spec: `pointer-gesture-end.spec.ts` (each end, other pointer, bubbled lost
 capture, `take(1)`, no capture element, captured element or an ancestor
 removed mid-gesture, the connected-ancestor dispatch, listeners on element and
 document released).
+
+---
+
+### Overflow fit primitives — `@internal`
+
+**Files:** `libs/cdk/utils/src/lib/overflow/overflow-fit.ts`,
+`overflow-reveal-guard.ts`, `overflow-types.ts`
+
+The split every Malva overflow row commits — `mlv-items-more` and
+`mlv-tab-group` — moved here from `libs/core/items-more` with #358 so both use
+one definition. Behaviour unchanged for `mlv-items-more`.
+
+- `mlvComputeHiddenFlags({ candidates, available, gap, triggerWidth })` — pure,
+  one `boolean` per candidate. Nothing hidden when the row fits without the
+  trigger; otherwise budget = `available − (triggerWidth > 0 ? triggerWidth +
+gap : 0) + MLV_FIT_EPSILON_PX`, pinned (non-collapsible) widths reserved
+  first, and the hidden set is a suffix of the collapsible candidates. No
+  default widths anywhere: a caller must not pass one it has not measured.
+- `MLV_FIT_EPSILON_PX` (`0.5`) — tolerance on the **keeping** side of every
+  comparison, for fractional `getBoundingClientRect()` sums.
+- `mlvCssPx(value)` — a CSS length as px, `NaN` (`normal`, unresolved) → `0`.
+- `mlvInlineContentSize(borderBoxWidth, styles)` — the border box less inline
+  padding and border: the room _inside_ a row, not `clientWidth` (which keeps
+  the padding and is rounded).
+- `mlvOverflowRevealGuard(windowMs)` — returns `{ admit(hiddenCount,
+currentHiddenCount, available), reset() }`. A hide is always admitted; a
+  reveal is refused only when that same reveal, at that width or narrower,
+  undid itself within `windowMs` (a reveal that adds a page scrollbar which
+  narrows the row). Replaces hysteresis bands: nothing is held back that an
+  actual render has not shown not to fit.
+
+**Only functions and a non-token constant enter the barrel.** The candidate,
+fit and guard shapes live in `overflow-types.ts`, which the barrel does not
+re-export, and the guard is a factory rather than a class: `docs:extract-api`
+publishes every class, interface and type alias it finds in a barrel,
+`@internal` or not (see `provideMlvScopedDirectionality` above). Callers
+outside the directory describe candidates structurally and let the guard's
+type be inferred.
+
+Specs: `overflow-fit.spec.ts` (22 — the 13 ported from `mlv-items-more`,
+floating-point absorption, the boxed 5 × 100 tab track at 505 / 510 / 513 / 514 px,
+the two CSS readers) and `overflow-reveal-guard.spec.ts` (7).
 
 ---
 

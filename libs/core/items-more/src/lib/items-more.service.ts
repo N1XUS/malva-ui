@@ -35,7 +35,10 @@ export class MlvItemsMoreService {
       : this.items().filter((item) => hidden.has(item));
   });
 
-  /** The committed split, for the component's own hysteresis input. */
+  /**
+   * The committed split, which the component compares a new one against — to
+   * schedule a reveal and as the oscillation guard's input.
+   */
   readonly hidden = this._hidden.asReadonly();
 
   /**
