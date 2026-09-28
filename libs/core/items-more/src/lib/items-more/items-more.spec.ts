@@ -10,6 +10,9 @@ import {
 import { InteractivityChecker } from '@angular/cdk/a11y';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { By } from '@angular/platform-browser';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as sass from 'sass';
 import { MlvResizeObserverFactory } from '@malva-ui/cdk/utils';
 import {
   MlvPopupContainer,
@@ -26,6 +29,8 @@ import {
 import { MlvItemsMoreTrigger } from '../items-more-trigger';
 import { MlvItemsMore } from './items-more';
 
+const SPEC_DIR = dirname(fileURLToPath(import.meta.url));
+
 // ─── Geometry ───────────────────────────────────────────────────────────────
 //
 // jsdom performs no layout, so every box the component measures is stubbed.
@@ -33,9 +38,35 @@ import { MlvItemsMore } from './items-more';
 // the row itself to model a feedback loop. Every other box reads its width
 // from the nearest `[data-w]` at or below it — the templates below put one on
 // each rendered button — so an item's width is written in its own markup and a
-// spec changes it the way a real label change would: by re-rendering.
+// spec changes it the way a real label change would: by re-rendering. A slot
+// whose template renders nothing therefore measures 0 wide, and still has a
+// box — exactly what an empty `display: inline-flex` slot does in Chromium,
+// Firefox and WebKit.
+//
+// Whether a box exists at all is modelled with `[data-no-box]`: an element at
+// or under one has none (a `display: none` / `[hidden]` ancestor — for example
+// a consumer-hidden external `[mlvTabPanel]`). A box-less element answers no
+// client rects and an all-zero bounding rect, as it does in a browser.
+//
+// A slot whose content carries `[data-no-box]` has no box either. That rule is
+// a modelling shortcut, not browser behaviour: in Chromium, Firefox and WebKit
+// a slot whose only child is `display: none` still has one client rect, 0
+// wide — the empty branch, not the skipped one. It stands in for a slot the
+// page took out of layout itself (`display: none` on the slot), which a spec
+// cannot put on a slot the component renders before its first measurement.
 
 let rowWidth: (row: HTMLElement) => number;
+
+/**
+ * Whether `element` has a layout box, per the `[data-no-box]` model above —
+ * the direct-child rule being the modelling shortcut described there.
+ */
+function hasBox(element: HTMLElement): boolean {
+  if (!element.isConnected || element.closest('[data-no-box]')) return false;
+  return !Array.from(element.children).some((child) =>
+    child.hasAttribute('data-no-box'),
+  );
+}
 
 function rect(width: number, height: number): DOMRect {
   return {
@@ -51,18 +82,29 @@ function rect(width: number, height: number): DOMRect {
   } as DOMRect;
 }
 
+function boundingRect(element: HTMLElement): DOMRect {
+  if (!hasBox(element)) return rect(0, 0);
+  if (element.classList.contains('mlv-items-more__row')) {
+    const width = rowWidth(element);
+    return rect(width, width > 0 ? 40 : 0);
+  }
+  const sized = element.matches('[data-w]')
+    ? element
+    : element.querySelector<HTMLElement>('[data-w]');
+  const width = sized ? Number(sized.dataset['w']) : 0;
+  return rect(width, width > 0 ? 32 : 0);
+}
+
 function stubGeometry(): void {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
     function (this: HTMLElement) {
-      if (this.classList.contains('mlv-items-more__row')) {
-        const width = rowWidth(this);
-        return rect(width, width > 0 ? 40 : 0);
-      }
-      const sized = this.matches('[data-w]')
-        ? this
-        : this.querySelector<HTMLElement>('[data-w]');
-      const width = sized ? Number(sized.dataset['w']) : 0;
-      return rect(width, width > 0 ? 32 : 0);
+      return boundingRect(this);
+    },
+  );
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(
+    function (this: HTMLElement) {
+      const rects = hasBox(this) ? [boundingRect(this)] : [];
+      return rects as unknown as DOMRectList;
     },
   );
 
@@ -141,6 +183,13 @@ interface HostItem {
   width: number;
   pinned?: boolean;
   noHidden?: boolean;
+  /**
+   * Both templates render nothing — the permission-gated item whose content
+   * is behind an `@if` that is false.
+   */
+  empty?: boolean;
+  /** The in-row content marks its slot as having no layout box. */
+  noBox?: boolean;
 }
 
 @Component({
@@ -154,46 +203,53 @@ interface HostItem {
   ],
   template: `
     <input class="outside" aria-label="Elsewhere" />
-    <mlv-items-more #more ariaLabel="More actions">
-      @for (item of items(); track item.id) {
-        <mlv-items-more-item [pinned]="item.pinned ?? false">
-          <ng-template mlvItemsMoreVisible>
+    <div class="subtree" [attr.data-no-box]="subtreeHidden() ? '' : null">
+      <mlv-items-more #more ariaLabel="More actions">
+        @for (item of items(); track item.id) {
+          <mlv-items-more-item [pinned]="item.pinned ?? false">
+            <ng-template mlvItemsMoreVisible>
+              @if (!item.empty) {
+                <button
+                  type="button"
+                  class="row-button"
+                  [attr.data-id]="item.id"
+                  [attr.data-w]="item.width"
+                  [attr.data-no-box]="item.noBox ? '' : null"
+                >
+                  {{ item.id }}
+                </button>
+              }
+            </ng-template>
+            @if (!item.noHidden) {
+              <ng-template mlvItemsMoreHidden>
+                @if (!item.empty) {
+                  <button
+                    type="button"
+                    class="panel-button"
+                    [attr.data-id]="item.id"
+                  >
+                    {{ item.id }}
+                  </button>
+                }
+              </ng-template>
+            }
+          </mlv-items-more-item>
+        }
+        @if (inRowTrigger()) {
+          <ng-template mlvItemsMoreTriggerDef let-count>
             <button
               type="button"
-              class="row-button"
-              [attr.data-id]="item.id"
-              [attr.data-w]="item.width"
+              class="more-button"
+              mlvItemsMoreTrigger
+              aria-label="Show more"
+              [attr.data-w]="triggerWidth()"
             >
-              {{ item.id }}
+              +{{ count }}
             </button>
           </ng-template>
-          @if (!item.noHidden) {
-            <ng-template mlvItemsMoreHidden>
-              <button
-                type="button"
-                class="panel-button"
-                [attr.data-id]="item.id"
-              >
-                {{ item.id }}
-              </button>
-            </ng-template>
-          }
-        </mlv-items-more-item>
-      }
-      @if (inRowTrigger()) {
-        <ng-template mlvItemsMoreTriggerDef let-count>
-          <button
-            type="button"
-            class="more-button"
-            mlvItemsMoreTrigger
-            aria-label="Show more"
-            [attr.data-w]="triggerWidth()"
-          >
-            +{{ count }}
-          </button>
-        </ng-template>
-      }
-    </mlv-items-more>
+        }
+      </mlv-items-more>
+    </div>
     @if (externalTrigger()) {
       <button
         type="button"
@@ -214,6 +270,11 @@ class HostComponent {
   readonly inRowTrigger = signal(true);
   readonly externalTrigger = signal(false);
   readonly triggerWidth = signal(40);
+  /**
+   * Models a `display: none` / `[hidden]` ancestor — for example a
+   * consumer-hidden external `[mlvTabPanel]`.
+   */
+  readonly subtreeHidden = signal(false);
   readonly more = viewChild.required(MlvItemsMore);
 }
 
@@ -246,6 +307,18 @@ function rowIds(): string[] {
   return Array.from(
     row().querySelectorAll<HTMLElement>('.mlv-items-more__slot .row-button'),
   ).map((button) => button.dataset['id'] ?? '');
+}
+
+/** Every slot rendered in the row, empty ones included, in rendered order. */
+function slots(): HTMLElement[] {
+  return Array.from(
+    row().querySelectorAll<HTMLElement>('.mlv-items-more__slot'),
+  );
+}
+
+/** How many slots in the row carry the zero-width modifier. */
+function emptySlotCount(): number {
+  return row().querySelectorAll('.mlv-items-more__slot--empty').length;
 }
 
 function inRowTrigger(): HTMLElement | null {
@@ -412,16 +485,20 @@ describe('MlvItemsMore', () => {
     });
 
     it('commits nothing while any item is unmeasured', async () => {
+      // `b`'s slot has no layout box, so its width has never been read. A
+      // slot that has a box and measures 0 is measured — see `zero-width
+      // items` below.
       rowWidth = () => 150;
       await create((h) =>
         h.items.set([
           { id: 'a', width: 100 },
-          { id: 'b', width: 0 },
+          { id: 'b', width: 100, noBox: true },
           { id: 'c', width: 100 },
         ]),
       );
 
       expect(rowIds()).toEqual(['a', 'b', 'c']);
+      expect(host.more().hiddenCount()).toBe(0);
     });
 
     it('measures the trigger from an inert, off-flow probe while nothing is withheld', async () => {
@@ -458,6 +535,232 @@ describe('MlvItemsMore', () => {
       await resizeRow(0);
 
       expect(rowIds()).toEqual(['a', 'b', 'c']);
+    });
+
+    it('keeps the widths it measured while the row has no box', async () => {
+      // A `display: none` ancestor (a consumer-hidden external
+      // `[mlvTabPanel]`, say): every box under it measures zero. Those zeros
+      // say nothing about the items, so none of them may be cached — a slot
+      // cached at 0 would be taken out of the row the moment it shows.
+      rowWidth = () => 250;
+      await create();
+      expect(rowIds()).toEqual(['a']);
+
+      host.subtreeHidden.set(true);
+      await settle();
+      for (const slot of slots()) FakeResizeObserver.notify(slot);
+      FakeResizeObserver.notify(row());
+      await settle();
+
+      expect(emptySlotCount()).toBe(0);
+      expect(host.more().hiddenCount()).toBe(2);
+
+      host.subtreeHidden.set(false);
+      await settle();
+      FakeResizeObserver.notify(row());
+      await settle();
+
+      expect(rowIds()).toEqual(['a']);
+      expect(emptySlotCount()).toBe(0);
+    });
+  });
+
+  // A slot whose template renders nothing — a permission-gated item behind an
+  // `@if` that is false, an image with no intrinsic size that has not loaded —
+  // has a box and measures 0 wide. It is measured, not unknown: treating it as
+  // unknown disabled the split for as long as the item stayed empty (#357).
+  describe('zero-width items', () => {
+    const ITEMS_MORE_CSS = sass.compile(join(SPEC_DIR, 'items-more.scss'), {
+      style: 'expanded',
+    }).css;
+
+    let styleEl: HTMLStyleElement;
+
+    beforeEach(() => {
+      // The real stylesheet, so the empty slot's computed position is read
+      // through the cascade rather than inferred from its class.
+      styleEl = document.createElement('style');
+      styleEl.textContent = ITEMS_MORE_CSS;
+      document.head.appendChild(styleEl);
+    });
+
+    afterEach(() => styleEl.remove());
+
+    function panelItemIds(): string[] {
+      return Array.from(
+        document.body.querySelectorAll<HTMLElement>(
+          '.mlv-items-more__panel .panel-button',
+        ),
+      ).map((button) => button.dataset['id'] ?? '');
+    }
+
+    function panelItemCount(): number {
+      return document.body.querySelectorAll('.mlv-items-more__panel-item')
+        .length;
+    }
+
+    it('withholds what does not fit past a rendered item that is empty', async () => {
+      rowWidth = () => 250;
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'gated', width: 100, empty: true },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100 },
+        ]),
+      );
+
+      // Budget 250 − (40 + 8): `a` fits; the empty item costs nothing.
+      expect(rowIds()).toEqual(['a']);
+      expect(host.more().hiddenCount()).toBe(2);
+      expect(inRowTrigger()?.textContent?.trim()).toBe('+2');
+    });
+
+    it('keeps splitting as the row resizes', async () => {
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'gated', width: 100, empty: true },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100 },
+        ]),
+      );
+      expect(rowIds()).toEqual(['a', 'b', 'c']);
+
+      await resizeRow(250);
+      expect(rowIds()).toEqual(['a']);
+
+      await resizeRow(150);
+      expect(rowIds()).toEqual(['a']);
+      expect(host.more().hiddenCount()).toBe(2);
+
+      await resizeRow(1000);
+      await wait(90);
+      await settle();
+      expect(rowIds()).toEqual(['a', 'b', 'c']);
+      expect(inRowTrigger()).toBeNull();
+    });
+
+    it('never withholds an empty item, so the panel lists no phantom entry', async () => {
+      rowWidth = () => 250;
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100 },
+          { id: 'gated', width: 100, empty: true },
+        ]),
+      );
+
+      // Collapsible and at the end of the row, so an ordinary candidate would
+      // go with `b` and `c`: an empty panel entry and a `+3` counting it.
+      expect(host.more().hiddenCount()).toBe(2);
+      expect(inRowTrigger()?.textContent?.trim()).toBe('+2');
+
+      inRowTrigger()?.click();
+      await settle();
+
+      expect(panelItemIds()).toEqual(['b', 'c']);
+      expect(panelItemCount()).toBe(2);
+    });
+
+    it.each([
+      ['trailing', ['a', 'b', 'gated']],
+      ['between two items', ['a', 'gated', 'b']],
+      ['leading', ['gated', 'a', 'b']],
+    ])(
+      'does not count an empty item %s, so it cannot withhold an item that fits',
+      async (_where, order) => {
+        // `a` + gap + `b` is exactly 208. An empty slot that still took a gap
+        // would push that to 216, and `b` would go to make room for a trigger
+        // standing in for nothing.
+        rowWidth = () => 208;
+        await create((h) =>
+          h.items.set(
+            order.map((id) =>
+              id === 'gated'
+                ? { id, width: 100, empty: true }
+                : { id, width: 100 },
+            ),
+          ),
+        );
+
+        expect(rowIds()).toEqual(['a', 'b']);
+        expect(host.more().hiddenCount()).toBe(0);
+        expect(inRowTrigger()).toBeNull();
+      },
+    );
+
+    it('takes an empty slot out of the flow, so it takes no gap in the row', async () => {
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'gated', width: 100, empty: true },
+          { id: 'b', width: 100 },
+        ]),
+      );
+
+      const [slotA, slotGated, slotB] = slots();
+      expect(slotGated.classList).toContain('mlv-items-more__slot--empty');
+      expect(getComputedStyle(slotGated).position).toBe('absolute');
+      expect(getComputedStyle(slotGated).visibility).toBe('hidden');
+      // Measured slots stay flex items.
+      expect(getComputedStyle(slotA).position).not.toBe('absolute');
+      expect(getComputedStyle(slotB).position).not.toBe('absolute');
+    });
+
+    it('returns an item to the split once its content arrives', async () => {
+      // `a`, `b` and `c` fit exactly; `late` is empty and costs nothing.
+      rowWidth = () => 316;
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'late', width: 100, empty: true },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100 },
+        ]),
+      );
+      expect(rowIds()).toEqual(['a', 'b', 'c']);
+      const lateSlot = slots()[1];
+      expect(lateSlot.classList).toContain('mlv-items-more__slot--empty');
+
+      host.items.update((items) =>
+        items.map((item) =>
+          item.id === 'late' ? { ...item, empty: false } : item,
+        ),
+      );
+      await settle();
+      // The slot is still observed, so the platform reports it growing.
+      expect(FakeResizeObserver.notify(lateSlot)).toBe(1);
+      await settle();
+
+      // Budget 316 − (40 + 8): `a` and `late` fit, `b` and `c` do not.
+      expect(rowIds()).toEqual(['a', 'late']);
+      expect(host.more().hiddenCount()).toBe(2);
+      expect(emptySlotCount()).toBe(0);
+    });
+
+    it('frees the room of an item whose content goes away', async () => {
+      rowWidth = () => 250;
+      await create();
+      expect(rowIds()).toEqual(['a']);
+      const slotA = slots()[0];
+
+      host.items.update((items) =>
+        items.map((item) =>
+          item.id === 'a' ? { ...item, empty: true } : item,
+        ),
+      );
+      await settle();
+      FakeResizeObserver.notify(slotA);
+      await settle();
+      await wait(90);
+      await settle();
+
+      // `b` + gap + `c` is 208: both fit once `a` stops costing a box.
+      expect(rowIds()).toEqual(['b', 'c']);
+      expect(host.more().hiddenCount()).toBe(0);
+      expect(slotA.classList).toContain('mlv-items-more__slot--empty');
     });
   });
 
@@ -684,6 +987,29 @@ describe('MlvItemsMore', () => {
     it('lands on the last returned item when a reveal removes the focused trigger', async () => {
       rowWidth = () => 250;
       await create();
+      inRowTrigger()?.focus();
+      expect(focused()).toBe('trigger:+2');
+
+      await resizeRow(1000);
+      await wait(90);
+      await settle();
+
+      expect(rowIds()).toEqual(['a', 'b', 'c']);
+      expect(inRowTrigger()).toBeNull();
+      expect(focused()).toBe('c');
+    });
+
+    it('lands on the last item that can take focus when the last slot is empty', async () => {
+      // The row ends in an empty slot, which holds nothing to focus.
+      rowWidth = () => 250;
+      await create((h) =>
+        h.items.set([
+          { id: 'a', width: 100 },
+          { id: 'b', width: 100 },
+          { id: 'c', width: 100 },
+          { id: 'gated', width: 100, empty: true },
+        ]),
+      );
       inRowTrigger()?.focus();
       expect(focused()).toBe('trigger:+2');
 
