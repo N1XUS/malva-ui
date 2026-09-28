@@ -16,15 +16,17 @@ Installed automatically by `ng add @malva-ui/core`.
 
 Import from the narrow entry point, never a root barrel.
 
-| Entry point                        | What it gives you                                                                                              |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `@malva-ui/cdk/accessibility`      | `MlvClick` (`[mlvClick]`) for keyboard-accessible click events; `MlvTabbableElementService`                    |
-| `@malva-ui/cdk/data-source`        | `MlvDataSource` / `MlvArrayDataSource` — sort, filter, search, page and `loading` state                        |
-| `@malva-ui/cdk/density`            | `MlvDensityService`, `MlvDensityDirective`, `MlvDensityRootDirective` — compact/comfortable/spacious layouts   |
-| `@malva-ui/cdk/floating-container` | `MlvFloatingContainer` (`[mlvFloatingContainer]`) — sticky floating footer with a gradient-masked backdrop     |
-| `@malva-ui/cdk/infinite-scroll`    | `MlvInfiniteScroll` (`[mlvInfiniteScroll]`) — `loadMore` near the far edge, listeners outside the Angular zone |
-| `@malva-ui/cdk/overlay`            | `MlvOverlayHostBase`, `MlvOverlayServiceBase`, `MlvOverlayRef` — the base for dialogs and drawers              |
-| `@malva-ui/cdk/utils`              | `MlvAutofocus`, `MlvSpacer`, `MlvResizeObserverService`, `MlvBreakpointService`, `MlvFade`, `MlvTone`          |
+| Entry point                        | What it gives you                                                                                                                                     |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@malva-ui/cdk/accessibility`      | `MlvClick` (`[mlvClick]`) for keyboard-accessible click events; `MlvTabbableElementService`                                                           |
+| `@malva-ui/cdk/data-source`        | `MlvDataSource` / `MlvArrayDataSource` — sort, filter, search, page and `loading` state                                                               |
+| `@malva-ui/cdk/density`            | `MlvDensityService`, `MlvDensityDirective`, `MlvDensityRootDirective` — compact/comfortable/spacious layouts                                          |
+| `@malva-ui/cdk/floating-container` | `MlvFloatingContainer` (`[mlvFloatingContainer]`) — sticky floating footer with a gradient-masked backdrop                                            |
+| `@malva-ui/cdk/infinite-scroll`    | `MlvInfiniteScroll` (`[mlvInfiniteScroll]`) — `loadMore` near the far edge, listeners outside the Angular zone                                        |
+| `@malva-ui/cdk/overlay`            | `MlvOverlayHostBase`, `MlvOverlayServiceBase`, `MlvOverlayRef` — the base for dialogs and drawers                                                     |
+| `@malva-ui/cdk/shrink-wrap`        | `MlvShrinkWrap` (`[mlvShrinkWrap]`) — hugs a box to its widest balanced text line, pure CSS. **EXPERIMENTAL**: not covered by semver (VERSIONING §10) |
+| `@malva-ui/cdk/theme`              | `MlvThemeService`, `provideDefaultTheme()` — persisted light/dark/auto mode and the `mlvTheme` root attribute                                         |
+| `@malva-ui/cdk/utils`              | `MlvAutofocus`, `MlvSpacer`, `MlvResizeObserverService`, `MlvBreakpointService`, `MlvFade`, `MlvTone`                                                 |
 
 ## Quick start
 

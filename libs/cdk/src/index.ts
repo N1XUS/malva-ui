@@ -5,4 +5,5 @@ export * from '@malva-ui/cdk/floating-container';
 export * from '@malva-ui/cdk/infinite-scroll';
 export * from '@malva-ui/cdk/overlay';
 export * from '@malva-ui/cdk/shrink-wrap';
+export * from '@malva-ui/cdk/theme';
 export * from '@malva-ui/cdk/utils';

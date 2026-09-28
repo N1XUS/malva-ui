@@ -5,7 +5,7 @@
 
 ## Overview
 
-`@malva-ui/cdk` is the published infrastructure family package for the Malva UI design system. It provides low-level, reusable building blocks that other libraries depend on and now acts as the grouped public entry for several foundational subpackages. The root package currently contains:
+`@malva-ui/cdk` is the published infrastructure family package for the Malva UI design system. It provides low-level, reusable building blocks that other libraries depend on and acts as the grouped public entry for its foundational subpackages. The root barrel holds no code of its own: it star re-exports every secondary entry point listed below, which is how it also surfaces, from `@malva-ui/cdk/utils`:
 
 - **ResizeObserver utilities** — a service and directive for observing element size changes using the native `ResizeObserver` browser API.
 - **MlvFade** — a scroll-aware component that applies CSS mask-based fade effects to indicate overflowed content in horizontal or vertical directions.
@@ -17,8 +17,13 @@ Secondary public imports are also available:
 - `@malva-ui/cdk/data-source` — shared `MlvDataSource`/`MlvArrayDataSource` primitives for the data table and the option controls (see `libs-cdk-data-source.md`)
 - `@malva-ui/cdk/density`
 - `@malva-ui/cdk/floating-container` — sticky floating-footer container with a gradient-masked backdrop (see `libs-floating-container.md`)
+- `@malva-ui/cdk/infinite-scroll` — `[mlvInfiniteScroll]` far-edge `loadMore` (see `libs-infinite-scroll.md`)
+- `@malva-ui/cdk/overlay` — modal-overlay abstractions behind dialog and drawer (see `libs-overlay.md`)
 - `@malva-ui/cdk/shrink-wrap` — pure-CSS box-shrink-to-content primitive (see `libs-shrink-wrap.md`)
+- `@malva-ui/cdk/theme` — the theme contract: `MlvThemeService`, `provideDefaultTheme()` (see `libs-theme.md`)
 - `@malva-ui/cdk/utils`
+
+The root barrel `export *`s **every** published secondary entry point (a direct child `libs/cdk/<entry>/` with an `ng-package.json`; `testing-e2e` has none and is not published). `libs/cdk` owns no `test` target, so the sweep lives in `libs/core/src/root-barrels.spec.ts` (§ _entry-point coverage_) and runs under `core:test`; it would have caught `@malva-ui/cdk/theme` going missing from the root (#372).
 
 This library has no UI opinions of its own; it provides infrastructure primitives consumed by other `@malva-ui/*` libraries.
 
@@ -41,8 +46,9 @@ Exported from `libs/cdk/src/index.ts`:
 | `MlvDensityDirective` / `MlvDensityRootDirective` / `MlvDensityService`                                                                                            | Directives + service                | Re-exported from `@malva-ui/cdk/density` to expose density infrastructure from the grouped family root.                                                                                                                                                                        |
 | `MlvOverlayHostBase`, `MlvOverlayServiceBase`, `MlvOverlayRef`, `MlvBaseOverlayConfig`, `MlvOverlayAnimationState`                                                 | Abstract classes + interface + type | Re-exported from `@malva-ui/cdk/overlay` — shared modal-overlay abstractions extended by `@malva-ui/core/dialog` and `@malva-ui/core/drawer`. See [libs-overlay.md](libs-overlay.md).                                                                                          |
 | `MlvDataSource`, `MlvArrayDataSource`, `MlvDataSourceState`, `MlvSortDirection`, `MlvSortState`, `MlvDataSourceFilterOperator`, `MlvFilterState`, `MlvSearchState` | Abstract class + class + types      | Re-exported from `@malva-ui/cdk/data-source` — the signal-based data-source contract shared by `@malva-ui/core/data-table` and the option controls. See [libs-cdk-data-source.md](libs-cdk-data-source.md).                                                                    |
+| `MlvThemeService`, `provideDefaultTheme`, `MLV_THEME`, `MLV_THEME_KEY`, `MlvTheme`, `MlvThemeMode`, `isMlvThemeMode`, `defaultTheme`, `defaultThemeKey`            | Service + tokens + types + consts   | Re-exported from `@malva-ui/cdk/theme` (#372) — the same objects as the subpath, which stays the preferred import. `@malva-ui/core` re-exports them too. See [libs-theme.md](libs-theme.md).                                                                                   |
 | `MlvShrinkWrap`, `MlvShrinkWrapContent`                                                                                                                            | Directive + Component               | Re-exported from `@malva-ui/cdk/shrink-wrap` — pure-CSS pair (`[mlvShrinkWrap]` outer box + `mlv-shrink-wrap` inner content) that hugs a box to its widest balanced text line via scroll-driven animations, no JS measurement. See [libs-shrink-wrap.md](libs-shrink-wrap.md). |
-| `MlvAutofocus`, `MlvSpacer`, `MlvChromeColor`, `range`, `UI_ANIMATION_DEFAULTS`, `provideUiAnimationDefaults`, `MlvUiAnimationDefaults`                            | Utilities                           | Selected non-conflicting utility re-exports from `@malva-ui/cdk/utils`.                                                                                                                                                                                                        |
+| `MlvAutofocus`, `MlvSpacer`, `MlvChromeColor`, `range`, `UI_ANIMATION_DEFAULTS`, `provideUiAnimationDefaults`, `MlvUiAnimationDefaults`                            | Utilities                           | Re-exported from `@malva-ui/cdk/utils` (star re-export, every export; this row lists a sample).                                                                                                                                                                                |
 
 ---
 
@@ -276,12 +282,13 @@ import { MlvFade } from '@malva-ui/cdk';
 
 ### Internal (`@malva-ui/*`)
 
-- `@malva-ui/cdk/accessibility` — surfaced via subpath and selected root re-exports
-- `@malva-ui/cdk/density` — surfaced via subpath and selected root re-exports
+- `@malva-ui/cdk/accessibility` — surfaced via subpath and the root star re-export
+- `@malva-ui/cdk/density` — surfaced via subpath and the root star re-export
 - `@malva-ui/cdk/floating-container` — surfaced via subpath and root re-exports (sticky floating-footer container)
 - `@malva-ui/cdk/overlay` — surfaced via subpath and root re-exports (shared modal-overlay abstractions)
 - `@malva-ui/cdk/shrink-wrap` — surfaced via subpath and root re-exports (pure-CSS box-shrink-to-content primitive)
-- `@malva-ui/cdk/utils` — surfaced via subpath and selected root re-exports
+- `@malva-ui/cdk/theme` — surfaced via subpath and root re-exports (theme service, provider factory and tokens)
+- `@malva-ui/cdk/utils` — surfaced via subpath and the root star re-export
 
 ### Third-party
 

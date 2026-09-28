@@ -34,8 +34,16 @@ contract when it never was.
 | `defaultThemeKey`     | Const    | `'mlv-theme'`                                     |
 
 `@malva-ui/core/layout` used to re-export every one of these; that shim is
-**deleted** — see `docs/migrations/2026-09-layout-removal.md`. This entry point
-is the only import path.
+**deleted** — see `docs/migrations/2026-09-layout-removal.md`. Import paths:
+
+- `@malva-ui/cdk/theme` — the narrow entry point. Library sources, the
+  `ng add` schematic and every docs example use it; prefer it.
+- `@malva-ui/cdk` and `@malva-ui/core` root barrels — both `export *` this
+  entry point, so every export above resolves from them as the **same object**
+  (one `MlvThemeService` class, one root service). The core root carries it
+  because the migration doc promises root-barrel consumers need no change; the
+  line went missing with the shim and `0.2.0` shipped without it (#372).
+  `libs/core/src/root-barrels.spec.ts` pins both roots by identity.
 
 ## `provideDefaultTheme` starts the service
 
