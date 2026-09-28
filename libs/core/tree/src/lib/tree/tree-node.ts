@@ -18,6 +18,12 @@ export interface MlvTreeNode<T = unknown> {
   /**
    * Async callback for lazy-loading child nodes.
    * When defined, the node shows a loading spinner on first expand until the promise resolves.
+   * It is called as a method of the node (`node.loadChildren()`), so a class
+   * or object-literal method may read the node through `this`.
+   * The resolved children are cached, so later expands do not call it again.
+   * If the promise rejects (or the callback throws), the tree clears the
+   * spinner, collapses the node, caches nothing and emits `loadError`; the
+   * next expand calls it again.
    */
   loadChildren?: () => Promise<MlvTreeNode<T>[]>;
 
@@ -57,3 +63,15 @@ export interface MlvFlatTreeNode<T = unknown> {
 
 /** Selection mode for the tree component. */
 export type MlvTreeSelectMode = 'none' | 'single' | 'multi';
+
+/**
+ * Payload of `MlvTree.loadError`: a node whose `loadChildren()` rejected or
+ * threw, and the reason it gave.
+ */
+export interface MlvTreeLoadError<T = unknown> {
+  /** The node whose children failed to load. */
+  node: MlvTreeNode<T>;
+
+  /** The rejection reason, or the error `loadChildren()` threw — as given. */
+  error: unknown;
+}
