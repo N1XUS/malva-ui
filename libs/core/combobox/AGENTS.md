@@ -79,7 +79,7 @@ host: {
 #### Key Methods
 
 - `onSearchInput(event)` — Filters options by user text
-- `onEnterKey()` — Select exact match or create new value
+- `onEnterKey()` — Select the active option, else the listed option the text names (case and every diacritic folded, like the list), else create a new value unless it names a selected one
 - `selectValue(value: T)` — Select/toggle a single value
 - `selectValues(values: readonly T[])` — Set multiple values
 - `updateTriggerWidth(entries)` — Sync popup width to trigger via `MlvResizeObserver`

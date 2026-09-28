@@ -71,7 +71,7 @@ import {
   MlvComboboxSelectedItemDef,
 } from '../combobox-template.directives';
 import { LucideChevronDown } from '@lucide/angular';
-import { MlvResizeObserver } from '@malva-ui/cdk/utils';
+import { MlvResizeObserver, normalizeForMatch } from '@malva-ui/cdk/utils';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MlvInput } from '@malva-ui/core/input';
 import {
@@ -81,6 +81,78 @@ import {
 } from '@malva-ui/i18n';
 import { MlvLoader } from '@malva-ui/core/loader';
 import { MlvButtonClose } from '@malva-ui/core/button';
+
+/**
+ * @private Any non-ASCII code unit — the range `normalizeForMatch` tests.
+ * ASCII is NFC-stable, so a string without one is its own canonical form and
+ * `optionNamedBy` skips `normalize('NFC')` for it. No `g` flag: `.test()` on
+ * a global regex keeps `lastIndex`.
+ */
+const NON_ASCII = /[\u0080-\uffff]/;
+
+/**
+ * @private The option whose label `text` names, or `undefined` — how Enter
+ * decides that typed text is an existing entry rather than a new one (#350).
+ *
+ * A label names `text` at one of three ranks; the lowest rank wins, first in
+ * list order among equals:
+ * 0. the same text, compared canonically (NFC), so a decomposed label equals
+ *    the precomposed text a keyboard types;
+ * 1. the same text in another case — `toLowerCase()` equal, either as written
+ *    (the pre-#350 comparison, verbatim) or in NFC;
+ * 2. the same `normalizeForMatch` fold — the key the list is filtered by, so
+ *    the option the list shows for `cafe` is the one `cafe` names. The fold
+ *    strips every `\p{Diacritic}`, not only accents: ASCII `^` and `` ` ``,
+ *    kana voicing marks and `ー`, the breve of `й`, Indic viramas, Thai tone
+ *    marks, Hebrew and Arabic points (`ビル` names a listed `ピル`).
+ *
+ * Ranks 0 and 1 never consult the fold, so every label the old case-only
+ * comparison matched is still named, including one whose fold is `''` (`^`)
+ * or differs in context (a final sigma before a non-ignorable mark). Rank 2
+ * needs a non-empty fold: text made only of diacritics names only a label
+ * spelled the same, at rank 0 or 1 (`` ` `` never names `^`). Typing a label
+ * exactly never lands on a different option.
+ *
+ * Cost per call: one `toLowerCase()` and one `normalizeForMatch` per option
+ * (both `toLowerCase()` for plain ASCII), plus `normalize('NFC')` for a
+ * non-ASCII label; a rank-1 match stops the fold for the rest. Enter walks
+ * the listed and the selected options once per press. `_createsOnEnter`
+ * also runs on every keystroke while the popup is open with `allowCreate`,
+ * but walks only the selected options (about 0.06 ms for 1000 ASCII labels,
+ * 0.27 ms with a third accented).
+ */
+function optionNamedBy<T>(
+  options: readonly MlvSelectOption<T>[],
+  text: string,
+): MlvSelectOption<T> | undefined {
+  const canonical = NON_ASCII.test(text) ? text.normalize('NFC') : text;
+  const lowered = text.toLowerCase();
+  const canonicalLowered =
+    canonical === text ? lowered : canonical.toLowerCase();
+  const folded = normalizeForMatch(text);
+  let closest: MlvSelectOption<T> | undefined;
+  let closestRank = 3;
+  for (const option of options) {
+    const raw = option.label;
+    const label = NON_ASCII.test(raw) ? raw.normalize('NFC') : raw;
+    if (label === canonical) return option;
+    if (closestRank === 1) continue;
+    const labelLowered = label.toLowerCase();
+    const rawLowered = label === raw ? labelLowered : raw.toLowerCase();
+    if (labelLowered === canonicalLowered || rawLowered === lowered) {
+      closest = option;
+      closestRank = 1;
+    } else if (
+      closestRank === 3 &&
+      folded !== '' &&
+      normalizeForMatch(raw) === folded
+    ) {
+      closest = option;
+      closestRank = 2;
+    }
+  }
+  return closest;
+}
 
 @Component({
   selector: 'mlv-combobox',
@@ -161,7 +233,13 @@ export class MlvCombobox<T>
   });
   /** Custom placeholder override. Falls back to the i18n-provided placeholder. */
   readonly placeholder = input<string | undefined>(undefined);
-  /** Whether the user can create a new value via Enter when no option matches. */
+  /**
+   * Whether the user can create a new value via Enter: the trimmed text, as
+   * typed, when it names no listed option and no selected value. Naming folds
+   * case and every diacritic the way the list is filtered, so `cafe` selects
+   * a listed "Café" instead — and `ビル` a listed `ピル`, `^1.2.3` a listed
+   * `1.2.3`. See {@link onEnterKey}.
+   */
   readonly allowCreate = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
   });
@@ -188,7 +266,12 @@ export class MlvCombobox<T>
    */
   readonly matcher = input<MlvOptionMatcher<T> | undefined>(undefined);
 
-  /** Emitted only when the user actually creates a brand-new value via Enter. */
+  /**
+   * Emitted only when the user actually creates a brand-new value via Enter —
+   * never for text naming a listed option or a selected option's label (both
+   * folded like the list: case and every diacritic), nor for text equal to a
+   * selected value by `compareWith`. Carries the trimmed text as typed.
+   */
   readonly valueCreated = output<T>();
 
   /**
@@ -593,6 +676,25 @@ export class MlvCombobox<T>
     return selected.filter((s) => options.has(s.value));
   });
 
+  /**
+   * @protected Whether Enter, with no listed option named, would add the
+   * trimmed text as a new value: `allowCreate` is on, the text is not blank,
+   * and it names no selected option — by label, folded like the list (the
+   * option may no longer be listed: a remote source lists only the current
+   * query's results) — nor equals a selected value by `compareWith`. Read by
+   * `onEnterKey` and by the empty state, which offers "Press Enter to add"
+   * only when this holds and shows "No results" otherwise (#350).
+   */
+  protected readonly _createsOnEnter = computed(() => {
+    if (!this.allowCreate()) return false;
+    const query = this.searchQuery().trim();
+    return (
+      query !== '' &&
+      !optionNamedBy(this.selectedOptions(), query) &&
+      !this.selectionService.isSelected(query as unknown as T)
+    );
+  });
+
   /** @protected `Press Enter to add "{query}"` resolved through i18n. */
   protected readonly _pressEnterToAdd = computed(() =>
     this._resolver.resolve(
@@ -632,7 +734,7 @@ export class MlvCombobox<T>
     if (!this.isOpen()) return '';
     const count = this.filteredOptions().length;
     if (count === 0) {
-      return this.allowCreate() && this.searchQuery().trim()
+      return this._createsOnEnter()
         ? this._pressEnterToAdd()
         : this._i18n().noResults;
     }
@@ -952,6 +1054,18 @@ export class MlvCombobox<T>
     this._activeDescendant.last();
   }
 
+  /**
+   * Enter in the search input: selects the highlighted option; else the
+   * listed option the trimmed text names; else, with {@link allowCreate},
+   * adds the text as a new value unless it names a selected one. Never
+   * deselects.
+   *
+   * "Names" folds case and every diacritic the way the list is filtered, so
+   * `cafe` selects a listed "Café" and does not add beside a selected "Café";
+   * among several listed options that answer, the one needing the least
+   * folding wins, and an exact or case-only match never needs the fold. A
+   * created value is the text as typed, never its folded form (#350).
+   */
   onEnterKey(event?: Event): void {
     event?.preventDefault();
     if (this._isInert()) return;
@@ -968,19 +1082,21 @@ export class MlvCombobox<T>
     const query = this.searchQuery().trim();
     if (!query) return;
 
-    // 2. Exact text match selects (never deselects).
-    const exactMatch = filtered.find(
-      (o) => o.label.toLowerCase() === query.toLowerCase(),
-    );
-    if (exactMatch) {
-      this._commitValue(exactMatch.value);
+    // 2. Text naming a listed option selects it (never deselects) — folded
+    //    like the list, so the option the list shows for the text is the one
+    //    Enter picks rather than a near-duplicate it creates.
+    const named = optionNamedBy(filtered, query);
+    if (named) {
+      this._commitValue(named.value);
       return;
     }
 
     // 3. allowCreate: ADD a brand-new value (never toggle-off, never duplicate).
+    //    `_createsOnEnter` says whether the text is a duplicate, and the empty
+    //    state reads the same answer, so it never offers an add Enter refuses.
     if (this.allowCreate()) {
-      const value = query as unknown as T;
-      if (!this.selectionService.isSelected(value)) {
+      if (this._createsOnEnter()) {
+        const value = query as unknown as T;
         this._addOrReplace(value);
         this.valueCreated.emit(value);
         this._emitValue();
@@ -1223,7 +1339,7 @@ export class MlvCombobox<T>
     }
   }
 
-  /** @private Commits an option value (Enter / active / exact-match path) and settles the UI. */
+  /** @private Commits an option value (Enter: the active option or the listed option the text names) and settles the UI. */
   private _commitValue(value: T): void {
     this._addOrReplace(value);
     this._emitValue();
