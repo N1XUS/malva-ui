@@ -26,6 +26,12 @@
  *     `[disabled]`, `[aria-disabled]`, ignoring anything inside `:not(…)`),
  *     unless the selector is on `OPACITY_ALLOWED`. `opacity: 0` (a hide) and
  *     `opacity: 1` (a reset) are not dims and pass;
+ *   • `opacity-custom-property` — a custom property whose name ends in
+ *     `opacity` (`--mlv-accordion-icon-opacity`, `--check-opacity`) declared
+ *     under a disabled selector with any value but `0` / `1`. It is the same
+ *     dim routed through a base rule's `opacity: var(--…)`, where the
+ *     `opacity` check above cannot see it. The allow-list does not apply: an
+ *     allowed dim is written as `opacity` on the allowed selector itself;
  *   • `literal-opacity` — an allow-listed selector whose value is anything but
  *     exactly `var(--mlv-disabled-opacity)`;
  *   • `opacity-fallback` — `var(--mlv-disabled-opacity, …)` anywhere: the token
@@ -36,6 +42,21 @@
  *   • `stale-allow` — an allow-list entry that matched nothing;
  *   • `compile-error` / `no-sources` — the walk could not see what it checks,
  *     so a clean answer would be vacuous.
+ *
+ * Blind spots — a green run does not rule these out; review them by hand
+ * (none has a live instance in `libs/` today):
+ *
+ *   • disabled states the marker does not name: `[aria-disabled='true' i]`,
+ *     `:not(:enabled)`, `[data-disabled]`, `.is-disabled`, `[inert]`, or any
+ *     state class without `--disabled` in it;
+ *   • dims that are not an `opacity` declaration: `filter: opacity(…)`,
+ *     `color-mix(…, transparent)` or an alpha colour, a `@keyframes` animation
+ *     applied under a disabled selector;
+ *   • a custom property that carries the dim under a name not ending in
+ *     `opacity` (`--x-alpha: 0.4`, read by a base rule's `opacity: var(…)`);
+ *   • stylesheets outside a `libs/<project>/src/` tree, and inline
+ *     `styles: [...]` in a component decorator — only `.scss` / `.css` files
+ *     under `libs/` are walked.
  *
  * Usage:
  *   node scripts/check-disabled-surface.mjs [--json] [--quiet]
@@ -130,6 +151,18 @@ export const OPACITY_ALLOWED = [
     reason:
       'The cover preview is an image; there is no disabled token for pixels.',
   },
+  {
+    file: 'libs/core/file-upload/src/lib/file-upload/file-upload.scss',
+    selector: '.mlv-file-upload--disabled .mlv-file-upload-item__thumbnail-img',
+    reason:
+      'A file row’s thumbnail is an image preview, like the cover image. The row’s text and placeholder icon take the disabled ink instead.',
+  },
+  {
+    file: 'libs/core/file-upload/src/lib/file-upload/file-upload.scss',
+    selector: '.mlv-file-upload--disabled .mlv-file-upload__action',
+    reason:
+      'Projected `[mlvFileUploadAction]` controls are consumer content the stylesheet cannot restyle — the `mlv-expand` rationale; the consumer disables them.',
+  },
 ];
 
 /** Selectors allowed to name a non-error state. None: SF-R6 has no exceptions. */
@@ -146,6 +179,18 @@ const DISABLED_MARKER =
 
 /** `var(--mlv-disabled-opacity, <fallback>)`, anywhere in a value. */
 const OPACITY_FALLBACK = /var\(\s*--mlv-disabled-opacity\s*,/;
+
+/** A custom property that carries an opacity (`--mlv-accordion-icon-opacity`). */
+const OPACITY_CUSTOM_PROPERTY = /^--[\w-]*opacity$/i;
+
+/**
+ * Whether an opacity value leaves the element undimmed: `0` hides it, `1`
+ * resets it. Anything else — a fraction, a `var()` — is a dim.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+const isHideOrReset = (value) => /^[01](\.0+)?$/.test(value.trim());
 
 /**
  * Removes every `:not(…)` group, nested parentheses included: a marker inside
@@ -238,8 +283,25 @@ export function analyseCss(css, file, options = {}) {
     const opacities = rule.nodes.filter(
       (node) => node.type === 'decl' && node.prop === 'opacity',
     );
+    const customOpacities = rule.nodes.filter(
+      (node) =>
+        node.type === 'decl' &&
+        OPACITY_CUSTOM_PROPERTY.test(node.prop) &&
+        !isHideOrReset(node.value),
+    );
 
     for (const selector of selectors) {
+      if (customOpacities.length && isDisabledSelector(selector)) {
+        for (const decl of customOpacities) {
+          report(
+            decl,
+            'opacity-custom-property',
+            selector,
+            `${decl.prop}: ${decl.value.trim()} — an opacity routed through a custom property is still a disabled dim; declare --mlv-background-disabled / --mlv-text-disabled instead (SF-R4)`,
+          );
+        }
+      }
+
       if (STATE_TINT.test(selector)) {
         const entry = stateTintAllowed.find(
           (candidate) =>
@@ -259,7 +321,7 @@ export function analyseCss(css, file, options = {}) {
       if (!opacities.length || !isDisabledSelector(selector)) continue;
       for (const decl of opacities) {
         const value = decl.value.trim();
-        if (value === '0' || value === '1') continue;
+        if (isHideOrReset(value)) continue;
         const entry = opacityAllowed.find(
           (candidate) =>
             candidate.file === file && candidate.selector === selector,

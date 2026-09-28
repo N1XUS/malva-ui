@@ -5,6 +5,8 @@ import {
   input,
   ViewEncapsulation,
 } from '@angular/core';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
   MLV_DENSITY_ELEMENT,
   MlvDensityDirective,
@@ -49,6 +51,18 @@ export class MlvButtonClose {
 
   /** Accessible name applied to the inner native button. */
   readonly ariaLabel = input.required<string>();
+
+  /**
+   * Disables the inner native button: it takes the declared disabled surface,
+   * leaves the tab order and does not activate — the inner `mlvButton`'s
+   * `disabled` contract. A pointer click on the inner button therefore never
+   * reaches a `(click)` bound on this host; a click dispatched on the host
+   * element itself still does, so a consumer that must not act while disabled
+   * guards its handler too.
+   */
+  readonly disabled = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
 
   /**
    * @protected Resolved host-directive density forwarded to the inner button.

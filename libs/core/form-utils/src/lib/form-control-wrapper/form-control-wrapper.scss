@@ -193,9 +193,8 @@
     // Disabled is the declared surface and ink a disabled `mlvButton` uses
     // (SF-R4, #366), so a disabled field and a disabled button side by side
     // read alike; it used to be `--mlv-background-sunken` with undimmed text.
-    // The resting border and an error border are kept. Placeholders keep
-    // `--mlv-text-tertiary`; the label, description and message outside the
-    // box are not dimmed.
+    // The resting border and an error border are kept; the label, description
+    // and message outside the box are not dimmed.
     &--disabled {
       --container-background-color: var(--mlv-background-disabled);
       --container-side-content-color: var(--mlv-text-disabled);
@@ -207,10 +206,15 @@
     // The value inside the box carries `mlv` classes (`mlv-input__native`, a
     // select's trigger text…), which read the text tokens directly through the
     // global `[class*='mlv']` rule and ignore an inherited `color`, so the
-    // tokens themselves are remapped for the box's subtree.
+    // tokens themselves are remapped for the box's subtree. Placeholders read
+    // `--mlv-text-tertiary` (`mlv-input`'s `::placeholder`, `mlv-select`'s
+    // `__placeholder`), which on the disabled surface fell to 2.00:1 in light;
+    // remapped, a placeholder takes the disabled ink like the value: 3.76:1
+    // light, 3.44:1 dark, 3.72:1 high contrast.
     &--disabled &__control-container {
       --mlv-text-primary: var(--mlv-text-disabled);
       --mlv-text-secondary: var(--mlv-text-disabled);
+      --mlv-text-tertiary: var(--mlv-text-disabled);
     }
   }
 

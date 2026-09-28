@@ -59,8 +59,9 @@ function disabledOpacities(root: Postcss.Root): string[] {
 const root = compile('./file-upload.scss');
 
 /**
- * SF-R4 (#366): the disabled drop zone declares its surface and ink. The
- * cover image is picture data and keeps the token (allow-listed).
+ * SF-R4 (#366): the disabled drop zone declares its surface and ink. The cover
+ * image and row thumbnails are picture data, and projected actions are
+ * consumer content, so those keep the token (allow-listed).
  */
 describe('file-upload.scss — disabled surface', () => {
   it('declares the disabled drop zone', () => {
@@ -84,9 +85,41 @@ describe('file-upload.scss — disabled surface', () => {
     }
   });
 
-  it('dims only the cover image, with the token', () => {
+  it('dims only images and projected actions, with the token', () => {
     expect(disabledOpacities(root)).toEqual([
       '.mlv-file-upload--disabled .mlv-file-upload__cover-image → var(--mlv-disabled-opacity)',
+      '.mlv-file-upload--disabled .mlv-file-upload__action → var(--mlv-disabled-opacity)',
+      '.mlv-file-upload--disabled .mlv-file-upload-item__thumbnail-img → var(--mlv-disabled-opacity)',
     ]);
+  });
+});
+
+/**
+ * The file rows live in `mlv-file-upload-item`, which reads the two text
+ * tokens; the disabled upload remaps them instead of multiplying the row.
+ */
+describe('file-upload.scss — disabled file rows', () => {
+  const item = compile('../file-upload-item/file-upload-item.scss');
+
+  it('remaps the row text tokens to the disabled ink', () => {
+    const row = declarations(
+      root,
+      '.mlv-file-upload--disabled .mlv-file-upload-item',
+    );
+    expect(row['--mlv-text-primary']).toBe('var(--mlv-text-disabled)');
+    expect(row['--mlv-text-secondary']).toBe('var(--mlv-text-disabled)');
+  });
+
+  it('matches the tokens the row actually reads', () => {
+    // If the row stops reading these, the remap above dims nothing.
+    expect(declarations(item, '.mlv-file-upload-item__name')['color']).toBe(
+      'var(--mlv-text-primary)',
+    );
+    expect(declarations(item, '.mlv-file-upload-item__meta')['color']).toBe(
+      'var(--mlv-text-secondary)',
+    );
+    expect(
+      declarations(item, '.mlv-file-upload-item__thumbnail')['color'],
+    ).toBe('var(--mlv-text-secondary)');
   });
 });

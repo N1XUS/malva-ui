@@ -20,9 +20,11 @@ export type MlvFileUploadActionPosition = 'start' | 'end';
  * the slot, so an extra action never also triggers the surrounding zone and
  * opens the native file picker.
  *
- * Disabling a projected control is the consumer's job: `mlv-file-upload` only
- * dims the zone and blocks pointer events while the control itself is
- * disabled, it does not write `disabled` onto projected content.
+ * Disabling a projected control is the consumer's job: while the upload is
+ * disabled, `mlv-file-upload` dims the zone and the projected actions and
+ * blocks pointer events, but it does not write `disabled` onto projected
+ * content, so the keyboard still reaches it until the consumer binds
+ * `[disabled]`.
  *
  * @example
  * ```html

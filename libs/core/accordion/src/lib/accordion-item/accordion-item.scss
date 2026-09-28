@@ -103,7 +103,8 @@
     }
 
     // No `--disabled` rule: the header declares its own disabled ink above. The
-    // item used to multiply that header (≈1.6:1) and any open content by the
-    // opacity token a second time.
+    // item used to multiply itself — the header (≈1.6:1) and any open content —
+    // by the opacity token, and that multiply was all that dimmed the title,
+    // since the header's `color` never reached it.
   }
 }

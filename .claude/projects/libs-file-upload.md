@@ -100,11 +100,11 @@ the browser never dispatches `drop` at all.
 
 #### Public Methods
 
-| Method                     | Description                                                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `openFilePicker()`         | Programmatically opens the native file picker dialog                                                                              |
-| `onFileInputChange(event)` | Handles changes from the hidden file `<input>`                                                                                    |
-| `removeFile(id)`           | Removes a file by its id; revokes the preview URL the component created for it (see **Preview URL lifetime**), never a consumer's |
+| Method                     | Description                                                                                                                                                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openFilePicker()`         | Programmatically opens the native file picker dialog                                                                                                                                                                                                |
+| `onFileInputChange(event)` | Handles changes from the hidden file `<input>`                                                                                                                                                                                                      |
+| `removeFile(id)`           | Removes a file by its id; revokes the preview URL the component created for it (see **Preview URL lifetime**), never a consumer's. A no-op while `computedDisabled()` (no `filesChange`, #568) — write `value` / the form model to clear files then |
 
 #### Validation Logic
 
@@ -369,15 +369,16 @@ already render, or a `<label>` you own.
 
 #### Inputs
 
-| Name   | Type              | Default  | Description                            |
-| ------ | ----------------- | -------- | -------------------------------------- |
-| `file` | `MlvUploadedFile` | required | The uploaded file descriptor to render |
+| Name       | Type              | Default  | Description                                                                                                                                                                             |
+| ---------- | ----------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file`     | `MlvUploadedFile` | required | The uploaded file descriptor to render                                                                                                                                                  |
+| `disabled` | `BooleanInput`    | `false`  | Disables the remove button (native `disabled`: out of the tab order, not activatable) and stops `remove`. `mlv-file-upload` binds its `computedDisabled()`; row ink is its scope (#568) |
 
 #### Outputs
 
-| Name     | Type                     | Description                                  |
-| -------- | ------------------------ | -------------------------------------------- |
-| `remove` | `OutputEmitterRef<void>` | Emits when the user clicks the remove button |
+| Name     | Type                     | Description                                                          |
+| -------- | ------------------------ | -------------------------------------------------------------------- |
+| `remove` | `OutputEmitterRef<void>` | Emits when the user clicks the remove button; never while `disabled` |
 
 #### Internal Computed Signals
 
@@ -393,7 +394,7 @@ already render, or a `<label>` you own.
 - **Meta:** Shows `file().error.message` when `file.error` is set; otherwise `_formattedSize()`.
 - **Progress bar:** `<mlv-loader variant="bar">` visible only when `state === 'uploading'`.
 - **Status icons:** `lucideCircleCheck` for `success`, `lucideCircleX` for `error`.
-- **Remove button:** Always visible. `aria-label="Remove {file.name}"`.
+- **Remove button:** Always visible. `aria-label="Remove {file.name}"`. Takes `[disabled]="disabled()"` through `MlvButtonClose.disabled`; its handler also returns early while disabled, so a click dispatched on the `mlv-button-close` host emits nothing.
 
 #### Host Bindings
 
@@ -450,9 +451,11 @@ host: {
 - **Disabled state is the consumer's job.** `mlv-file-upload` paints the zone
   with the disabled surface and sets `pointer-events: none` on the host while the
   control is disabled, but it never writes `disabled` onto projected content.
-  Since #366 the host no longer multiplies everything by an opacity, so a
-  projected action renders at full strength unless the consumer binds its own
-  `[disabled]` (an `mlvButton` then shows its disabled surface).
+  It cannot declare a disabled surface for content it does not render, so a
+  projected action keeps `opacity: var(--mlv-disabled-opacity)` (allow-listed in
+  `scripts/check-disabled-surface.mjs`, the `mlv-expand` rationale). The dim is
+  visual and the host's `pointer-events: none` stops only the pointer: bind
+  `[disabled]` on the action so the keyboard is blocked too.
 - Give icon-only actions an `aria-label`; the directive adds no accessible name.
 
 ---
@@ -586,6 +589,8 @@ readonly image = signal<MlvUploadedFile[]>([
 
 ## Disabled surface (2026-09, #366)
 
-- Host opacity removed. `--disabled`: zone `--mlv-background-disabled` + `cursor: not-allowed`, zone icon / title / subtitle `--mlv-text-disabled`; `__cover-image` keeps `opacity: var(--mlv-disabled-opacity)` (picture data, allow-listed). Error border and rejection list kept. Projected actions are no longer dimmed by the host (see _Disabled state is the consumer's job_).
-- Spec: `file-upload-disabled-styles.spec.ts`.
+- Host opacity removed. `--disabled`: zone `--mlv-background-disabled` + `cursor: not-allowed`, zone icon / title / subtitle `--mlv-text-disabled`. Error border and rejection list kept.
+- File rows: `.mlv-file-upload--disabled .mlv-file-upload-item` remaps `--mlv-text-primary` / `--mlv-text-secondary` → `--mlv-text-disabled` (name, size meta, placeholder file icon; an error message, the status icons and the progress bar keep their tone, the row fill its neutral surface); each row's remove button is natively disabled through `MlvFileUploadItem.disabled` and `removeFile()` is a no-op (#568, which the host opacity used to mask — Tab + Enter removed a file).
+- Three allow-listed `opacity: var(--mlv-disabled-opacity)` sites, each content the component has no token for: `__cover-image` and row `__thumbnail-img` (picture data), and projected `__action` content (consumer-owned, see _Disabled state is the consumer's job_).
+- Specs: `file-upload-disabled-styles.spec.ts` (zone, row remap, the three opacity sites), `file-upload-disabled.spec.ts` (remove buttons disabled, not focusable or clickable, `removeFile()` no-op, re-enable, axe sweep), `file-upload-item.spec.ts` § _while disabled_.
 - Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

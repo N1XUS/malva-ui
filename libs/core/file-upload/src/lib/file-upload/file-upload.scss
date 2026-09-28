@@ -191,10 +191,14 @@
 
     // Disabled is a declared surface, not an opacity multiply (SF-R4, #366).
     // The drop zone takes the disabled surface and ink; its buttons are
-    // `mlvButton`s that declare their own. Only the cover image — picture
-    // data no token can stand in for — keeps the shared opacity token
-    // (allow-listed in `scripts/check-disabled-surface.mjs`). The error border
-    // and the rejection list are kept.
+    // `mlvButton`s that declare their own, and so is each row's remove
+    // button, which the component disables. The file rows remap their text
+    // tokens to the disabled ink. Three things keep the shared opacity token
+    // (allow-listed in `scripts/check-disabled-surface.mjs`): the cover image
+    // and the row thumbnails, which are picture data no token can stand in
+    // for, and projected `[mlvFileUploadAction]` controls, which are consumer
+    // content this stylesheet cannot restyle — the `mlv-expand` rationale.
+    // The error border, the rejection list and per-file error text are kept.
     &--disabled {
       pointer-events: none;
 
@@ -210,6 +214,20 @@
       }
 
       .#{$block}__cover-image {
+        opacity: var(--mlv-disabled-opacity);
+      }
+
+      .#{$block}__action {
+        opacity: var(--mlv-disabled-opacity);
+      }
+
+      // The row's name, size and placeholder file icon read these two tokens.
+      .mlv-file-upload-item {
+        --mlv-text-primary: var(--mlv-text-disabled);
+        --mlv-text-secondary: var(--mlv-text-disabled);
+      }
+
+      .mlv-file-upload-item__thumbnail-img {
         opacity: var(--mlv-disabled-opacity);
       }
     }

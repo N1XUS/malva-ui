@@ -325,6 +325,44 @@ describe('MlvFileUploadItem', () => {
 
       expect(emitSpy).toHaveBeenCalledTimes(1);
     });
+
+    describe('while disabled', () => {
+      beforeEach(() => {
+        fixture.componentRef.setInput('disabled', true);
+        fixture.detectChanges();
+      });
+
+      /** The native button inside `<mlv-button-close>`. */
+      const nativeButton = (): HTMLButtonElement =>
+        hostEl.querySelector<HTMLButtonElement>(
+          '.mlv-file-upload-item__remove button',
+        ) as HTMLButtonElement;
+
+      it('disables the native remove button', () => {
+        expect(nativeButton().disabled).toBe(true);
+      });
+
+      it('keeps it out of the tab order and inert to activation', () => {
+        const emitSpy = vi.spyOn(component.remove, 'emit');
+        const button = nativeButton();
+
+        button.focus();
+        expect(document.activeElement === button).toBe(false);
+        button.click();
+
+        expect(emitSpy).not.toHaveBeenCalled();
+      });
+
+      it('does not emit for a click dispatched on the close host itself', () => {
+        const emitSpy = vi.spyOn(component.remove, 'emit');
+
+        hostEl
+          .querySelector('.mlv-file-upload-item__remove')
+          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(emitSpy).not.toHaveBeenCalled();
+      });
+    });
   });
 
   // -------------------------------------------------------------------------

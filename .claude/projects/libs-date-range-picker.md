@@ -22,7 +22,7 @@ The Date Range Picker library (`@malva-ui/core/date-range-picker`) provides a da
 - Full signal, reactive, and template-driven forms integration producing `MlvDateRangePickerValue<D> | null`
 - Keyboard accessible: trigger opens popup, Escape closes, Tab navigates between calendars
 - Modal focus management: the **inner panel** carries `role="dialog"` + `aria-modal="true"` + `cdkTrapFocus` (the single dialog role for this surface — the wrapping `mlv-popup` stays roleless/non-modal to avoid nesting a second dialog). On open, focus moves into the panel (first tabbable element, falling back to the `tabindex="-1"` panel container); Tab is trapped within; on close, focus returns to the trigger. Wired via the popup's `(afterOpened)="_onPanelOpened()"` / `(afterClosed)="_onPanelClosed()"`, `cdkTrapFocus` (`A11yModule`), and `MlvTabbableElementService` from `@malva-ui/cdk/accessibility`.
-- State variants: `default`, `success`, `warning`, `error`, `info`
+- State variants: `default`, `success`, `warning`, `error`, `info` — only `error` paints; the others keep their `--state-*` class and no rule (SF-R6, #366)
 
 ## Public API
 
@@ -38,13 +38,13 @@ Exported from `libs/core/date-range-picker/src/index.ts`:
 
 ### Inputs
 
-| Input         | Type                                                   | Default               | Description                                                        |
-| ------------- | ------------------------------------------------------ | --------------------- | ------------------------------------------------------------------ |
-| `placeholder` | `string`                                               | `'Select date range'` | Placeholder text when no range is selected                         |
-| `disabled`    | `BooleanInput`                                         | `false`               | Disables the trigger                                               |
-| `state`       | `MlvDateRangePickerState`                              | `'default'`           | Validation state for border color                                  |
-| `min`         | `D \| MlvDateRangePickerValue<D> \| null \| undefined` | `null`                | Minimum date; signal-form range constraints use their `start` date |
-| `max`         | `D \| MlvDateRangePickerValue<D> \| null \| undefined` | `null`                | Maximum date; signal-form range constraints use their `end` date   |
+| Input         | Type                                                   | Default               | Description                                                                              |
+| ------------- | ------------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------- |
+| `placeholder` | `string`                                               | `'Select date range'` | Placeholder text when no range is selected                                               |
+| `disabled`    | `BooleanInput`                                         | `false`               | Disables the trigger                                                                     |
+| `state`       | `MlvDateRangePickerState`                              | `'default'`           | Validation state; only `error` paints, other values keep their class and no rule (SF-R6) |
+| `min`         | `D \| MlvDateRangePickerValue<D> \| null \| undefined` | `null`                | Minimum date; signal-form range constraints use their `start` date                       |
+| `max`         | `D \| MlvDateRangePickerValue<D> \| null \| undefined` | `null`                | Maximum date; signal-form range constraints use their `end` date                         |
 
 ### Outputs
 

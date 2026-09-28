@@ -125,6 +125,62 @@ test('an allow-list entry for another file does not apply', () => {
   );
 });
 
+test('flags an opacity routed through a custom property under a disabled state', () => {
+  // The #366 review's ablation: the accordion's own chevron dim, set to a
+  // fraction under the disabled trigger and read by the base rule's
+  // `opacity: var(--mlv-accordion-icon-opacity, 0.5)`. The `opacity` check
+  // alone never saw it.
+  assert.deepEqual(
+    kinds(`
+      .mlv-accordion-item__trigger[aria-disabled='true'] {
+        color: var(--mlv-text-disabled);
+        --mlv-accordion-icon-opacity: 0.4;
+      }
+      .mlv-accordion-item__icon {
+        opacity: var(--mlv-accordion-icon-opacity, 0.5);
+      }
+    `),
+    [
+      "opacity-custom-property .mlv-accordion-item__trigger[aria-disabled='true']",
+    ],
+  );
+});
+
+test('a custom-property opacity takes no allow-list and passes only as 0 or 1', () => {
+  const entry = {
+    file: FILE,
+    selector: '.mlv-x--disabled',
+    reason: 'would allow `opacity`, not a custom property',
+  };
+  assert.deepEqual(
+    kinds(
+      `
+        .mlv-x--disabled { --check-opacity: var(--mlv-disabled-opacity); }
+        .mlv-y--disabled { --mlv-y-icon-opacity: 1; --mlv-y-glyph-opacity: 0; }
+        .mlv-z__thumb { --mlv-z-thumb-opacity: 0.5; }
+      `,
+      { opacityAllowed: [entry] },
+    ),
+    ['opacity-custom-property .mlv-x--disabled'],
+  );
+});
+
+test('the blind spots the script header lists stay unseen', () => {
+  // Pinned so that widening the check also updates the header and
+  // .claude/rules/bem-scss.md; each of these is a dim it cannot see today.
+  assert.deepEqual(
+    kinds(`
+      .mlv-x[aria-disabled='true' i] { opacity: 0.4; }
+      .mlv-x:not(:enabled) { opacity: 0.4; }
+      .mlv-x[data-disabled] { opacity: 0.4; }
+      .mlv-x.is-disabled { opacity: 0.4; }
+      .mlv-x[inert] { opacity: 0.4; }
+      .mlv-x--disabled { filter: opacity(0.4); --mlv-x-alpha: 0.4; }
+    `),
+    [],
+  );
+});
+
 test('flags a fallback on the disabled-opacity token anywhere', () => {
   assert.deepEqual(
     kinds('.mlv-x__y { --mlv-x-dim: var(--mlv-disabled-opacity, 0.56); }'),

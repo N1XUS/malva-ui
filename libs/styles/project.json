@@ -57,7 +57,8 @@
       "inputs": [
         "{workspaceRoot}/scripts/check-disabled-surface.mjs",
         "{workspaceRoot}/libs/**/*.scss",
-        "{workspaceRoot}/libs/**/*.css"
+        "{workspaceRoot}/libs/**/*.css",
+        { "externalDependencies": ["sass", "postcss"] }
       ],
       "options": {
         "command": "node scripts/check-disabled-surface.mjs",

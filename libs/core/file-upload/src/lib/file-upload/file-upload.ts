@@ -299,9 +299,15 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
    * Removes a file by its id. A preview URL the component created for it is
    * revoked after the next render, unless a mounted upload's value still
    * references it by then; a `previewUrl` the consumer supplied is left alone.
+   *
+   * A no-op while the control is disabled (`computedDisabled()`), like
+   * `openFilePicker()`: a disabled upload removes nothing, whichever control
+   * or script asks. To clear files programmatically while disabled, write
+   * `value` (or the bound form model) instead.
    * @param id - The id of the `MlvUploadedFile` to remove.
    */
   removeFile(id: string): void {
+    if (this.computedDisabled()) return;
     this.value.update((files) =>
       (files ?? []).filter((file) => file.id !== id),
     );

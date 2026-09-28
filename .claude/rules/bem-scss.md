@@ -231,19 +231,40 @@ Settled by #366. Enforced by `yarn nx run styles:check-disabled-surface`
   when #366 landed it held `mlv-icon-toggle`
   `:disabled`, `.mlv-expand--disabled`, the colour picker's
   `__canvas-container` / `__sliders`, the popup `__swatch`, file-upload's
-  `__cover-image`. An allow entry that stops matching fails as `stale-allow`.
+  `__cover-image`, row `__thumbnail-img` and projected `__action` content. An
+  allow entry that stops matching fails as `stale-allow`.
+- **Projected content is the consumer's.** A component cannot declare a
+  disabled surface for content it does not render; it either keeps the token
+  opacity on it through the allow-list (`mlv-expand`, file-upload actions) or
+  leaves it alone and documents that the consumer binds `disabled` on it.
 - **Validation tint: error only.** `--state-error` may paint (border, ring,
   track); `--state-success` / `--state-warning` / `--state-info` declare
   **nothing** — no colour, border, fill or shadow. A class may still be
   stamped. `STATE_TINT_ALLOWED` is empty.
-- Guard findings: `opacity-under-disabled`, `literal-opacity`,
-  `opacity-fallback`, `state-tint`, `stale-allow`, `compile-error`,
-  `no-sources`. It compiles every `libs/**` `.scss` / reads every `.css`
-  (partials, mixin libraries, the global entry, the Tailwind adapter and the
-  token library excepted) and reads the emitted selectors, so a `&--disabled`
-  nested three levels deep is still seen. `opacity: 0` (a hide) and
-  `opacity: 1` (a reset) under a disabled selector are not dims and pass; a
+- Guard findings: `opacity-under-disabled`, `opacity-custom-property`,
+  `literal-opacity`, `opacity-fallback`, `state-tint`, `stale-allow`,
+  `compile-error`, `no-sources`. It compiles every `libs/**` `.scss` / reads
+  every `.css` (partials, mixin libraries, the global entry, the Tailwind
+  adapter and the token library excepted) and reads the emitted selectors, so a
+  `&--disabled` nested three levels deep is still seen. `opacity: 0` (a hide)
+  and `opacity: 1` (a reset) under a disabled selector are not dims and pass; a
   marker inside `:not(…)` is ignored.
+- **`opacity-custom-property`**: a custom property whose name ends in
+  `opacity` (`--mlv-accordion-icon-opacity: 0.4`) declared under a disabled
+  selector is the same dim routed through a base rule's `opacity: var(…)`. It
+  passes only as `0` or `1`, and the allow-list does not apply — put the
+  allow-listed `opacity` on the element itself.
+- **Blind spots** — the guard does not see these, so review them by hand (the
+  script header keeps the same list):
+  - disabled selectors it does not recognise: `[aria-disabled='true' i]`,
+    `:not(:enabled)`, `[data-disabled]`, `.is-disabled`, `[inert]`, or a state
+    class without `--disabled` in its name;
+  - dims that are not an `opacity` declaration: `filter: opacity()`,
+    `color-mix()` or an alpha colour, a keyframe animation applied under a
+    disabled selector, and a custom property whose name does not end in
+    `opacity`;
+  - stylesheets outside a `libs/<project>/src/` tree, and inline `styles` in a
+    decorator.
 
 ### Component-scoped custom properties
 

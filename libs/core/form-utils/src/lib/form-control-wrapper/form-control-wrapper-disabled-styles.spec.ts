@@ -84,6 +84,17 @@ describe('form-control-wrapper.scss — disabled surface', () => {
     expect(box['--mlv-text-secondary']).toBe('var(--mlv-text-disabled)');
   });
 
+  it('draws placeholders inside the box in the disabled ink too', () => {
+    // Placeholders read the tertiary step (`mlv-input`'s `::placeholder`,
+    // `mlv-select`'s `__placeholder`); left alone it fell to 2.00:1 on the
+    // light disabled surface (#366 review), where the remap gives 3.76:1.
+    const box = declarations(
+      root,
+      '.mlv-form-control-wrapper--disabled .mlv-form-control-wrapper__control-container',
+    );
+    expect(box['--mlv-text-tertiary']).toBe('var(--mlv-text-disabled)');
+  });
+
   it('dims nothing with opacity', () => {
     expect(disabledOpacities(root)).toEqual([]);
   });

@@ -837,5 +837,7 @@ export class MyComponent {}
 
 ## Disabled surface (2026-09, #366)
 
-- Spec: `tab-item-disabled-styles.spec.ts`.
+- `mlv-tab-item--disabled`: `--mlv-text-disabled` ink after `--active` (was a literal `opacity: 0.5`).
+- Boxed appearance: the active tab's `color: var(--mlv-text-primary)` rule in `tabs.scss` is `.mlv-tab-group--appearance-boxed > .mlv-tab-group__header > .mlv-tab-item.mlv-tab-item--active:not(.mlv-tab-item--disabled)`. Without the `:not(…)` its (0,4,0) specificity beat the item's own disabled ink, so a disabled active tab painted exactly like an enabled one once the opacity was gone.
+- Specs: `tab-item-disabled-styles.spec.ts`, `tabs-disabled-styles.spec.ts` (a boxed active tab gets the primary rule; a disabled active one gets none).
 - Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

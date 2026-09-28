@@ -7,6 +7,8 @@ import {
   output,
   ViewEncapsulation,
 } from '@angular/core';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { MlvLoader } from '@malva-ui/core/loader';
 import { LucideFile, LucideCircleCheck, LucideCircleX } from '@lucide/angular';
 import { MLV_FILE_UPLOAD_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
@@ -48,6 +50,16 @@ export class MlvFileUploadItem {
   readonly file = input.required<MlvUploadedFile>();
 
   /**
+   * Disables the row's remove button: it leaves the tab order, does not
+   * activate, and `remove` does not emit. `mlv-file-upload` binds its own
+   * resolved disabled state here. The row's disabled ink comes from the
+   * owning `mlv-file-upload--disabled` scope, not from this input.
+   */
+  readonly disabled = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
+
+  /**
    * @protected Accessible label for the remove button, naming the specific file
    * (e.g. `"Remove report.xlsx"`) so screen-reader users know which file the
    * button removes. Resolves the `removeFile` ICU template with the file name.
@@ -60,8 +72,18 @@ export class MlvFileUploadItem {
     ),
   );
 
-  /** Emits when the user clicks the remove button. */
+  /** Emits when the user clicks the remove button. Never emits while `disabled`. */
   readonly remove = output<void>();
+
+  /**
+   * @protected Emits `remove` unless the row is disabled. The disabled inner
+   * button already swallows its own click; this also covers a click dispatched
+   * on the `mlv-button-close` host element itself.
+   */
+  protected _onRemove(): void {
+    if (this.disabled()) return;
+    this.remove.emit();
+  }
 
   /** @protected Human-readable file size string (e.g. "1.2 MB"). */
   protected readonly _formattedSize = computed(() => {

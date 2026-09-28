@@ -794,9 +794,11 @@ for (const [block, colourVar] of [
 
   const tabs = load('libs/core/tabs/src/lib/tabs/tabs.scss');
   const BOXED = '.mlv-tab-group--appearance-boxed > .mlv-tab-group__header';
+  // `:not(--disabled)` since #366: a disabled active tab takes the item's own
+  // disabled ink instead (`tabs-disabled-styles.spec.ts`).
   const boxedLabel = decls(
     tabs,
-    `${BOXED} > .mlv-tab-item.mlv-tab-item--active`,
+    `${BOXED} > .mlv-tab-item.mlv-tab-item--active:not(.mlv-tab-item--disabled)`,
   ).get('color');
 
   test('segmented and boxed tabs read the pill and label from semantic tokens only', () => {

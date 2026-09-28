@@ -125,14 +125,14 @@ A radio is checked while its own `value` is identical (`===`) to the group's, re
 
 #### Inputs
 
-| Name       | Type                                    | Default            | Description                                                                                                        |
-| ---------- | --------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `name`     | `string`                                | auto-generated     | Group name for native radios                                                                                       |
-| `disabled` | `boolean`                               | `false`            | _(inherited)_ Disable all radios; also settable via `FormControl.disable()` (merged into `computedDisabled()`)     |
-| `readonly` | `boolean`                               | `false`            | _(inherited)_ Locks selection while keeping the group legible/focusable; reflected as `mlv-radio-group--readonly`  |
-| `state`    | `MlvRadioGroupState` (`= MlvFormState`) | `'default'`        | _(inherited)_ Validation state; reflected as `mlv-radio-group--state-*` with an inline-start accent on the content |
-| `label`    | `string`                                | `''`               | _(inherited)_ Group label (rendered via `mlv-label`)                                                               |
-| `id`       | `string`                                | auto (`mlvNextId`) | _(inherited)_ Bound to the host `id` attribute                                                                     |
+| Name       | Type                                    | Default            | Description                                                                                                                                                                                   |
+| ---------- | --------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`     | `string`                                | auto-generated     | Group name for native radios                                                                                                                                                                  |
+| `disabled` | `boolean`                               | `false`            | _(inherited)_ Disable all radios; also settable via `FormControl.disable()` (merged into `computedDisabled()`)                                                                                |
+| `readonly` | `boolean`                               | `false`            | _(inherited)_ Locks selection while keeping the group legible/focusable; reflected as `mlv-radio-group--readonly`                                                                             |
+| `state`    | `MlvRadioGroupState` (`= MlvFormState`) | `'default'`        | _(inherited)_ Validation state, reflected as `mlv-radio-group--state-*`. Only `error` paints (an inline-start accent on the content); other values keep their class and no rule (SF-R6, #366) |
+| `label`    | `string`                                | `''`               | _(inherited)_ Group label (rendered via `mlv-label`)                                                                                                                                          |
+| `id`       | `string`                                | auto (`mlvNextId`) | _(inherited)_ Bound to the host `id` attribute                                                                                                                                                |
 
 > `MlvRadioGroupState` remains exported as a public type alias for backwards compatibility; it is now defined as `MlvFormState` from `@malva-ui/core/form-utils`.
 
