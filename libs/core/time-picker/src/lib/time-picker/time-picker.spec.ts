@@ -590,18 +590,25 @@ describe('MlvTimePicker', () => {
       expect(selected?.textContent?.trim()).toBe('30');
     });
 
-    it('should default to current time when writeValue receives empty string', () => {
-      expect(() => {
-        component.value.set('');
-        fixture.detectChanges();
-      }).not.toThrow();
-    });
+    // An empty write renders as empty (#348) — it used to seed the drums from
+    // the wall clock. `time-picker-empty.spec.ts` covers the behaviour; these
+    // pin the write path from a held value, open.
+    it.each([
+      ['empty string', ''],
+      ['null', null as unknown as string],
+    ])('should empty the drums when writeValue receives %s', (_, empty) => {
+      openPopup(hostEl, fixture);
+      component.value.set('08:05');
+      fixture.detectChanges();
+      expect(getSelectedOption(getListbox(overlayContainerEl, 0))).toBeTruthy();
 
-    it('should default to current time when writeValue receives null', () => {
-      expect(() => {
-        component.value.set(null as unknown as string);
-        fixture.detectChanges();
-      }).not.toThrow();
+      component.value.set(empty);
+      fixture.detectChanges();
+
+      expect(getSelectedOption(getListbox(overlayContainerEl, 0))).toBeNull();
+      expect(getSelectedOption(getListbox(overlayContainerEl, 1))).toBeNull();
+      expect(getTrigger(hostEl).textContent ?? '').not.toMatch(/\d\d:\d\d/);
+      expect(component.hasValue()).toBe(false);
     });
   });
 

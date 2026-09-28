@@ -11,7 +11,8 @@ import {
   type ComponentFixture,
 } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MlvScrubber } from './scrubber';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
+import { MlvScrubber, type MlvScrubberOrientation } from './scrubber';
 
 /**
  * The guarantees the primitive owns on its own account, each of which used to be
@@ -26,6 +27,9 @@ import { MlvScrubber } from './scrubber';
  *    the listbox has been interacted with, and a `focusin` counts.
  * 3. **Reduced motion.** `mixins.reduced-motion` emits `scroll-behavior: auto`,
  *    which an explicit `behavior` passed to `scrollTo()` overrides.
+ * 4. **An axe sweep per state that changes the markup** — selected, disabled
+ *    (the listbox leaves the tab order), horizontal (`aria-orientation`) and
+ *    three sibling strips. No selection is swept in `scrubber-empty.spec.ts`.
  */
 
 const ITEMS = [0, 1, 2, 3, 4, 5];
@@ -271,6 +275,62 @@ describe('MlvScrubber — reduced motion', () => {
     stubMatchMedia(true);
     const fixture = await scrollTo(3);
     expect(behaviors.at(-1)).toBe('instant');
+    fixture.destroy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Axe
+// ---------------------------------------------------------------------------
+
+@Component({
+  imports: [MlvScrubber],
+  template: `
+    <mlv-scrubber
+      label="Hours"
+      [items]="items"
+      [selectedValue]="selected()"
+      [disabled]="disabled()"
+      [orientation]="orientation()"
+    />
+  `,
+})
+class SweepHost {
+  readonly items = ITEMS;
+  readonly selected = signal(2);
+  readonly disabled = signal(false);
+  readonly orientation = signal<MlvScrubberOrientation>('vertical');
+}
+
+describe('MlvScrubber — axe', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: ComponentFixtureAutoDetect, useValue: true }],
+    });
+  });
+
+  it.each([
+    ['selected, vertical', false, 'vertical'],
+    ['disabled', true, 'vertical'],
+    ['horizontal', false, 'horizontal'],
+  ] as const)(
+    'has no axe violations — %s',
+    async (_state, disabled, orientation) => {
+      const fixture = TestBed.createComponent(SweepHost);
+      fixture.componentInstance.disabled.set(disabled);
+      fixture.componentInstance.orientation.set(orientation);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
+      fixture.destroy();
+    },
+  );
+
+  it('has no axe violations — three sibling strips', async () => {
+    const fixture = TestBed.createComponent(ThreeStripHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await expectNoAxeViolations(fixture.nativeElement as HTMLElement);
     fixture.destroy();
   });
 });

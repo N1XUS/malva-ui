@@ -12,7 +12,7 @@ import { DocPageComponent } from '../../shared/doc-page';
   />`,
 })
 export class TimePickerPageComponent {
-  examples = new Array(8).fill(0).map((_, i) => i + 1);
+  examples = new Array(9).fill(0).map((_, i) => i + 1);
 
   readonly meta: DocPageMeta = {
     title: 'Time Picker',

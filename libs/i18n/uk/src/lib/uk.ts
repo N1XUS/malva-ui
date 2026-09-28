@@ -491,6 +491,7 @@ const uk: MlvLanguage = {
   },
   timePicker: {
     period: 'Період',
+    placeholder: 'Вибрати час...',
     timePicker: 'Вибір часу',
   },
   toast: {

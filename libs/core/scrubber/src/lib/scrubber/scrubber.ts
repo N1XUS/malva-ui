@@ -10,6 +10,7 @@ import {
   input,
   NgZone,
   output,
+  signal,
   untracked,
   viewChild,
   viewChildren,
@@ -19,7 +20,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { fromEvent } from 'rxjs';
+import { fromEvent, take } from 'rxjs';
 import { Listbox, Option } from '@angular/aria/listbox';
 import {
   clamp,
@@ -41,7 +42,10 @@ let nextScrubberId = 0;
  * container while `aria-activedescendant` tracks the active item. aria owns the
  * roles (`listbox`/`option`), `aria-selected`, `aria-activedescendant`, roving
  * `aria-activedescendant`, and all keyboard navigation (Arrow keys with wrap,
- * Home/End, Enter/Space, and additive type-ahead).
+ * Home/End and additive type-ahead, each selecting as it moves). Enter / Space
+ * are bound only in `'explicit'` selection mode — an empty strip that has
+ * never had focus (see `_selectionMode`); aria leaves them unbound when
+ * selection follows focus.
  *
  * The CSS scroll-snap **drum-roll** UX is retained on top of aria: in
  * `activedescendant` mode aria never moves DOM focus and never scrolls (its
@@ -79,8 +83,17 @@ export class MlvScrubber<T> implements AfterViewInit {
    */
   readonly items = input.required<readonly T[]>();
 
-  /** The currently selected value. Must be one of {@link items}. */
-  readonly selectedValue = input.required<T>();
+  /**
+   * The currently selected value — one of {@link items}, or `null` for **no
+   * selection**.
+   *
+   * With `null`, no option is `aria-selected`, the strip does not scroll (it
+   * rests on its first item when first rendered, and stays where it is when a
+   * selection is removed), and activating any item emits it — the resting one
+   * included, since there is nothing for it to echo. `null` is therefore
+   * reserved: it cannot also be an item.
+   */
+  readonly selectedValue = input.required<T | null>();
 
   /**
    * The axis the strip scrolls along. `'vertical'` is the classic drum roll;
@@ -132,13 +145,16 @@ export class MlvScrubber<T> implements AfterViewInit {
   /** @private Prefix for this instance's option element ids. */
   private readonly _idPrefix = `mlv-scrubber-${nextScrubberId++}`;
 
+  /** @private Host element; the scope direction resolves against. */
+  private readonly _elementRef = inject(ElementRef<HTMLElement>);
+
   /**
    * @private The direction applying to this host, following the global
    * direction and any `[dir]` scope above it. Only the inline axis reads it —
    * a vertical strip is on the block axis and never mirrors.
    */
   private readonly _direction = inject(MlvRtlService).elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._elementRef,
   );
 
   /** @protected Whether the strip scrolls along the inline axis. */
@@ -154,9 +170,38 @@ export class MlvScrubber<T> implements AfterViewInit {
 
   /**
    * @protected Bridges the scalar `selectedValue` input into aria's array-based
-   * (`V[]`) single-select value model. Single-select always holds ≤1 entry.
+   * (`V[]`) single-select value model. Single-select always holds ≤1 entry;
+   * `null` (no selection) is the empty array.
    */
-  protected readonly _ariaValue = computed(() => [this.selectedValue()]);
+  protected readonly _ariaValue = computed((): T[] => {
+    const selected = this.selectedValue();
+    return selected === null ? [] : [selected];
+  });
+
+  /**
+   * @private Whether focus has entered the listbox — the moment aria's own
+   * `hasBeenInteracted` latches. Never reset.
+   */
+  private readonly _interacted = signal(false);
+
+  /**
+   * @protected aria's selection mode: `'follow'` (Arrow keys select), except
+   * while the strip holds **no selection and has not yet been focused**.
+   *
+   * aria's `setDefaultState()` runs as an after-render effect until the
+   * listbox is first focused, and in `'follow'` mode it **selects** the first
+   * item whenever none is selected — so a `null` strip would pick its first
+   * item on its own, and emit it, with no user input. In `'explicit'` mode the
+   * same pass only makes the first item active. The first `focusin` flips the
+   * strip to `'follow'` — by then aria's latch has stopped the default pass —
+   * so every keyboard path behaves as before; a click selects in either mode.
+   * A strip holding a value is `'follow'` from its first render, unchanged.
+   */
+  protected readonly _selectionMode = computed(() =>
+    this.selectedValue() === null && !this._interacted()
+      ? 'explicit'
+      : 'follow',
+  );
 
   /**
    * @protected Listbox tabindex. Forced to `-1` when disabled to preserve the
@@ -173,6 +218,16 @@ export class MlvScrubber<T> implements AfterViewInit {
   constructor() {
     afterNextRender(() => this._registerScrollListener());
 
+    // Latch `_interacted` on the first focus inside the strip. On the host, not
+    // the `<ul>`, and from the constructor rather than `afterNextRender`: a
+    // parent may focus the list mid-pass, before the list's own after-render
+    // hook has run (`mlv-time-picker` does, through its popup's open handler),
+    // and `focusin` bubbles from the list — or an option — to the host, which
+    // holds nothing else.
+    fromEvent(this._elementRef.nativeElement, 'focusin')
+      .pipe(take(1), takeUntilDestroyed())
+      .subscribe(() => this._interacted.set(true));
+
     // Sync the scroll position AND aria's active item when selectedValue
     // changes externally (forms value write, mode switch). gotoIndex only moves
     // the active descendant (no selection), so it never re-emits valueChange.
@@ -184,10 +239,24 @@ export class MlvScrubber<T> implements AfterViewInit {
     // physical, and mirroring moves the content without resizing it, so no
     // `ResizeObserver` fires and no query changes — nothing else would tell the
     // strip that its offset now points at the wrong item.
+    //
+    // No selection (`null`) scrolls nowhere: the strip stays where it is. A
+    // programmatic scroll would come back through `_syncIndexFromScroll` and
+    // select whatever item it landed on, 150ms later, with no user input.
+    // For the same reason it drops a read-back still pending from a scroll
+    // before the selection went away (a flick, then a form reset within
+    // 150ms), which would otherwise commit the landed item right after the
+    // reset. A pending read-back also dies with an item-list or direction
+    // change while empty: the offset it measured no longer names the same
+    // item.
     effect(() => {
       const items = this.items();
       const selected = this.selectedValue();
       this._direction();
+      if (selected === null) {
+        untracked(() => this._cancelScrollReadBack());
+        return;
+      }
       const idx = items.indexOf(selected);
       const newIdx = idx >= 0 ? idx : 0;
       untracked(() => {
@@ -196,6 +265,8 @@ export class MlvScrubber<T> implements AfterViewInit {
       });
     });
 
+    // Clears without nulling the handle: `scrubber.spec.ts` watches it to
+    // prove no listener outlives the component.
     this._destroyRef.onDestroy(() => {
       if (this._scrollTimer) clearTimeout(this._scrollTimer);
     });
@@ -203,7 +274,9 @@ export class MlvScrubber<T> implements AfterViewInit {
 
   ngAfterViewInit(): void {
     const items = this.items();
-    const idx = items.indexOf(this.selectedValue());
+    const selected = this.selectedValue();
+    const idx = selected === null ? -1 : items.indexOf(selected);
+    // No selection rests on the first item.
     const startIdx = idx >= 0 ? idx : 0;
     // Seed aria's active item to the selected value now that the options are
     // registered. aria's own `setDefaultState` is defeated once a consumer's
@@ -298,6 +371,12 @@ export class MlvScrubber<T> implements AfterViewInit {
     this._scrollTimer = setTimeout(() => {
       this._syncIndexFromScroll();
     }, 150);
+  }
+
+  /** @private Drops a pending scroll read-back, if any. */
+  private _cancelScrollReadBack(): void {
+    if (this._scrollTimer) clearTimeout(this._scrollTimer);
+    this._scrollTimer = null;
   }
 
   /**

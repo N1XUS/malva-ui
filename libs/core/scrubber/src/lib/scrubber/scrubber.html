@@ -4,7 +4,7 @@
     ngListbox
     class="mlv-scrubber__list"
     focusMode="activedescendant"
-    selectionMode="follow"
+    [selectionMode]="_selectionMode()"
     [orientation]="orientation()"
     [wrap]="true"
     [disabled]="disabled()"

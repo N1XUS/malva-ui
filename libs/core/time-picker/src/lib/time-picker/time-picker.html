@@ -38,7 +38,13 @@
         (focus)="setFocused(true)"
         (blur)="_onTriggerBlur()"
       >
-        <span class="mlv-time-picker__value">{{ _displayValue() }}</span>
+        @if (hasValue()) {
+          <span class="mlv-time-picker__value">{{ _displayValue() }}</span>
+        } @else {
+          <span class="mlv-time-picker__placeholder">{{
+            _resolvedPlaceholder()
+          }}</span>
+        }
         <span class="mlv-time-picker__icon">
           <svg lucideClock></svg>
         </span>
@@ -75,7 +81,7 @@
               <mlv-scrubber
                 label="Hours"
                 [items]="_hourItems()"
-                [selectedValue]="_displayHour()"
+                [selectedValue]="_selectedHour()"
                 [displayWith]="_twoDigits"
                 [disabled]="computedDisabled()"
                 (valueChange)="_onHourChange($event)"
@@ -87,7 +93,7 @@
               <mlv-scrubber
                 label="Minutes"
                 [items]="_minuteItems()"
-                [selectedValue]="_minute()"
+                [selectedValue]="_selectedMinute()"
                 [displayWith]="_twoDigits"
                 [disabled]="computedDisabled()"
                 (valueChange)="_onMinuteChange($event)"
@@ -102,7 +108,7 @@
                 <mlv-scrubber
                   label="Seconds"
                   [items]="_secondItems()"
-                  [selectedValue]="_second()"
+                  [selectedValue]="_selectedSecond()"
                   [displayWith]="_twoDigits"
                   [disabled]="computedDisabled()"
                   (valueChange)="_onSecondChange($event)"
@@ -118,8 +124,10 @@
                   <button
                     type="button"
                     mlvButton
-                    [variant]="_period() === 'AM' ? 'primary' : 'outlined'"
-                    [attr.aria-pressed]="_period() === 'AM'"
+                    [variant]="
+                      _selectedPeriod() === 'AM' ? 'primary' : 'outlined'
+                    "
+                    [attr.aria-pressed]="_selectedPeriod() === 'AM'"
                     [disabled]="computedDisabled()"
                     (click)="_onPeriodChange('AM')"
                   >
@@ -128,8 +136,10 @@
                   <button
                     type="button"
                     mlvButton
-                    [variant]="_period() === 'PM' ? 'primary' : 'outlined'"
-                    [attr.aria-pressed]="_period() === 'PM'"
+                    [variant]="
+                      _selectedPeriod() === 'PM' ? 'primary' : 'outlined'
+                    "
+                    [attr.aria-pressed]="_selectedPeriod() === 'PM'"
                     [disabled]="computedDisabled()"
                     (click)="_onPeriodChange('PM')"
                   >

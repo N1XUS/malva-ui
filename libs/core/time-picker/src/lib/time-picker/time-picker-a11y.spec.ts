@@ -11,11 +11,13 @@ import { MlvTimePicker } from './time-picker';
     label="Meeting time"
     [mode]="mode()"
     [showSeconds]="showSeconds()"
+    [value]="value()"
   />`,
 })
 class A11yHost {
   readonly mode = signal<'24h' | '12h'>('24h');
   readonly showSeconds = signal(false);
+  readonly value = signal('');
 }
 
 /**
@@ -108,6 +110,28 @@ describe('MlvTimePicker accessibility', () => {
 
     // Hours + minutes + seconds; AM/PM is a button pair, not a drum.
     expect(body.querySelectorAll('[role="listbox"]').length).toBe(3);
+    await expectNoAxeViolations(body);
+  });
+
+  // The sweeps above run on an empty value, which since #348 renders the
+  // trigger placeholder and drums with no selection. A held value is a
+  // different markup — selected options, a pressed period — so it is swept
+  // on its own.
+  it('has no axe violations with a value held, panel open', async () => {
+    const { body, host, open } = await render();
+    host.value.set('21:45:30');
+    host.mode.set('12h');
+    host.showSeconds.set(true);
+    breakpoint.down.set(false);
+    await open();
+
+    expect(
+      body.querySelectorAll('[role="option"][aria-selected="true"]').length,
+    ).toBe(3);
+    expect(
+      body.querySelectorAll('.mlv-time-picker__ampm [aria-pressed="true"]')
+        .length,
+    ).toBe(1);
     await expectNoAxeViolations(body);
   });
 

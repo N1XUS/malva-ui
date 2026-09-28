@@ -339,7 +339,6 @@ export const ROLLOUT_PENDING = [
     ],
   },
   'core-scrollbar',
-  'core-scrubber',
   {
     // #298 swept default, readonly, disabled and a readonly range.
     project: 'core-slider',

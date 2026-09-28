@@ -474,6 +474,7 @@ const zhHans: MlvLanguage = {
   },
   timePicker: {
     period: '时段',
+    placeholder: '选择时间...',
     timePicker: '时间选择器',
   },
   toast: {
