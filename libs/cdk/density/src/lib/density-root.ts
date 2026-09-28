@@ -15,9 +15,14 @@ import { MlvDensityService } from './density.service';
  * SCSS mixins will respond automatically to the current service density — no
  * per-component `[mlvDensity]` input needed.
  *
- * Individual components can still override by setting their own
- * `[mlvDensity]` input, which adds their BEM modifier class and takes
- * precedence over the cascade (matching the SCSS mixin's `:not(...)` logic).
+ * Every Malva component that uses those mixins stamps its own
+ * `mlv-{block}--{density}` modifier (own `mlvDensity` → nearest density scope
+ * → `MlvDensityService`), which takes precedence over this class (the SCSS
+ * mixin's `:not(...)` logic). So the class sizes only markup that carries no
+ * modifier of its own — application styles keyed on `.mlv--{density}`. It is
+ * **not** a density scope: it neither reads nor provides `MLV_DENSITY_CONTEXT`,
+ * because a root that published the global density would shadow every
+ * component-scoped `MlvDensityService` below it (#364).
  *
  * @example Place on layout root
  * ```html

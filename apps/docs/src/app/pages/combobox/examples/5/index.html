@@ -3,23 +3,24 @@
     @for (level of densityLevels; track level) {
       <button
         mlvButton
-        [variant]="densityService.density() === level ? 'primary' : 'secondary'"
-        (click)="densityService.setDensity(level)"
+        type="button"
+        [variant]="density() === level ? 'primary' : 'secondary'"
+        (click)="density.set(level)"
       >
         {{ level }}
       </button>
     }
   </div>
-  <div
-    class="demo-col"
-    style="gap: 0.75rem; align-items: stretch; max-width: 28rem"
+  <form
+    mlvForm
+    [mlvDensity]="density()"
+    aria-label="Skills"
+    style="max-width: 28rem"
   >
-    <div mlvDensityRoot>
-      <mlv-combobox
-        label="Language"
-        [options]="languages"
-        placeholder="Search languages..."
-      />
-    </div>
-  </div>
+    <mlv-combobox
+      label="Language"
+      [options]="languages"
+      placeholder="Search languages..."
+    />
+  </form>
 </div>

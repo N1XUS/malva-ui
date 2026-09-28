@@ -17,9 +17,12 @@ import { mlvFormGapValue } from '../form-gap';
  * Layout shell for a native `<form>`: vertical stack with a density-scaled gap,
  * and the density source for everything inside it.
  *
- * - `mlvDensity` (host directive) stamps `mlv-form--<density>` for cascade-only
- *   controls **and** provides `MLV_DENSITY_CONTEXT` for directive-bearing ones
- *   (buttons, selects, chips…), so one attribute sizes the whole form.
+ * - `mlvDensity` (host directive) stamps `mlv-form--<density>` (the form's own
+ *   gap scale, and plain markup inside it) **and** provides
+ *   `MLV_DENSITY_CONTEXT`, which every density-aware control inside resolves
+ *   its own modifier from (fields, labels, buttons, chips…), so one attribute
+ *   sizes the whole form. The context is the form's resolved density, so a
+ *   form pins everything inside it, even without an explicit value (#364).
  * - `gap` overrides the rhythm explicitly; `--mlv-form-gap` is the CSS hook.
  *
  * @example

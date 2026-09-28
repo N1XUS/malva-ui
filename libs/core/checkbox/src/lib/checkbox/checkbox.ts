@@ -26,6 +26,10 @@ import {
   MLV_FORM_CONTROL,
 } from '@malva-ui/core/form-utils';
 import { LucideCheck, LucideMinus } from '@lucide/angular';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import type { MlvCheckboxGroupAccessor } from '../checkbox-group-token';
 import { CHECKBOX_GROUP } from '../checkbox-group-token';
 
@@ -57,7 +61,11 @@ function hasExternalLabel(input: HTMLInputElement): boolean {
       provide: MLV_FORM_CONTROL,
       useExisting: forwardRef(() => MlvCheckbox),
     },
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'checkbox' },
   ],
+  // Density: stamps `mlv-checkbox--<density>` from `mlvDensity`, else the
+  // nearest density scope, else the service (#364).
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-checkbox',
     '[class.mlv-checkbox--disabled]': 'computedDisabled()',

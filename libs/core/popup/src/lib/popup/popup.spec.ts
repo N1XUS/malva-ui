@@ -5,11 +5,17 @@ import {
   signal,
   viewChild,
   ViewContainerRef,
+  type Provider,
   type WritableSignal,
 } from '@angular/core';
 import { MlvBreakpointService } from '@malva-ui/cdk/utils';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
-import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
+import {
+  MLV_DENSITY_CONTEXT,
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+  MlvDensityService,
+} from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
 import { MLV_POPUP_I18N } from '@malva-ui/i18n';
@@ -232,6 +238,95 @@ describe('MlvPopup', () => {
         '.mlv-popup',
       ) as HTMLElement;
       expect(panel.classList.contains('mlv--tight')).toBe(true);
+    });
+  });
+
+  describe('density scope for the content (#364)', () => {
+    /**
+     * Stands in for any density-aware Malva component (`mlv-list-item` rows in
+     * a dropdown panel): it stamps its own `mlv-probe--{density}` modifier,
+     * which shuts out the panel's `mlv--{density}` class, so only DI can size
+     * it.
+     */
+    @Component({
+      selector: 'mlv-probe',
+      template: '',
+      hostDirectives: [MlvDensityDirective],
+      providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'probe' }],
+    })
+    class ProbeComponent {}
+
+    @Component({
+      imports: [MlvPopup, MlvPopupContent, ProbeComponent],
+      template: `
+        <mlv-popup [mlvDensity]="density()">
+          <ng-template mlvPopupContent><mlv-probe /></ng-template>
+        </mlv-popup>
+        <ng-container #host />
+      `,
+    })
+    class ScopeHostComponent {
+      readonly density = signal<MlvDensity | undefined>(undefined);
+      readonly popup = viewChild.required(MlvPopup);
+      readonly host = viewChild.required('host', { read: ViewContainerRef });
+
+      stamp(): void {
+        this.host().createEmbeddedView(this.popup().popupTemplate());
+      }
+    }
+
+    function render(providers: Provider[] = []): {
+      fixture: ComponentFixture<ScopeHostComponent>;
+      probe: () => string;
+    } {
+      TestBed.overrideComponent(ScopeHostComponent, {
+        add: { providers },
+      });
+      const fixture = TestBed.createComponent(ScopeHostComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.stamp();
+      fixture.detectChanges();
+      return {
+        fixture,
+        probe: () =>
+          (fixture.nativeElement.querySelector('mlv-probe') as HTMLElement)
+            .className,
+      };
+    }
+
+    it('hands an explicit mlvDensity to its content through DI', () => {
+      const { fixture, probe } = render();
+      fixture.componentInstance.density.set('compact');
+      fixture.detectChanges();
+      expect(probe()).toContain('mlv-probe--compact');
+      expect(probe()).not.toContain('mlv-probe--comfortable');
+    });
+
+    it('follows a change of the explicit mlvDensity', () => {
+      const { fixture, probe } = render();
+      fixture.componentInstance.density.set('compact');
+      fixture.detectChanges();
+      fixture.componentInstance.density.set('tight');
+      fixture.detectChanges();
+      expect(probe()).toContain('mlv-probe--tight');
+      expect(probe()).not.toContain('mlv-probe--compact');
+    });
+
+    it('hands on the inherited scope unchanged when no mlvDensity is set', () => {
+      const { probe } = render([
+        {
+          provide: MLV_DENSITY_CONTEXT,
+          useValue: signal<MlvDensity>('spacious'),
+        },
+      ]);
+      expect(probe()).toContain('mlv-probe--spacious');
+    });
+
+    it('stays transparent with no scope anywhere, so the service applies', () => {
+      const { fixture, probe } = render();
+      TestBed.inject(MlvDensityService).setDensity('tight');
+      fixture.detectChanges();
+      expect(probe()).toContain('mlv-probe--tight');
     });
   });
 

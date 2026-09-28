@@ -21,6 +21,10 @@ import {
   RouterLinkActive,
 } from '@angular/router';
 import { filter, fromEvent } from 'rxjs';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import { MLV_SEGMENTED } from '../segmented-token';
 
 /** `RouterLinkActive`-style match options accepted by `linkActiveOptions`. */
@@ -55,6 +59,10 @@ function isFullMatchOptions(
   styleUrl: './segmented-item.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-segmented-item--<density>` from the nearest density
+  // scope — normally the owning `mlv-segmented` (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'segmented-item' }],
+  hostDirectives: [MlvDensityDirective],
   host: {
     class: 'mlv-segmented-item',
     '[class.mlv-segmented-item--active]': 'isActive()',

@@ -103,10 +103,13 @@
       height: 0.5rem;
       background-color: var(--mlv-border-normal, rgba(0, 0, 0, 0.24));
       border-radius: var(--mlv-radius-xs);
+    }
 
-      @include density.density-compact {
-        height: 0.375rem;
-      }
+    // Compact tick, keyed on the slider's own density modifier: the density
+    // mixins' ancestor branch would let an outer `--compact` class reach the
+    // tick past a slider resolved to another level (#364).
+    &[class*='--compact'] &__tick {
+      height: 0.375rem;
     }
 
     // Thumb

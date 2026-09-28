@@ -8,6 +8,10 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MLV_FORM_UTILS_I18N } from '@malva-ui/i18n';
 import { MLV_FORM_CONTROL } from '../models/form-control-connector';
@@ -30,6 +34,10 @@ import { MLV_FORM_FIELD } from '../models/form-field-connector';
   styleUrl: './label.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-label--<density>` from the nearest density scope, so
+  // two density ancestors resolve by nesting, not stylesheet order (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'label' }],
+  hostDirectives: [MlvDensityDirective],
   host: {
     class: 'mlv-label',
   },

@@ -8,6 +8,7 @@ import { MlvMenuSeparator } from './menu-separator';
 import { MlvMenuGroup } from './menu-group';
 import { MlvMenuTrigger } from './menu-trigger';
 import { MlvListItem, MlvListItemPrefix } from '@malva-ui/core/list';
+import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
 // ─── Test host components ─────────────────────────────────────────────────────
 
@@ -312,6 +313,119 @@ describe('MlvMenu', () => {
     const panel = overlayContainerEl.querySelector('.mlv-popup');
     expect(panel).not.toBeNull();
     expect(panel?.classList.contains('mlv--compact')).toBe(true);
+  });
+
+  describe('density scope for the items (#364)', () => {
+    /**
+     * Every row carries its own `mlv-list-item--{density}` modifier, which
+     * shuts out the panel's `mlv--{density}` class — the rows are sized only
+     * by the density they resolve through DI.
+     */
+    function rowClasses(): string[] {
+      return Array.from(
+        overlayContainerEl.querySelectorAll<HTMLElement>('mlv-list-item'),
+      ).map((row) => row.className);
+    }
+
+    async function open(
+      fixture: ReturnType<typeof TestBed.createComponent<unknown>>,
+    ): Promise<void> {
+      fixture.debugElement.query(By.css('button')).nativeElement.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+
+    @Component({
+      imports: [MlvMenu, MlvMenuItem, MlvMenuTrigger, MlvListItem],
+      template: `
+        <button [mlvMenuTrigger]="menu">Open</button>
+        <mlv-menu #menu label="Actions" [mlvDensity]="density()">
+          <mlv-list-item mlvMenuItem>Edit</mlv-list-item>
+          <mlv-list-item mlvMenuItem>Delete</mlv-list-item>
+        </mlv-menu>
+      `,
+    })
+    class ProjectedDenseHost {
+      readonly density = signal<'compact' | 'tight' | undefined>('compact');
+    }
+
+    @Component({
+      imports: [MlvMenu, MlvMenuTrigger],
+      template: `
+        <button [mlvMenuTrigger]="menu">Open</button>
+        <mlv-menu
+          #menu
+          label="Commands"
+          mlvDensity="compact"
+          [dataSource]="items"
+        />
+      `,
+    })
+    class DataDenseHost {
+      readonly items = [{ label: 'Cut' }, { label: 'Copy' }];
+    }
+
+    it('sizes consumer-projected rows from an explicit mlvDensity', async () => {
+      const fixture = TestBed.createComponent(ProjectedDenseHost);
+      fixture.detectChanges();
+      await open(fixture);
+
+      const rows = rowClasses();
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row).toContain('mlv-list-item--compact');
+        expect(row).not.toContain('mlv-list-item--comfortable');
+      }
+    });
+
+    it('follows a change of mlvDensity while open', async () => {
+      const fixture = TestBed.createComponent(ProjectedDenseHost);
+      fixture.detectChanges();
+      await open(fixture);
+
+      fixture.componentInstance.density.set('tight');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const rows = rowClasses();
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row).toContain('mlv-list-item--tight');
+      }
+    });
+
+    it('sizes the default data-driven rows from an explicit mlvDensity', async () => {
+      const fixture = TestBed.createComponent(DataDenseHost);
+      fixture.detectChanges();
+      await open(fixture);
+
+      const rows = rowClasses();
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row).toContain('mlv-list-item--compact');
+      }
+    });
+
+    it('leaves the rows on the service density with no mlvDensity', async () => {
+      const fixture = TestBed.createComponent(ProjectedDenseHost);
+      fixture.componentInstance.density.set(undefined);
+      fixture.detectChanges();
+      await open(fixture);
+
+      const rows = rowClasses();
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row).toContain('mlv-list-item--comfortable');
+      }
+    });
+
+    it('has no axe violations with a dense open menu', async () => {
+      const fixture = TestBed.createComponent(ProjectedDenseHost);
+      fixture.detectChanges();
+      await open(fixture);
+
+      await expectNoAxeViolations(document.body);
+    });
   });
 });
 

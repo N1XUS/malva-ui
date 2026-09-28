@@ -1,6 +1,7 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { ApplicationRef, Component, signal, viewChild } from '@angular/core';
+import type { Provider } from '@angular/core';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { Subject } from 'rxjs';
@@ -15,6 +16,8 @@ import {
 } from '@malva-ui/core/dropdown';
 import { MlvDataSource } from '@malva-ui/cdk/data-source';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
+import { MLV_DENSITY_CONTEXT } from '@malva-ui/cdk/density';
+import type { MlvDensity } from '@malva-ui/cdk/density';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 import { MlvInput } from '@malva-ui/core/input';
 import { MlvFormField, MlvLabel } from '@malva-ui/core/form-utils';
@@ -1835,5 +1838,111 @@ describe('MlvAutocomplete — a NaN-valued option picked with the pointer (#300)
     await settle();
     expect(input.value).toBe('Not a number');
     expect(fixture.componentInstance.value()).toBe(Number.NaN);
+  });
+});
+
+describe('MlvAutocomplete — suggestion rows follow the panel density (#364)', () => {
+  @Component({
+    template: `<input
+      aria-label="Fruit"
+      [mlvAutocomplete]="options"
+      [mlvAutocompleteDebounce]="0"
+      [mlvAutocompleteDensity]="density()"
+    />`,
+    imports: [MlvAutocomplete],
+  })
+  class DensityHostComponent {
+    readonly options = ['Apple', 'Apricot'];
+    readonly density = signal<'compact' | 'tight' | undefined>(undefined);
+  }
+
+  let fixture: ComponentFixture<DensityHostComponent>;
+  let input: HTMLInputElement;
+  let overlayContainer: OverlayContainer;
+
+  function create(providers: Provider[] = []): void {
+    TestBed.configureTestingModule({
+      imports: [DensityHostComponent],
+      providers: [provideMlvI18nTesting()],
+    });
+    TestBed.overrideComponent(DensityHostComponent, { add: { providers } });
+    fixture = TestBed.createComponent(DensityHostComponent);
+    fixture.detectChanges();
+    input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    overlayContainer = TestBed.inject(OverlayContainer);
+  }
+  afterEach(() => overlayContainer.ngOnDestroy());
+
+  /** Same flush as the main suite: debounce, effects, then the portal's own CD root. */
+  async function settle(ms = 5): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    fixture.detectChanges();
+    TestBed.inject(ApplicationRef).tick();
+    await fixture.whenStable();
+  }
+
+  /**
+   * Each row stamps its own `mlv-list-item--{density}` modifier, which shuts
+   * out the `mlv--{density}` class on the panel host — so a row is sized only
+   * by the density it resolves through DI.
+   */
+  const rowClasses = () =>
+    Array.from(
+      overlayContainer
+        .getContainerElement()
+        .querySelectorAll<HTMLElement>('mlv-list-item'),
+    ).map((row) => row.className);
+
+  it('sizes the rows from an explicit mlvAutocompleteDensity', async () => {
+    create();
+    fixture.componentInstance.density.set('compact');
+    fixture.detectChanges();
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+
+    const rows = rowClasses();
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toContain('mlv-list-item--compact');
+      expect(row).not.toContain('mlv-list-item--comfortable');
+    }
+  });
+
+  it('follows a change of mlvAutocompleteDensity while open', async () => {
+    create();
+    fixture.componentInstance.density.set('compact');
+    fixture.detectChanges();
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+
+    fixture.componentInstance.density.set('tight');
+    await settle();
+
+    const rows = rowClasses();
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toContain('mlv-list-item--tight');
+    }
+  });
+
+  it('hands on the surrounding scope when no density is set', async () => {
+    create([
+      {
+        provide: MLV_DENSITY_CONTEXT,
+        useValue: signal<MlvDensity>('spacious'),
+      },
+    ]);
+    input.dispatchEvent(new FocusEvent('focus'));
+    await settle();
+
+    const rows = rowClasses();
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toContain('mlv-list-item--spacious');
+    }
+    const panel = overlayContainer
+      .getContainerElement()
+      .querySelector<HTMLElement>('.mlv-dropdown-panel');
+    expect(panel?.classList.contains('mlv--spacious')).toBe(true);
   });
 });

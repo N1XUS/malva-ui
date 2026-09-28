@@ -534,8 +534,11 @@ the close button — rendered as one 36px control row. Use it as an element
 
 **Host bindings:** `class: 'mlv-drawer__header'`, `[attr.title]: null` (strips
 the native `title` attribute the element form leaves behind). Host directive
-`MlvDensityDirective` with the `mlvDensity` input; the header itself carries no
-density modifier class.
+`MlvDensityDirective` with the `mlvDensity` input; the header provides no
+`MLV_DENSITY_ELEMENT`, so it carries no block modifier — only the region class
+`mlv--<density>` while an explicit `mlvDensity` is set (the element name is
+read from the host alone since #364 / #239; before, a header declared inside
+e.g. a `form[mlvForm]` borrowed `mlv-form--<density>`).
 
 **Styles (`drawer-header.scss`, the header's own `styleUrl`):** `.mlv-drawer__header` is a `gap: var(--mlv-spacing-2)`
 flex row with `--mlv-padding-l` and a block-end hairline (61px with 36px

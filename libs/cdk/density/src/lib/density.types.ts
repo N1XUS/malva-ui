@@ -52,17 +52,21 @@ export const MLV_DEFAULT_DENSITY = new InjectionToken<MlvDensity>(
 );
 
 /**
- * Optional density projected by an ancestor container (for example
- * `form[mlvForm]`). Every density directive resolves its level in this order:
+ * Optional density projected by the nearest density scope above. Every
+ * density directive resolves its level in this order:
  *
  * 1. its own explicit `mlvDensity` input,
- * 2. the nearest ancestor `MLV_DENSITY_CONTEXT`,
+ * 2. the nearest ancestor `MLV_DENSITY_CONTEXT`, when it holds a value,
  * 3. the global `MlvDensityService`.
  *
- * Containers provide it with {@link provideMlvDensityContext}. Directives read
- * it with `{ optional: true, skipSelf: true }` so a container never consumes
- * the context it provides itself.
+ * Every density directive provides it for its descendants, carrying its
+ * explicit `mlvDensity`, else the value it inherited, else `undefined` — a
+ * scope with no opinion, which readers treat as absent. A container can
+ * replace that with {@link provideMlvDensityContext}, which publishes the
+ * container's resolved density instead. Directives read it with
+ * `{ optional: true, skipSelf: true }` so a host never consumes the context
+ * it provides itself.
  */
-export const MLV_DENSITY_CONTEXT = new InjectionToken<Signal<MlvDensity>>(
-  'MLV_DENSITY_CONTEXT',
-);
+export const MLV_DENSITY_CONTEXT = new InjectionToken<
+  Signal<MlvDensity | undefined>
+>('MLV_DENSITY_CONTEXT');

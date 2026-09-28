@@ -1,21 +1,17 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import type { MlvDensity } from '@malva-ui/cdk/density';
-import {
-  MlvDensityService,
-  MlvDensityRootDirective,
-} from '@malva-ui/cdk/density';
 import { MlvButton } from '@malva-ui/core/button';
 import { MlvCombobox } from '@malva-ui/core/combobox';
+import { MlvForm } from '@malva-ui/core/form';
 
 @Component({
   selector: 'docs-combobox-density-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvDensityRootDirective, MlvButton, MlvCombobox],
-  providers: [MlvDensityService],
+  imports: [MlvButton, MlvCombobox, MlvForm],
   templateUrl: './index.html',
 })
 export default class ComboboxDensityExampleComponent {
-  readonly densityService = inject(MlvDensityService);
+  readonly density = signal<MlvDensity>('comfortable');
   readonly densityLevels: MlvDensity[] = [
     'tight',
     'compact',

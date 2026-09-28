@@ -1,21 +1,17 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import type { MlvDensity } from '@malva-ui/cdk/density';
-import {
-  MlvDensityService,
-  MlvDensityRootDirective,
-} from '@malva-ui/cdk/density';
 import { MlvButton } from '@malva-ui/core/button';
+import { MlvForm } from '@malva-ui/core/form';
 import { MlvSelect } from '@malva-ui/core/select';
 
 @Component({
   selector: 'docs-select-density-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvDensityRootDirective, MlvButton, MlvSelect],
-  providers: [MlvDensityService],
+  imports: [MlvButton, MlvForm, MlvSelect],
   templateUrl: './index.html',
 })
 export default class SelectDensityExampleComponent {
-  readonly densityService = inject(MlvDensityService);
+  readonly density = signal<MlvDensity>('comfortable');
   readonly densityLevels: MlvDensity[] = [
     'tight',
     'compact',

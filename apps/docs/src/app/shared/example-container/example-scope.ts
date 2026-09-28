@@ -19,14 +19,20 @@ import type { MlvDirection } from '@malva-ui/cdk/utils';
  * | Direction | a `dir` attribute — `MlvRtlService.elementDirection()` resolves the nearest  |
  * | Theme     | an `mlvTheme` attribute — `theme.scss` keys its token islands off it        |
  *
- * Density needs **both** halves. The class alone is not enough: every
- * density-aware component stamps its own `mlv-{block}--{density}` modifier from
- * the density directive, and that modifier is exactly what
- * `density.scss`'s `[class*='--x'] &:not(…)` selectors treat as an override —
- * so a `mlv-button--comfortable` resolved from the *global* service would beat
- * the ancestor `mlv--tight`. Providing `MLV_DENSITY_CONTEXT` makes those
- * directives resolve the scoped value instead, and the cascade class then
- * covers the components that have no density directive of their own.
+ * `MLV_DENSITY_CONTEXT` is the half that sizes library components. Since #364
+ * every density-aware library component stamps its own
+ * `mlv-{block}--{density}` modifier from the density directive — the
+ * form-control wrapper, label, checkbox, radio, list item and tab item
+ * included — and that modifier is exactly what `density.scss`'s
+ * `[class*='--x'] &:not(…)` selectors treat as an override, so the ancestor
+ * `mlv--tight` class alone sizes none of them. They resolve this scope through
+ * the context. The class stays for plain example markup that carries no
+ * density directive (hand-written `.mlv--compact …` rules).
+ *
+ * Because this scope always has an opinion, it beats a component-scoped
+ * `MlvDensityService` inside an example. An example that switches density
+ * locally binds a nearer scope instead — `form[mlvForm] [mlvDensity]`, as the
+ * input, select and combobox density examples do.
  *
  * @example
  * ```html

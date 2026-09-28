@@ -233,7 +233,9 @@ export class MlvAutocomplete<T = unknown> {
    * The panel is hosted in a bare CDK overlay portaled to the overlay container,
    * outside the input's DOM tree, so ancestor density classes cannot cascade
    * into it. The resolved density is stamped as a `mlv--{density}` class on the
-   * panel host (the same mechanism `mlv-popup` uses for its detached panel).
+   * panel host (the same mechanism `mlv-popup` uses for its detached panel)
+   * and handed to the panel through `MLV_DENSITY_CONTEXT`, which is what its
+   * `mlv-list-item` rows stamp their own modifier from (#364).
    * When omitted, the nearest ancestor `MLV_DENSITY_CONTEXT` (e.g. a
    * `form[mlvForm]`) applies, then the global `MlvDensityService` density.
    */
@@ -326,6 +328,30 @@ export class MlvAutocomplete<T = unknown> {
   /** @private Ancestor-projected density (`MLV_DENSITY_CONTEXT`); consulted before the service. */
   private readonly _densityContext = inject(MLV_DENSITY_CONTEXT, {
     optional: true,
+  });
+
+  /**
+   * @private Density scope handed to the suggestion panel: the explicit
+   * {@link density}, else the inherited scope, else `undefined` (no opinion —
+   * the service applies below).
+   */
+  private readonly _panelDensityScope = computed<MlvDensity | undefined>(
+    () => this.density() ?? this._densityContext?.(),
+  );
+
+  /**
+   * @private Parent injector of the suggestion panel. Its option rows are
+   * `mlv-list-item`s, which stamp their own density modifier from
+   * `MLV_DENSITY_CONTEXT` — and an own modifier shuts out the `mlv--{density}`
+   * class on the panel host — so an explicit {@link density} has to reach them
+   * through DI as well (#364). Every other token resolves through this
+   * directive's own injector, as before.
+   */
+  private readonly _panelInjector = Injector.create({
+    providers: [
+      { provide: MLV_DENSITY_CONTEXT, useValue: this._panelDensityScope },
+    ],
+    parent: this._injector,
   });
 
   // ─── State ───────────────────────────────────────────────────────────────
@@ -422,7 +448,7 @@ export class MlvAutocomplete<T = unknown> {
         return;
       }
       const el = ref.location.nativeElement as HTMLElement;
-      const next = `mlv--${this.density() ?? this._densityContext?.() ?? this._densityService.density()}`;
+      const next = `mlv--${this._panelDensityScope() ?? this._densityService.density()}`;
       if (this._appliedDensityClass === next) return;
       if (this._appliedDensityClass) {
         this._renderer.removeClass(el, this._appliedDensityClass);
@@ -1034,7 +1060,7 @@ export class MlvAutocomplete<T = unknown> {
       });
 
       const ref = this._overlayRef.attach(
-        new ComponentPortal(MlvDropdownPanel, this._vcr, this._injector),
+        new ComponentPortal(MlvDropdownPanel, this._vcr, this._panelInjector),
       ) as ComponentRef<MlvDropdownPanel<T>>;
 
       // Paint a floating surface on the bare panel. `mlv-combobox` / `mlv-select`

@@ -13,6 +13,10 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import type { MlvRadioGroupAccessor } from '../radio-group-token';
 import { RADIO_GROUP } from '../radio-group-token';
 
@@ -22,6 +26,10 @@ import { RADIO_GROUP } from '../radio-group-token';
   styleUrl: './radio.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-radio--<density>` from `mlvDensity`, else the
+  // nearest density scope, else the service (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'radio' }],
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-radio',
     '[class.mlv-radio--checked]': 'checked()',

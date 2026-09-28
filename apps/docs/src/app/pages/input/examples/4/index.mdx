@@ -2,4 +2,4 @@
 title: Content Density
 ---
 
-`mlv-input` honours the surrounding `mlvDensityRoot` scope. This example provides its own `MlvDensityService`, so switching across `tight`, `compact`, `comfortable`, `spacious`, and `airy` rescales only these fields without changing the documentation site's global density.
+`mlv-input` takes its density from the nearest density scope. Here that scope is the surrounding `form[mlvForm]`, whose `mlvDensity` is bound to the buttons, so switching across `tight`, `compact`, `comfortable`, `spacious`, and `airy` rescales only these fields — field, label and all — without changing the documentation site's global density. Any density-aware container works the same way: `fieldset[mlvFieldset]`, `main[mlvPage]` or a static `<div mlvDensity="compact">`.

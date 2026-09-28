@@ -11,6 +11,10 @@ import { MlvFormControlWrapperControl } from './form-control-wrapper-control';
 import { NgTemplateOutlet } from '@angular/common';
 import { MLV_FORM_CONTROL } from '../models/form-control-connector';
 import { MlvButtonClose } from '@malva-ui/core/button';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import { MLV_FORM_UTILS_I18N } from '@malva-ui/i18n';
 
 @Component({
@@ -20,6 +24,13 @@ import { MLV_FORM_UTILS_I18N } from '@malva-ui/i18n';
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './form-control-wrapper.html',
   styleUrl: './form-control-wrapper.scss',
+  // Density: the wrapper stamps `mlv-form-control-wrapper--<density>` from the
+  // nearest density scope (DI), so two density ancestors resolve by nesting,
+  // not by stylesheet order (#364). No input: the owning control decides.
+  providers: [
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'form-control-wrapper' },
+  ],
+  hostDirectives: [MlvDensityDirective],
   host: {
     class: 'mlv-form-control-wrapper',
     '[class]': '_stateClass()',
