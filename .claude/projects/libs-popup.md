@@ -160,6 +160,13 @@ A block that lays itself out edge to edge opts out by passing the panel class in
 | `afterOpened` | Emitted when popup enters view |
 | `afterClosed` | Emitted when popup leaves view |
 
+**Owner destroyed while the overlay is attached (#360).** A destroyed owner closes its overlay — `MlvPopupContainer` / standalone `MlvPopupTrigger` from `ngOnDestroy`, `MlvMenuOverlayController` from the owner's `DestroyRef` — open or mid-leave, and the pane is always disposed. Whether that close writes `opened` / emits `afterClosed` depends on whether the popup's outputs still exist, read through the popup's `@internal` `_isDestroyed()` method:
+
+- **Popup in the owner's view, or outliving it** — the usual shape (select, combobox, the three pickers, color-picker-popup, sidebar flyouts are all popup + container in one view): Angular runs a view's `ngOnDestroy` hooks before its `DestroyRef` callbacks, so the outputs and the consumer's listeners are live; `[(opened)]` returns to `false` and `afterClosed` fires once, as before. Consequence, unchanged: a control's `afterClosed` handler (focus restore, `_markTouched`) runs during its own teardown.
+- **Popup torn down first** — an `@if` / `@for` inside a container's content, a popup in a child component's view bound to a trigger, every `mlv-menu` destroyed with its trigger: `opened` / `afterClosed` are skipped (they printed NG0953 before). The destroyed popup's `opened()` stays at its last value; nothing reads it.
+- The flag behind `_isDestroyed()` is set by `MlvPopup`'s own `DestroyRef` callback, registered in the constructor after the outputs' own — deliberately **not** `DestroyRef.destroyed`, which is already `true` during the view's `ngOnDestroy` pass and would drop the live same-view emits (ablated: 3 of `popup-destroy.spec.ts`'s specs and `select-destroy.spec.ts` go red, none warning).
+- Pinned by `popup-destroy.spec.ts` (same view open / mid-leave, trigger-only destroyed, nested / child view) and `menu-destroy.spec.ts`: no NG0953 `console.warn`, 0 `.cdk-overlay-pane`. `select-destroy.spec.ts` pins the same-view control shape from inside: a searchable select destroyed open still gets `isOpen()` back to `false` through `[(opened)]` and its query reset through `(afterClosed)` — green before the fix too, red under the `DestroyRef.destroyed` design. It deliberately asserts neither focus restore nor touched, see the teardown bullet above.
+
 #### Content Children (content slots)
 
 | Query              | Directive               | Stamped where                                                                                   |

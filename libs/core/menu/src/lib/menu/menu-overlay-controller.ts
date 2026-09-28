@@ -114,7 +114,11 @@ export interface MlvMenuOverlayControllerConfig {
   readonly requestClose?: () => void;
   /** Called after the popup has been opened. */
   readonly onOpened?: () => void;
-  /** Called after the popup has been fully closed. */
+  /**
+   * Called after the popup has been fully closed — except for the close
+   * {@link MlvMenuOverlayController.destroy} runs while the owner is torn
+   * down, when the owner's outputs are already destroyed (#360).
+   */
   readonly onClosed?: () => void;
 }
 
@@ -229,7 +233,14 @@ export class MlvMenuOverlayController {
         this._overlayRef = null;
         this.isOpen.set(false);
         popup.animationState.set('idle');
-        popup.opened.set(false);
+        // The popup lives in `mlv-menu`'s view. Destroyed together with the
+        // owner, Angular tears that view down before the owner's
+        // `DestroyRef` runs `destroy()`, so `opened` is already a destroyed
+        // output and the write would only print NG0953 (#360). A menu that
+        // outlives its trigger is still told it closed.
+        if (!popup._isDestroyed()) {
+          popup.opened.set(false);
+        }
         menu._isOpen.set(false);
         // Released after the state writes above, matching the other owners:
         // the lock covers exactly the window in which an overlay is attached.
@@ -240,7 +251,12 @@ export class MlvMenuOverlayController {
         this._openSubscriptions = [];
         this._triangleState = null;
         this._removeMousemoveListener();
-        this._config.onClosed?.();
+        // Not for the close `destroy()` runs: the owner is being torn down,
+        // its outputs (`menuClosed`) are destroyed, and `destroy()` sets
+        // `_destroyed` before it closes so this reads `true` here (#360).
+        if (!this._destroyed) {
+          this._config.onClosed?.();
+        }
         if (isMenubarChild) {
           this._config.menubar?.notifyItemClosed(this._config.getMenubarItem());
         }
@@ -381,9 +397,15 @@ export class MlvMenuOverlayController {
     this._scheduleClose();
   }
 
-  /** Cleans up listeners and disposes the controlled overlay. */
+  /**
+   * Cleans up listeners and disposes the controlled overlay. Runs from the
+   * owner's `DestroyRef`, so the close it triggers does not call the config's
+   * `onClosed` (#360).
+   */
   destroy(): void {
     if (this._destroyed) return;
+    // Set before the close below: `onClose` reads it to skip `onClosed`,
+    // which would emit on the owner's destroyed `menuClosed` output.
     this._destroyed = true;
     this._clearCloseTimer();
     this._removeMousemoveListener();
