@@ -149,12 +149,58 @@
       overscroll-behavior-inline: contain;
       -webkit-overflow-scrolling: touch;
 
-      thead,
-      tbody,
-      tfoot {
-        display: table;
-        width: 100%;
-        min-width: max-content;
+      // A `display: block` table wraps its row groups in ONE anonymous table
+      // box (CSS 2.1 § 17.2.1), so a header cell and the data cells under it
+      // share a column. Never give a row group its own `display: table`: each
+      // section would size its columns from its own content (#355).
+      //
+      // Both rules below are child-scoped (rows directly in the table, as an
+      // Angular template builds them, or in a row group) so a table nested in
+      // a cell keeps its own layout.
+
+      // Cells stay on one line so a wide table scrolls instead of squeezing
+      // its columns into the scroll port. Only the wrap mode is set: the
+      // inherited `white-space-collapse` survives, so text under an ancestor's
+      // `pre-line` / `pre-wrap` keeps its authored line breaks. An engine
+      // without `text-wrap-mode` takes the `white-space` fallback, which
+      // collapses them.
+      > tr > td,
+      > :where(thead, tbody, tfoot) > tr > td {
+        text-wrap-mode: nowrap;
+
+        @supports not (text-wrap-mode: nowrap) {
+          white-space: nowrap;
+        }
+      }
+
+      // The anonymous table cannot be styled and shrinks to fit its content.
+      // Every row therefore ends with a percentage column: Blink, WebKit and
+      // Gecko all widen an auto-width table until a percentage column's
+      // max-content (here its inline-start padding) fits its share, which
+      // makes the table as wide as its containing block. That is legacy
+      // auto-layout behaviour the three engines share, not CSS Tables 3
+      // (§ 3.9.1 sums column widths with no such inflation).
+      //
+      // - 0.0001% takes no visible width; the slack goes to the real columns
+      //   as it would in a native table.
+      // - The padding must stay at least one layout unit after the root font
+      //   size and zoom scale it (1/64px in Blink / WebKit, 1/60px in Gecko;
+      //   less rounds to 0), or the column has no max-content and the table
+      //   shrinks to fit. 0.01rem is 0.1px at a 10px root, still more than
+      //   one unit at an 8px root and 25% zoom (0.001rem is one unit only at
+      //   a 16px root and 100% zoom).
+      // - The inflated width is the padding over the percentage, ~160 000px at
+      //   a 16px root. Past Blink / WebKit's 1 000 000px table limit it is
+      //   clamped, still wider than any container.
+      //
+      // Rows should hold the same number of columns (use `colspan`): in a
+      // shorter row this cell lands in a real column and skews it.
+      > tr::after,
+      > :where(thead, tbody, tfoot) > tr::after {
+        content: '';
+        display: table-cell;
+        width: 0.0001%;
+        padding-inline-start: 0.01rem;
       }
     }
 
@@ -181,7 +227,6 @@
         tbody {
           display: block;
           width: 100%;
-          min-width: 0;
         }
 
         tr.mlv-table__row--main,
@@ -189,6 +234,21 @@
           display: block;
           width: 100%;
           min-width: 0;
+        }
+
+        // Cards stack their cells, so text wraps again (cells go back to the
+        // inherited `white-space`, as before the one-line rule) and the fill
+        // cell, which only sizes a shared column grid, goes away.
+        tbody td,
+        tr.mlv-table__row--main td,
+        tr.mlv-table__row--secondary td {
+          white-space: inherit;
+        }
+
+        tbody tr::after,
+        tr.mlv-table__row--main::after,
+        tr.mlv-table__row--secondary::after {
+          content: none;
         }
 
         tr.mlv-table__row--main {
