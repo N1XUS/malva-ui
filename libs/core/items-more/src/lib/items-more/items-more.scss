@@ -75,6 +75,34 @@
     flex: 0 0 auto;
   }
 
+  // A slot measured at zero wide: its template rendered nothing. It leaves the
+  // flow because a zero-wide flex item still spends a `column-gap`, and the
+  // split does not count zero-wide items — it withholds none of them. It stays
+  // a box, so the row's observer still sees content arrive in it.
+  .#{$block}__slot--empty {
+    position: absolute;
+    inset-block-start: 0;
+
+    // Anchored outside the host, towards inline-start, so content arriving in
+    // it, for the frame before the row measures it, adds no inline-axis
+    // scrollable overflow — in LTR and RTL alike, since overflow past the
+    // start edge is not scrollable. Block-axis growth is the same as in flow.
+    inset-inline-end: 100%;
+
+    // Its width as an in-flow slot: without it the box would shrink to its
+    // min-content against the zero-wide space the offsets leave, and a label
+    // that arrives would measure narrower than it will stand in the row.
+    inline-size: max-content;
+
+    // Nothing arriving here is shown or reachable until the row places it.
+    // `visibility`, not `opacity: 0` + `pointer-events: none`: a zero-wide
+    // item whose focusable content paints outside its box would otherwise
+    // stay a Tab stop on something nobody can see. The cost, for the one
+    // frame before the row measures arriving content: it cannot take focus,
+    // and a live region in it is not in the accessibility tree.
+    visibility: hidden;
+  }
+
   // The off-flow copy of the trigger, rendered while nothing is withheld. A
   // zero-sized clipping box, so the copy adds no scrollable overflow to any
   // ancestor however wide it is.

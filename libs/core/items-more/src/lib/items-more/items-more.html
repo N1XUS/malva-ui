@@ -12,7 +12,11 @@
 <mlv-popup-container>
   <div class="mlv-items-more__row" #rowRef>
     @for (item of visibleItems(); track item) {
-      <div class="mlv-items-more__slot" [mlvItemsMoreSlot]="item">
+      <div
+        class="mlv-items-more__slot"
+        [class.mlv-items-more__slot--empty]="_zeroWidthItems().has(item)"
+        [mlvItemsMoreSlot]="item"
+      >
         <ng-container [ngTemplateOutlet]="item.visibleTemplate().templateRef" />
       </div>
     }

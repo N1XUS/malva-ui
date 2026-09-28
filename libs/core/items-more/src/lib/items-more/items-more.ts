@@ -326,6 +326,26 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     () => this._triggerDef() !== undefined && this.hiddenCount() === 0,
   );
 
+  /**
+   * @protected Items whose slot was measured at zero wide: their template
+   * rendered nothing. Their slots take the `--empty` modifier, which takes
+   * them out of the row's flow — a zero-wide flex item still spends a
+   * `column-gap` on each side, a gap the split never counts (see
+   * {@link _computeSplit}). Out of flow, the slot is still a box, still
+   * observed, so content arriving in it is reported and the item rejoins the
+   * split.
+   *
+   * Only a measurement puts an item here, so an item never measured, or one
+   * whose slot had no box when it was read, keeps an in-flow slot.
+   */
+  protected readonly _zeroWidthItems = computed(() => {
+    const empty = new Set<MlvItemsMoreItem>();
+    for (const [item, width] of this._widths()) {
+      if (width === 0) empty.add(item);
+    }
+    return empty;
+  });
+
   constructor() {
     // Keep the observer pointed at every box the split reads: the row (the
     // width available), each rendered item and the in-row trigger (the width
@@ -442,10 +462,21 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
    * rounds to an integer, and a row of eight items can accumulate four pixels
    * of rounding — enough to withhold an item that fits.
    *
-   * A zero width is ignored rather than cached. A box inside a subtree that
-   * is not rendered measures zero, and a zero in the cache reads as "this
-   * item is free", which would keep every item visible and the row
-   * overflowing for as long as the entry survived.
+   * A slot with no layout box at all is skipped, and whatever was measured for
+   * it before stands. That is a slot inside a subtree that is not rendered —
+   * a `display: none` / `[hidden]` ancestor (for example a consumer-hidden
+   * external `[mlvTabPanel]`) — whose zero says
+   * nothing about the item; caching it would take every slot out of the row
+   * (see {@link _zeroWidthItems}) the moment the subtree is shown again.
+   *
+   * A slot that *is* laid out and measures zero is cached as zero: its
+   * template rendered nothing — a permission-gated item behind an `@if` that
+   * is false, an image with no intrinsic size that has not loaded. That zero
+   * is a real measurement. Skipping it, as this once did, left the item
+   * unmeasured for as long as it stayed empty, and one unmeasured item holds
+   * every split back (#357). The slot is `display: inline-flex`, so it has a
+   * client rect whenever the row does, empty or not (measured in Chromium,
+   * Firefox and WebKit).
    *
    * Entries for items that have left the registry are dropped here, so the
    * cache never retains a destroyed component.
@@ -466,8 +497,10 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     for (const slot of this._slots()) {
       const item = slot.item();
       if (!registered.has(item)) continue;
-      const width = slot.elementRef.nativeElement.getBoundingClientRect().width;
-      if (width <= 0 || (next ?? current).get(item) === width) continue;
+      const element = slot.elementRef.nativeElement;
+      if (element.getClientRects().length === 0) continue;
+      const width = element.getBoundingClientRect().width;
+      if ((next ?? current).get(item) === width) continue;
       next ??= new Map(current);
       next.set(item, width);
     }
@@ -499,10 +532,18 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
    * an item is only ever withheld by arithmetic over widths that were all
    * really measured.
    *
-   * A row with no box at all (inside a `display: none` tab panel, say)
-   * measures zero wide, and against zero every collapsible item "does not
-   * fit". Committing that would repaint the row collapsed the moment the
-   * panel is shown, and reveal it again a debounce later.
+   * A row with no box at all (under a `display: none` / `[hidden]` ancestor,
+   * say) measures zero wide, and against zero every collapsible item "does
+   * not fit". Committing that would repaint the row collapsed the moment the
+   * ancestor is shown, and reveal it again a debounce later.
+   *
+   * An item measured at zero wide is not a candidate at all: it is never
+   * withheld and costs nothing. Its slot is out of the flow (see
+   * {@link _zeroWidthItems}), so it takes no box and no gap in the row, and
+   * counting it would reserve room nobody sees. Withholding it would be
+   * worse: it would count in the trigger's `+N` and render an entry in the
+   * panel for an item that shows nothing, and — to make room for that trigger
+   * — withhold a real item that fits.
    */
   private _computeSplit(): MlvItemsMoreSplit | null {
     const row = this._rowRef()?.nativeElement;
@@ -515,10 +556,13 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     if (items.length === 0) return { hidden: new Set(), available: 0 };
 
     const widths = this._widths();
+    const measured: MlvItemsMoreItem[] = [];
     const candidates: MlvOverflowCandidate[] = [];
     for (const item of items) {
       const width = widths.get(item);
       if (width === undefined) return null;
+      if (width === 0) continue;
+      measured.push(item);
       candidates.push({ width, collapsible: item.collapsible() });
     }
 
@@ -550,7 +594,7 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
 
     const hidden = new Set<MlvItemsMoreItem>();
     flags.forEach((isHidden, index) => {
-      if (isHidden) hidden.add(items[index]);
+      if (isHidden) hidden.add(measured[index]);
     });
     return { hidden, available };
   }
@@ -776,11 +820,22 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     return before ?? after;
   }
 
-  /** @private The last focusable control of the last item in the row. */
+  /**
+   * @private The last focusable control of the last item in the row that has
+   * one. Walks back past items with nothing to focus — an empty slot at the
+   * end of the row above all, whose item renders nothing (#357) — rather than
+   * giving up on the last slot and leaving focus on `<body>`.
+   */
   private _lastItemTabbable(): HTMLElement | null {
     const slots = this._slots();
-    const lastSlot = slots[slots.length - 1]?.elementRef.nativeElement;
-    return lastSlot ? this._tabbable.getTabbableElement(lastSlot, true) : null;
+    for (let i = slots.length - 1; i >= 0; i--) {
+      const target = this._tabbable.getTabbableElement(
+        slots[i].elementRef.nativeElement,
+        true,
+      );
+      if (target) return target;
+    }
+    return null;
   }
 
   // ─── Observation ─────────────────────────────────────────────────────────
