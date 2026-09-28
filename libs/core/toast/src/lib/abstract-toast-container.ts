@@ -10,7 +10,9 @@ export interface MlvIAbstractToastComponent<
 
 /**
  * Abstract base for toast/notification container components.
- * Manages the ordered list of active items for a single overlay position.
+ * Manages the ordered list of active items for a single overlay position —
+ * every service's items at that position, since toast and notification share
+ * one stack (#362).
  * Extend this class and add the @Component decorator to create a concrete container.
  */
 @Directive()
@@ -27,6 +29,26 @@ export abstract class MlvAbstractToastContainerComponent<
   private _closeHandler = (id: string): void => {
     this.remove(id);
   };
+
+  /**
+   * @private The item component each item added through `_addItem()` renders
+   * with; `component` renders the rest. Weak, so a removed item's entry goes
+   * with the item, and nothing has to be deleted while it is still leaving.
+   */
+  private readonly _itemComponents = new WeakMap<
+    T,
+    Type<MlvIAbstractToastComponent>
+  >();
+
+  /**
+   * @internal Adds an item that renders with `component` instead of
+   * `this.component`. The shared stack host adds every item this way, so a
+   * toast and a notification can sit in one container.
+   */
+  _addItem(item: T, component: Type<MlvIAbstractToastComponent>): void {
+    this._itemComponents.set(item, component);
+    this.add(item);
+  }
 
   add(item: T): void {
     const isTop = this.position().startsWith('top');
@@ -58,5 +80,13 @@ export abstract class MlvAbstractToastContainerComponent<
   /** @protected Routes an item close request through the owning service. */
   protected requestClose(id: string): void {
     this._closeHandler(id);
+  }
+
+  /**
+   * @protected The item component that renders `item`: the one it was added
+   * with, else `component`. Template-facing.
+   */
+  protected _componentFor(item: T): Type<MlvIAbstractToastComponent> {
+    return this._itemComponents.get(item) ?? this.component;
   }
 }

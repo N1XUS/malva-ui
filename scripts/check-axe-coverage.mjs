@@ -315,7 +315,15 @@ export const ROLLOUT_PENDING = [
       'the `loading` state',
     ],
   },
-  'core-notification',
+  {
+    // #362 swept one stack pane holding a toast and a notification with a
+    // tone icon, description, one action and its dismiss button.
+    project: 'core-notification',
+    owes: [
+      'template and component content (`open()` with a `TemplateRef` or a component)',
+      '`showIcon: false` and `closable: false`',
+    ],
+  },
   {
     // #298 swept default, readonly, disabled and error + description + message;
     // #301 the `clearable` clear button while it holds a value.

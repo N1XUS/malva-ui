@@ -1,10 +1,6 @@
 import type { Type } from '@angular/core';
 import { DestroyRef, EnvironmentInjector, inject } from '@angular/core';
-import type { OverlayRef } from '@angular/cdk/overlay';
-import { Overlay } from '@angular/cdk/overlay';
-import { ComponentPortal } from '@angular/cdk/portal';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import type { GlobalPositionStrategy } from '@angular/cdk/overlay';
 import type {
   MlvAbstractToastContainerComponent,
   MlvIAbstractToastComponent,
@@ -15,18 +11,19 @@ import type {
   MlvToastPoliteness,
   MlvToastPosition,
 } from './toast.types';
-import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvToastRef } from './toast-ref';
 import { MlvToastAnnouncer } from './toast-announcer';
-
-const TOAST_LEAVE_DURATION_MS = 200;
+import type { MlvToastStackKey } from './toast-stack-host';
+import { MlvToastStackHost } from './toast-stack-host';
 
 /** Position used when a config omits one. Single source of truth for subclasses. */
 export const MLV_TOAST_DEFAULT_POSITION: MlvToastPosition = 'top-right';
 
 /**
  * Abstract base service for toast/notification services.
- * Manages CDK overlay refs (one per position) and container lifecycle.
+ * Owns its items and their refs; the panes they render in are shared with every
+ * other toast-like service — one stack per position — so a toast and a
+ * notification at the same corner never overlap (#362).
  * Extend this class and implement `containerType` and `buildItem()`.
  */
 export abstract class MlvAbstractToastService<
@@ -35,15 +32,11 @@ export abstract class MlvAbstractToastService<
   TItemComponent extends MlvIAbstractToastComponent,
   TRef extends MlvToastRef = MlvToastRef,
 > {
-  /** @protected CDK overlay service used to create per-position toast panels. */
-  protected readonly _overlay = inject(Overlay);
-
   /**
-   * @protected Supplies the document direction to each toast stack overlay so
-   * its portaled pane mirrors instead of inheriting `<body>`'s default.
+   * @protected Environment injector the stack's container is created from, and
+   * the default parent for dynamic content. Part of what decides which services
+   * share a stack.
    */
-  protected readonly _rtl = inject(MlvRtlService);
-  /** @protected Environment injector used when attaching container portals. */
   protected readonly _environmentInjector = inject(EnvironmentInjector);
   /**
    * @protected The CDK service owning the single persistent ARIA live region.
@@ -66,25 +59,24 @@ export abstract class MlvAbstractToastService<
    * replacing the rest. Shared by every toast and notification service.
    */
   private readonly _announcer = inject(MlvToastAnnouncer);
-  /** @private Cleans up overlays, refs, and deferred disposal timers with the service. */
+  /**
+   * @private Creates, shares and disposes the per-position panes, issues item
+   * ids unique across services, and routes each item's close request back to
+   * the service that showed it. Shared by every toast and notification service.
+   */
+  private readonly _stacks = inject(MlvToastStackHost);
+  /** @private Removes this service's items and completes its refs with the service. */
   private readonly _destroyRef = inject(DestroyRef);
 
-  /** @private Active overlay refs keyed by position. */
-  private readonly _overlayRefs = new Map<MlvToastPosition, OverlayRef>();
-  /** @private Active container instances keyed by position. */
-  private readonly _containers = new Map<
-    MlvToastPosition,
-    MlvAbstractToastContainerComponent<TItem>
+  /**
+   * @private This service's live items, keyed by id: the ref it returned and
+   * the position the item was shown at. The only ids this service closes — a
+   * shared stack also holds other services' items.
+   */
+  private readonly _items = new Map<
+    string,
+    { readonly ref: TRef; readonly position: MlvToastPosition }
   >();
-  /** @private Active item references keyed by generated ID. */
-  private readonly _refs = new Map<string, TRef>();
-  /** @private Deferred final-item overlay disposal timers keyed by position. */
-  private readonly _disposeTimers = new Map<
-    MlvToastPosition,
-    ReturnType<typeof setTimeout>
-  >();
-  /** @private Monotonic counter used to generate unique toast ids. */
-  private _idCounter = 0;
 
   /** The concrete container component class to instantiate per position. */
   protected abstract readonly containerType: Type<
@@ -110,32 +102,33 @@ export abstract class MlvAbstractToastService<
 
   constructor() {
     this._destroyRef.onDestroy(() => {
-      for (const timer of this._disposeTimers.values()) {
-        clearTimeout(timer);
-      }
-      for (const overlayRef of this._overlayRefs.values()) {
-        overlayRef.dispose();
-      }
-      for (const ref of this._refs.values()) {
+      for (const [id, { ref, position }] of this._items) {
+        // Removed at once. A non-root stack this service leaves empty is
+        // disposed with it, as its own panes were before stacks were shared;
+        // a root stack keeps its leave delay, since another service's item may
+        // still be fading out in it. Another service's items keep a shared
+        // pane alive either way.
+        this._stacks.remove(this._stackKey(position), id, true);
         ref._markClosed();
       }
       // Drop any text still sitting in the shared live region, so a destroyed
       // service cannot leave a stale announcement behind for the next one.
       this._liveAnnouncer.clear();
-      this._disposeTimers.clear();
-      this._overlayRefs.clear();
-      this._containers.clear();
-      this._refs.clear();
+      this._items.clear();
     });
   }
 
   show(config: TConfig): TRef {
     const position = config.position ?? MLV_TOAST_DEFAULT_POSITION;
-    const container = this._ensureContainer(position);
-    const id = `toast-${++this._idCounter}`;
+    const id = this._stacks.nextId();
     const ref = this._createRef(id, position, config);
-    this._refs.set(id, ref);
-    container.add(this.buildItem(id, config, ref));
+    this._items.set(id, { ref, position });
+    this._stacks.add(
+      this._stackKey(position),
+      this.buildItem(id, config, ref),
+      this.toastItemType,
+      (itemId) => this.close(itemId, position),
+    );
 
     const announcement = this.resolveAnnouncement(config);
     if (announcement) {
@@ -149,25 +142,14 @@ export abstract class MlvAbstractToastService<
   }
 
   close(id: string, position?: MlvToastPosition): void {
-    if (position) {
-      const container = this._containers.get(position);
-      if (container?.remove(id)) {
-        this._completeRef(id);
-        if (container.isEmpty()) {
-          this._scheduleDisposePosition(position);
-        }
-      }
-    } else {
-      for (const [pos, container] of this._containers) {
-        if (container.remove(id)) {
-          this._completeRef(id);
-          if (container.isEmpty()) {
-            this._scheduleDisposePosition(pos);
-          }
-          break;
-        }
-      }
+    const item = this._items.get(id);
+    // Not an item of this service — another service's in a shared stack, or
+    // one already closed — or not at the position the caller named.
+    if (!item || (position && position !== item.position)) {
+      return;
     }
+    this._stacks.remove(this._stackKey(item.position), id);
+    this._completeRef(id);
   }
 
   /** @protected Creates the concrete reference returned for a new item. */
@@ -181,104 +163,22 @@ export abstract class MlvAbstractToastService<
     ) as TRef;
   }
 
-  /** @private Returns the container for a position, creating the overlay on first use. */
-  private _ensureContainer(
-    position: MlvToastPosition,
-  ): MlvAbstractToastContainerComponent<TItem> {
-    const existing = this._containers.get(position);
-    if (existing) {
-      this._cancelDisposePosition(position);
-      return existing;
-    }
-
-    const overlayRef = this._overlay.create({
-      positionStrategy: this._getPositionStrategy(position),
-      // Toast stacks are document-level, so the global direction applies. CDK's
-      // `GlobalPositionStrategy` compensates for the mirrored flex axis, so
-      // `top-left`/`top-right` stay physical while the content mirrors.
-      direction: this._rtl.direction(),
-      panelClass: ['mlv-toast-panel', `mlv-toast-panel--${position}`],
-      scrollStrategy: this._overlay.scrollStrategies.noop(),
-      maxHeight: 'calc(100vh - 32px)',
-    });
-
-    const portal = new ComponentPortal(
-      this.containerType,
-      null,
-      this._environmentInjector,
-    );
-    const componentRef = overlayRef.attach(portal);
-    componentRef.instance.position.set(position);
-
-    this._overlayRefs.set(position, overlayRef);
-    this._containers.set(position, componentRef.instance);
-    componentRef.instance.setComponent(this.toastItemType);
-    componentRef.instance.setCloseHandler((id) => this.close(id, position));
-
-    return componentRef.instance;
-  }
-
-  /** @private Disposes the overlay for a position once its container is empty. */
-  private _disposePosition(position: MlvToastPosition): void {
-    this._cancelDisposePosition(position);
-    const overlayRef = this._overlayRefs.get(position);
-    if (overlayRef) {
-      overlayRef.dispose();
-      this._overlayRefs.delete(position);
-      this._containers.delete(position);
-    }
-  }
-
-  /** @private Defers final-item disposal so Angular's leave animation can finish. */
-  private _scheduleDisposePosition(position: MlvToastPosition): void {
-    this._cancelDisposePosition(position);
-    this._disposeTimers.set(
+  /**
+   * @private The stack this service's items at `position` join — shared with
+   * every service rendering the same container from the same environment
+   * injector.
+   */
+  private _stackKey(position: MlvToastPosition): MlvToastStackKey {
+    return {
+      containerType: this.containerType,
+      injector: this._environmentInjector,
       position,
-      setTimeout(() => {
-        this._disposeTimers.delete(position);
-        if (this._containers.get(position)?.isEmpty()) {
-          this._disposePosition(position);
-        }
-      }, TOAST_LEAVE_DURATION_MS),
-    );
-  }
-
-  /** @private Cancels pending disposal when a new item reuses the same position. */
-  private _cancelDisposePosition(position: MlvToastPosition): void {
-    const timer = this._disposeTimers.get(position);
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      this._disposeTimers.delete(position);
-    }
+    };
   }
 
   /** @private Completes and releases the reference for a removed item. */
   private _completeRef(id: string): void {
-    this._refs.get(id)?._markClosed();
-    this._refs.delete(id);
-  }
-
-  /** @private Builds the global position strategy for a toast position. */
-  private _getPositionStrategy(
-    position: MlvToastPosition,
-  ): GlobalPositionStrategy {
-    const strategy = this._overlay.position().global();
-    const margin = '16px';
-
-    if (position.startsWith('top')) {
-      strategy.top(margin);
-    } else {
-      strategy.bottom(margin);
-    }
-
-    if (position.endsWith('left')) {
-      strategy.left(margin);
-    } else if (position.endsWith('right')) {
-      strategy.right(margin);
-    } else {
-      strategy.centerHorizontally();
-    }
-
-    return strategy;
+    this._items.get(id)?.ref._markClosed();
+    this._items.delete(id);
   }
 }

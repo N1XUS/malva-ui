@@ -1,13 +1,31 @@
-import { ApplicationRef, Component, inject, viewChild } from '@angular/core';
+import {
+  ApplicationRef,
+  Component,
+  createEnvironmentInjector,
+  EnvironmentInjector,
+  inject,
+  Injectable,
+  viewChild,
+} from '@angular/core';
 import type { TemplateRef } from '@angular/core';
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { vi } from 'vitest';
+import type { MlvIAbstractToastComponent } from './abstract-toast-container';
+import { MlvAbstractToastContainerComponent } from './abstract-toast-container';
+import { MlvAbstractToastService } from './abstract-toast.service';
+import { MlvToastItem } from './toast-item/toast-item';
 import { MlvToastRef } from './toast-ref';
 import { MlvToastService } from './toast.service';
-import { TOAST_DATA, type MlvToastTemplateContext } from './toast.types';
+import {
+  TOAST_DATA,
+  type MlvInternalToast,
+  type MlvToastConfig,
+  type MlvToastPoliteness,
+  type MlvToastTemplateContext,
+} from './toast.types';
 
 interface ToastData {
   label: string;
@@ -39,6 +57,53 @@ class ToastTemplateHost {
     viewChild.required<TemplateRef<MlvToastTemplateContext<ToastData>>>(
       'content',
     );
+}
+
+/** A container of a subclass's own, which `MlvToastItem`s must not end up in. */
+@Component({
+  selector: 'test-other-toast-container',
+  template: `
+    @for (toast of toasts(); track toast.id) {
+      <p class="test-other-toast">{{ toast.title }}</p>
+    }
+  `,
+})
+class OtherToastContainer extends MlvAbstractToastContainerComponent<MlvInternalToast> {
+  override component = MlvToastItem;
+}
+
+/** A toast-like service rendering {@link OtherToastContainer}. */
+@Injectable({ providedIn: 'root' })
+class OtherContainerToastService extends MlvAbstractToastService<
+  MlvToastConfig,
+  MlvInternalToast,
+  MlvIAbstractToastComponent<MlvInternalToast>
+> {
+  protected override readonly containerType = OtherToastContainer;
+  protected override readonly toastItemType = MlvToastItem;
+
+  protected override buildItem(
+    id: string,
+    config: MlvToastConfig,
+  ): MlvInternalToast {
+    return {
+      id,
+      title: config.title,
+      description: '',
+      position: config.position ?? 'top-right',
+      tone: 'default',
+      displayTime: 0,
+      pauseOnHover: true,
+      closable: true,
+    };
+  }
+
+  protected override resolveAnnouncement(): {
+    message: string;
+    politeness: MlvToastPoliteness;
+  } | null {
+    return null;
+  }
 }
 
 /** The single CDK live region every toast announces through. */
@@ -477,6 +542,66 @@ describe('MlvToastService', () => {
       expect(
         container().style.getPropertyValue('--mlv-toast-panel-inset-block-end'),
       ).toBe('');
+    });
+  });
+
+  describe('shared stacks (#362)', () => {
+    function panes(): HTMLElement[] {
+      return Array.from(
+        document.querySelectorAll<HTMLElement>('.cdk-overlay-pane'),
+      );
+    }
+
+    it('renders one service at one position exactly as before: one pane, the same classes', async () => {
+      service.info('First', { displayTime: 0 });
+      service.info('Second', { displayTime: 0 });
+      await stabilize();
+
+      expect(panes().length).toBe(1);
+      expect(Array.from(panes()[0].classList)).toEqual([
+        'cdk-overlay-pane',
+        'mlv-toast-panel',
+        'mlv-toast-panel--top-right',
+      ]);
+      expect(panes()[0].querySelectorAll('mlv-toast-item').length).toBe(2);
+    });
+
+    it('keeps its own pane for a subclass rendering another container', async () => {
+      service.info('Toast', { displayTime: 0 });
+      TestBed.inject(OtherContainerToastService).show({ title: 'Other' });
+      await stabilize();
+
+      // A container it did not write cannot be trusted to render a foreign
+      // item, so the stack is keyed by container type as well as position.
+      expect(panes().length).toBe(2);
+      expect(
+        document.querySelector('test-other-toast-container mlv-toast-item'),
+      ).toBeNull();
+      expect(
+        document.querySelector('test-other-toast-container .test-other-toast')
+          ?.textContent,
+      ).toBe('Other');
+    });
+
+    it('keeps its own pane for a service from another environment injector, and disposes it with that injector', async () => {
+      const child = createEnvironmentInjector(
+        [MlvToastService],
+        TestBed.inject(EnvironmentInjector),
+      );
+      const scoped = child.get(MlvToastService);
+      expect(scoped).not.toBe(service);
+
+      service.info('Root', { displayTime: 0 });
+      const scopedRef = scoped.info('Scoped', { displayTime: 0 });
+      await stabilize();
+      expect(panes().length).toBe(2);
+
+      child.destroy();
+
+      // Removed at once, as a destroyed service's panes always were.
+      expect(scopedRef.closed()).toBe(true);
+      expect(panes().length).toBe(1);
+      expect(panes()[0].textContent).toContain('Root');
     });
   });
 });
