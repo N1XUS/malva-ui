@@ -6,4 +6,5 @@ Provide a `[mlvAutocompleteSearch]` function returning an array, `Promise`, or
 `Observable` and the directive shows a loading affordance until it resolves. A
 newer query cancels the in-flight one, so stale results never flash in. For
 network sources set a `minLength` (2+) and a `debounce` so a request is not made
-on every keystroke. `mlvAutocompleteLoadingText` localises the loading label.
+on every keystroke. The loading label comes from the active language pack;
+`mlvAutocompleteLoadingText` overrides it.

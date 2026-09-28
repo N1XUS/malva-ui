@@ -87,6 +87,26 @@ import {
   MLV_SELECT_I18N,
   MlvI18nResolverService,
 } from '@malva-ui/i18n';
+import type { MlvSelectI18n } from '@malva-ui/i18n';
+
+/** `MlvSelectI18n` keys a hand-written or older language pack may omit. */
+type MlvSelectOptionalMessageKey = {
+  [K in keyof MlvSelectI18n]-?: undefined extends MlvSelectI18n[K] ? K : never;
+}[keyof MlvSelectI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's; `{count}` rather than `#` keeps the count
+ * unformatted, as the English literal before #370 rendered it.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvSelectOptionalMessageKey, string>
+> = {
+  itemsSelected:
+    '{count, plural, one {{count} item selected} other {{count} items selected}}',
+};
 
 /**
  * Visual/validation state of the select. Mirrors {@link MlvFormState}.
@@ -1064,12 +1084,25 @@ export class MlvSelect<T>
     });
   }
 
+  /**
+   * Text the trigger shows for the current selection: `''` for none, the
+   * option's label for one, and for two or more a count summary — the active
+   * pack's `itemsSelected` ("3 items selected" in English).
+   */
   get displayValue(): string {
     const values = this.selectionService.selectedValues();
     if (values.length === 0) return '';
     const transform = this.toOption();
     if (values.length === 1) return transform(values[0]).label;
-    return `${values.length} items selected`;
+    return this._resolver.resolve(
+      {
+        itemsSelected:
+          this._i18n().itemsSelected ??
+          OPTIONAL_MESSAGE_FALLBACKS.itemsSelected,
+      },
+      'itemsSelected',
+      { count: values.length },
+    );
   }
 
   /**

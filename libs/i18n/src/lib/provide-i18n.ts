@@ -1,5 +1,6 @@
 import {
   APP_INITIALIZER,
+  computed,
   inject,
   InjectionToken,
   makeEnvironmentProviders,
@@ -9,6 +10,10 @@ import { MlvI18nService } from './i18n.service';
 import { resolveMlvLanguage, type MlvLanguageModule } from './language-module';
 
 import { MLV_ALERT_I18N } from './tokens/alert';
+import {
+  MLV_AUTOCOMPLETE_I18N,
+  type MlvAutocompleteI18n,
+} from './tokens/autocomplete';
 import { MLV_AVATAR_GROUP_I18N } from './tokens/avatar-group';
 import { MLV_BOTTOM_NAV_I18N } from './tokens/bottom-nav';
 import { MLV_BREADCRUMB_I18N } from './tokens/breadcrumb';
@@ -24,6 +29,10 @@ import { MLV_DATE_RANGE_PICKER_I18N } from './tokens/date-range-picker';
 import { MLV_DAY_PICKER_I18N } from './tokens/day-picker';
 import { MLV_DIALOG_I18N } from './tokens/dialog';
 import { MLV_DRAWER_I18N } from './tokens/drawer';
+import {
+  MLV_DROPDOWN_PANEL_I18N,
+  type MlvDropdownPanelI18n,
+} from './tokens/dropdown-panel';
 import { MLV_EDITOR_I18N } from './tokens/editor';
 import { MLV_FILE_UPLOAD_I18N } from './tokens/file-upload';
 import { MLV_FILTER_I18N } from './tokens/filter';
@@ -50,6 +59,13 @@ import { MLV_TILE_I18N } from './tokens/tile';
 import { MLV_TIME_PICKER_I18N } from './tokens/time-picker';
 import { MLV_TOAST_I18N } from './tokens/toast';
 import { MLV_TOKENIZER_I18N } from './tokens/tokenizer';
+
+/**
+ * @private What an optional slice resolves to when the active pack omits it:
+ * an empty record, so every key reads `undefined` and the component falls back
+ * to its shipped English.
+ */
+const MLV_EMPTY_I18N_SLICE: Readonly<Record<string, never>> = Object.freeze({});
 
 /** @private Internal token for the APP_INITIALIZER factory. */
 const MLV_I18N_INITIALIZER = new InjectionToken<() => Promise<void>>(
@@ -105,6 +121,15 @@ export function provideMlvI18n(
     {
       provide: MLV_ALERT_I18N,
       useFactory: () => inject(MlvI18nService).select('alert'),
+    },
+    {
+      provide: MLV_AUTOCOMPLETE_I18N,
+      useFactory: () => {
+        const slice = inject(MlvI18nService).select('autocomplete');
+        return computed<MlvAutocompleteI18n>(
+          () => slice() ?? MLV_EMPTY_I18N_SLICE,
+        );
+      },
     },
     {
       provide: MLV_AVATAR_GROUP_I18N,
@@ -165,6 +190,15 @@ export function provideMlvI18n(
     {
       provide: MLV_DRAWER_I18N,
       useFactory: () => inject(MlvI18nService).select('drawer'),
+    },
+    {
+      provide: MLV_DROPDOWN_PANEL_I18N,
+      useFactory: () => {
+        const slice = inject(MlvI18nService).select('dropdownPanel');
+        return computed<MlvDropdownPanelI18n>(
+          () => slice() ?? MLV_EMPTY_I18N_SLICE,
+        );
+      },
     },
     {
       provide: MLV_EDITOR_I18N,

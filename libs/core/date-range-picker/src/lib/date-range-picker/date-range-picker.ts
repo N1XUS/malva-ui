@@ -48,6 +48,27 @@ import { LucideCalendarDays } from '@lucide/angular';
 import { A11yModule } from '@angular/cdk/a11y';
 import { MlvButton } from '@malva-ui/core/button';
 import { MLV_CALENDAR_I18N, MLV_DATE_RANGE_PICKER_I18N } from '@malva-ui/i18n';
+import type { MlvDateRangePickerI18n } from '@malva-ui/i18n';
+
+/** `MlvDateRangePickerI18n` keys a hand-written or older language pack may omit. */
+type MlvDateRangePickerOptionalMessageKey = {
+  [K in keyof MlvDateRangePickerI18n]-?: undefined extends MlvDateRangePickerI18n[K]
+    ? K
+    : never;
+}[keyof MlvDateRangePickerI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's — the footer's visible text before #370.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvDateRangePickerOptionalMessageKey, string>
+> = {
+  clear: 'Clear',
+  apply: 'Apply',
+};
 
 /**
  * Visual/validation state of the date range picker. Mirrors {@link MlvFormState}.
@@ -174,6 +195,20 @@ export class MlvDateRangePicker<D = Date>
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_DATE_RANGE_PICKER_I18N);
+
+  /**
+   * @protected Visible text of the footer's clear and apply buttons: the
+   * active pack's `clear` / `apply`, else English. Their `aria-label`s stay
+   * `clearDateRange` / `applyDateRange`, which every shipped pack words to
+   * contain this text (WCAG 2.5.3, Label in Name).
+   */
+  protected readonly _footerLabels = computed(() => {
+    const i18n = this._i18n();
+    return {
+      clear: i18n.clear ?? OPTIONAL_MESSAGE_FALLBACKS.clear,
+      apply: i18n.apply ?? OPTIONAL_MESSAGE_FALLBACKS.apply,
+    };
+  });
 
   /**
    * @protected The calendar i18n slice, for the sheet's confirm label. The

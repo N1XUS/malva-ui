@@ -5,6 +5,12 @@ const zhHans: MlvLanguage = {
   alert: {
     dismiss: '关闭提醒',
   },
+  autocomplete: {
+    noResults: '未找到结果',
+    loading: '加载中…',
+    resultsAvailable:
+      '{count, plural, one {# 个可用结果} other {# 个可用结果}}',
+  },
   avatarGroup: {
     noMembers: '暂无成员',
     memberCount: '{total, plural, one {# 名成员} other {# 名成员}}',
@@ -132,6 +138,8 @@ const zhHans: MlvLanguage = {
     clearDateRange: '清除日期范围',
     applyDateRange: '应用日期范围',
     placeholder: '选择日期范围...',
+    clear: '清除',
+    apply: '应用',
   },
   dayPicker: {
     placeholder: '选择日期...',
@@ -145,6 +153,9 @@ const zhHans: MlvLanguage = {
   drawer: {
     drawer: '抽屉',
     closeDrawer: '关闭抽屉',
+  },
+  dropdownPanel: {
+    loading: '加载中…',
   },
   editor: {
     editorLabel: '富文本编辑器',
@@ -404,6 +415,8 @@ const zhHans: MlvLanguage = {
     loading: '加载中…',
     resultsAvailable:
       '{count, plural, one {# 个可用结果} other {# 个可用结果}}',
+    itemsSelected:
+      '{count, plural, one {已选择 {count} 个项目} other {已选择 {count} 个项目}}',
   },
   sidebar: {
     navigation: '侧边栏导航',
@@ -476,6 +489,9 @@ const zhHans: MlvLanguage = {
     period: '时段',
     placeholder: '选择时间...',
     timePicker: '时间选择器',
+    hours: '小时',
+    minutes: '分钟',
+    seconds: '秒',
   },
   toast: {
     dismiss: '关闭',
@@ -483,6 +499,7 @@ const zhHans: MlvLanguage = {
   tokenizer: {
     addToken: '添加标记',
     selectedItems: '已选项目',
+    moreItems: '{count, plural, one {另有 {count} 个} other {另有 {count} 个}}',
   },
 };
 

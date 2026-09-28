@@ -4,6 +4,7 @@ export * from './lib/language-module';
 
 // Tokens
 export * from './lib/tokens/alert';
+export * from './lib/tokens/autocomplete';
 export * from './lib/tokens/avatar-group';
 export * from './lib/tokens/bottom-nav';
 export * from './lib/tokens/breadcrumb';
@@ -19,6 +20,7 @@ export * from './lib/tokens/date-range-picker';
 export * from './lib/tokens/day-picker';
 export * from './lib/tokens/dialog';
 export * from './lib/tokens/drawer';
+export * from './lib/tokens/dropdown-panel';
 export * from './lib/tokens/editor';
 export * from './lib/tokens/file-upload';
 export * from './lib/tokens/filter';

@@ -193,7 +193,7 @@
                   (click)="clearSelection()"
                   [attr.aria-label]="_i18n().clearDateRange"
                 >
-                  Clear
+                  {{ _footerLabels().clear }}
                 </button>
 
                 <button
@@ -206,7 +206,7 @@
                   (click)="applySelection()"
                   [attr.aria-label]="_i18n().applyDateRange"
                 >
-                  Apply
+                  {{ _footerLabels().apply }}
                 </button>
               </div>
             }

@@ -5,6 +5,8 @@ import { MlvI18nService } from './i18n.service';
 import { MLV_DIALOG_I18N } from './tokens/dialog';
 import { MLV_DATA_TABLE_I18N } from './tokens/data-table';
 import { MLV_TASKBOARD_I18N } from './tokens/taskboard';
+import { MLV_AUTOCOMPLETE_I18N } from './tokens/autocomplete';
+import { MLV_DROPDOWN_PANEL_I18N } from './tokens/dropdown-panel';
 import type { MlvLanguage } from './types';
 
 const mockEn: MlvLanguage = {
@@ -307,5 +309,40 @@ describe('provideMlvI18n', () => {
     // the blocks above exhaustive: a twenty-fifth key has to be asserted here
     // rather than shipping unread.
     expect(Object.keys(taskboard())).toHaveLength(24);
+  });
+
+  // #370: `autocomplete` and `dropdownPanel` are optional slices, so a
+  // hand-written pack without them still type-checks. Their tokens must then
+  // resolve to an empty object, never `undefined`, so a component reading
+  // `_i18n().key ?? fallback` falls back instead of throwing.
+  it('resolves an optional slice a pack omits to an empty object', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18n(async () => ({ default: mockEn }))],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(MLV_AUTOCOMPLETE_I18N)()).toEqual({});
+    expect(TestBed.inject(MLV_DROPDOWN_PANEL_I18N)()).toEqual({});
+  });
+
+  it('resolves an optional slice a pack declares to that slice', async () => {
+    const pack: MlvLanguage = {
+      ...mockEn,
+      autocomplete: { noResults: 'Nothing matches' },
+      dropdownPanel: { loading: 'Fetching…' },
+    };
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18n(async () => ({ default: pack }))],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(MLV_AUTOCOMPLETE_I18N)()).toEqual({
+      noResults: 'Nothing matches',
+    });
+    expect(TestBed.inject(MLV_DROPDOWN_PANEL_I18N)()).toEqual({
+      loading: 'Fetching…',
+    });
   });
 });

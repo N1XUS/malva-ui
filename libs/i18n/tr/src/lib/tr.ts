@@ -5,6 +5,12 @@ const tr: MlvLanguage = {
   alert: {
     dismiss: 'Uyarıyı kapat',
   },
+  autocomplete: {
+    noResults: 'Sonuç bulunamadı',
+    loading: 'Yükleniyor…',
+    resultsAvailable:
+      '{count, plural, one {# sonuç mevcut} other {# sonuç mevcut}}',
+  },
   avatarGroup: {
     noMembers: 'Üye yok',
     memberCount: '{total, plural, one {# üye} other {# üye}}',
@@ -132,6 +138,8 @@ const tr: MlvLanguage = {
     clearDateRange: 'Tarih aralığını temizle',
     applyDateRange: 'Tarih aralığını uygula',
     placeholder: 'Tarih aralığı seç...',
+    clear: 'Temizle',
+    apply: 'Uygula',
   },
   dayPicker: {
     placeholder: 'Tarih seç...',
@@ -145,6 +153,9 @@ const tr: MlvLanguage = {
   drawer: {
     drawer: 'Çekmece',
     closeDrawer: 'Çekmeceyi kapat',
+  },
+  dropdownPanel: {
+    loading: 'Yükleniyor…',
   },
   editor: {
     editorLabel: 'Zengin metin düzenleyicisi',
@@ -407,6 +418,8 @@ const tr: MlvLanguage = {
     loading: 'Yükleniyor…',
     resultsAvailable:
       '{count, plural, one {# sonuç mevcut} other {# sonuç mevcut}}',
+    itemsSelected:
+      '{count, plural, one {{count} öğe seçildi} other {{count} öğe seçildi}}',
   },
   sidebar: {
     navigation: 'Kenar çubuğu gezinmesi',
@@ -481,6 +494,9 @@ const tr: MlvLanguage = {
     period: 'Dönem',
     placeholder: 'Saat seç...',
     timePicker: 'Saat seçici',
+    hours: 'Saat',
+    minutes: 'Dakika',
+    seconds: 'Saniye',
   },
   toast: {
     dismiss: 'Kapat',
@@ -488,6 +504,8 @@ const tr: MlvLanguage = {
   tokenizer: {
     addToken: 'Etiket ekle',
     selectedItems: 'Seçili öğeler',
+    moreItems:
+      '{count, plural, one {+{count} tane daha} other {+{count} tane daha}}',
   },
 };
 

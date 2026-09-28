@@ -5,6 +5,12 @@ const nl: MlvLanguage = {
   alert: {
     dismiss: 'Waarschuwing sluiten',
   },
+  autocomplete: {
+    noResults: 'Geen resultaten gevonden',
+    loading: 'Laden…',
+    resultsAvailable:
+      '{count, plural, one {# resultaat beschikbaar} other {# resultaten beschikbaar}}',
+  },
   avatarGroup: {
     noMembers: 'Geen leden',
     memberCount: '{total, plural, one {# lid} other {# leden}}',
@@ -135,6 +141,8 @@ const nl: MlvLanguage = {
     clearDateRange: 'Datumbereik wissen',
     applyDateRange: 'Datumbereik toepassen',
     placeholder: 'Datumbereik selecteren...',
+    clear: 'Wissen',
+    apply: 'Toepassen',
   },
   dayPicker: {
     placeholder: 'Datum selecteren...',
@@ -148,6 +156,9 @@ const nl: MlvLanguage = {
   drawer: {
     drawer: 'Zijpaneel',
     closeDrawer: 'Zijpaneel sluiten',
+  },
+  dropdownPanel: {
+    loading: 'Laden…',
   },
   editor: {
     editorLabel: 'Teksteditor met opmaak',
@@ -411,6 +422,8 @@ const nl: MlvLanguage = {
     loading: 'Laden…',
     resultsAvailable:
       '{count, plural, one {# resultaat beschikbaar} other {# resultaten beschikbaar}}',
+    itemsSelected:
+      '{count, plural, one {{count} item geselecteerd} other {{count} items geselecteerd}}',
   },
   sidebar: {
     navigation: 'Zijbalknavigatie',
@@ -485,6 +498,9 @@ const nl: MlvLanguage = {
     period: 'Periode',
     placeholder: 'Tijd selecteren...',
     timePicker: 'Tijdkiezer',
+    hours: 'Uren',
+    minutes: 'Minuten',
+    seconds: 'Seconden',
   },
   toast: {
     dismiss: 'Sluiten',
@@ -492,6 +508,7 @@ const nl: MlvLanguage = {
   tokenizer: {
     addToken: 'Token toevoegen',
     selectedItems: 'Geselecteerde items',
+    moreItems: '{count, plural, one {+ nog {count}} other {+ nog {count}}}',
   },
 };
 

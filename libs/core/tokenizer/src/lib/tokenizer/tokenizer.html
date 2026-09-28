@@ -44,7 +44,7 @@
       }
       @if (showOverflow() && overflowCount() > 0) {
         <span class="mlv-tokenizer__overflow">
-          +{{ overflowCount() }} more
+          {{ _overflowLabel() }}
         </span>
       }
       @if (!computedDisabled()) {

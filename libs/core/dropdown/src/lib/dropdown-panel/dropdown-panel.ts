@@ -50,6 +50,28 @@ import {
 } from './option-window';
 import { fromEvent, startWith } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MLV_DROPDOWN_PANEL_I18N } from '@malva-ui/i18n';
+import type { MlvDropdownPanelI18n } from '@malva-ui/i18n';
+
+/** `MlvDropdownPanelI18n` keys a hand-written or older language pack may omit. */
+type MlvDropdownPanelOptionalMessageKey = {
+  [K in keyof MlvDropdownPanelI18n]-?: undefined extends MlvDropdownPanelI18n[K]
+    ? K
+    : never;
+}[keyof MlvDropdownPanelI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when neither the
+ * bound input nor the active pack supplies one. Keyed by every optional key of
+ * the interface, so a new optional key does not compile without one (the
+ * `mlv-filter` pattern). The strings are the English pack's; `loading` is also
+ * the `loadingText` default before #370.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvDropdownPanelOptionalMessageKey, string>
+> = {
+  loading: 'Loading…',
+};
 
 /**
  * The committed selection split by what the inner aria listbox may be shown
@@ -256,10 +278,30 @@ export class MlvDropdownPanel<T> {
 
   /**
    * Text shown (and announced) inside the loading affordance while
-   * {@link loading} is `true`. Localise by binding a translated string.
-   * @default 'Loading…'
+   * {@link loading} or {@link loadingMore} is `true`. Unset, it is the active
+   * language pack's `dropdownPanel.loading` (`MLV_DROPDOWN_PANEL_I18N`), else
+   * English "Loading…" — so a panel outside any `provideMlvI18n()`, or under a
+   * pack without the slice, renders exactly what it did before #370.
+   * @default undefined — resolved through i18n
    */
-  readonly loadingText = input<string>('Loading…');
+  readonly loadingText = input<string | undefined>(undefined);
+
+  /**
+   * @private The dropdown-panel i18n slice. Optional: the panel is also used
+   * standalone, with no `provideMlvI18n()` in the injector.
+   */
+  private readonly _i18n = inject(MLV_DROPDOWN_PANEL_I18N, { optional: true });
+
+  /**
+   * @protected Text of both loading rows: {@link loadingText}, else the active
+   * pack's, else the English fallback.
+   */
+  protected readonly _resolvedLoadingText = computed(
+    () =>
+      this.loadingText() ??
+      this._i18n?.().loading ??
+      OPTIONAL_MESSAGE_FALLBACKS.loading,
+  );
 
   /**
    * When `true`, a page beyond the first is being fetched: renders a polite

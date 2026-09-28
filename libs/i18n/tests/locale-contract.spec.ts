@@ -248,6 +248,43 @@ it.each(Object.entries(packs).filter(([locale]) => locale !== 'en'))(
   },
 );
 
+// #370: the date-range picker renders `clear` / `apply` as its footer buttons'
+// visible text and keeps `clearDateRange` / `applyDateRange` as their
+// `aria-label`. WCAG 2.5.3 (Label in Name) needs each name to contain its
+// visible label, so a speech-input user can say what they see.
+it.each(Object.entries(packs))(
+  '%s date-range picker names contain their visible labels (WCAG 2.5.3)',
+  (locale, pack) => {
+    const picker = pack.dateRangePicker;
+    for (const [visible, name] of [
+      [picker.clear, picker.clearDateRange],
+      [picker.apply, picker.applyDateRange],
+    ] as const) {
+      expect(visible, `${locale}: visible label`).toBeTruthy();
+      expect(name.toLocaleLowerCase(locale), `${locale}: "${name}"`).toContain(
+        (visible ?? '').toLocaleLowerCase(locale),
+      );
+    }
+  },
+);
+
+// #370: `[mlvAutocomplete]` mirrors `mlv-combobox`'s empty state, loading text
+// and result-count announcement, and the dropdown panel's own loading default
+// is the same "loading" affordance — so each pack words them identically.
+it.each(Object.entries(packs))(
+  '%s words autocomplete and the dropdown panel as it words the combobox',
+  (locale, pack) => {
+    expect(pack.autocomplete, locale).toEqual({
+      noResults: pack.combobox.noResults,
+      loading: pack.combobox.loading,
+      resultsAvailable: pack.combobox.resultsAvailable,
+    });
+    expect(pack.dropdownPanel, locale).toEqual({
+      loading: pack.combobox.loading,
+    });
+  },
+);
+
 it('defines parameterized English Tile keyboard accessibility messages', () => {
   expect(en.tile).toEqual(
     expect.objectContaining({

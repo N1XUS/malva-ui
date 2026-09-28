@@ -146,6 +146,43 @@ export abstract class MlvDateAdapter<D> {
     });
   }
 
+  /**
+   * The two 12-hour day-period names, `[beforeNoon, afterNoon]`, in
+   * {@link locale}: `['AM', 'PM']` for `en` / `en-US`, `['午前', '午後']` in Japanese.
+   * `mlv-time-picker` renders them on its AM/PM toggle and in its 12-hour
+   * trigger text.
+   *
+   * The default reads the `dayPeriod` part `Intl.DateTimeFormat` produces for
+   * 10:00 and 15:00 with `hour12: true`, so it depends on no date type and
+   * every adapter inherits it; it falls back to `['AM', 'PM']` when the locale
+   * is invalid or the runtime yields no day period. Override it to supply
+   * other names.
+   *
+   * The names are the runtime's CLDR data for the exact locale, so regional
+   * English differs: `en-GB`, `en-AU`, `en-IN`, `en-IE` and `en-NZ` give
+   * `['am', 'pm']`, `en-CA` gives `['a.m.', 'p.m.']`.
+   */
+  getDayPeriodNames(): readonly [string, string] {
+    try {
+      const format = new Intl.DateTimeFormat(this.locale(), {
+        hour: 'numeric',
+        hour12: true,
+      });
+      const dayPeriod = (hour: number): string | undefined =>
+        format
+          .formatToParts(new Date(2000, 0, 1, hour))
+          .find((part) => part.type === 'dayPeriod')?.value;
+      const beforeNoon = dayPeriod(10);
+      const afterNoon = dayPeriod(15);
+      if (beforeNoon && afterNoon) {
+        return [beforeNoon, afterNoon];
+      }
+    } catch {
+      // An invalid locale tag throws a RangeError; fall back to English.
+    }
+    return ['AM', 'PM'];
+  }
+
   /** Returns the adapter's representation of today's date. */
   abstract today(): D;
   /** Creates a safe clone of the provided date instance. */

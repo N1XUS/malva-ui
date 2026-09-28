@@ -186,6 +186,16 @@
       line-height: var(--mlv-typography-body-s-line-height);
     }
 
+    // Empty-state row an owner projects while there are no options —
+    // `[mlvAutocomplete]`'s "No results found". Reads like the combobox and
+    // select empty rows (`.mlv-combobox__empty`, `.mlv-select__empty`).
+    &__empty {
+      padding: var(--mlv-spacing-3);
+      text-align: center;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-typography-body-s-size);
+    }
+
     // Refreshing an already-rendered list (a new search / reload): the options
     // stay mounted, readable and interactive, so the panel does not collapse to a
     // spinner and back. The recede is a colour change to the (contrast-validated)

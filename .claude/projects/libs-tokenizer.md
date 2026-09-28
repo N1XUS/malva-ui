@@ -57,14 +57,14 @@ models to the same array.
 
 #### Inputs (own)
 
-| Name              | Type                                        | Default                         | Description                                       |
-| ----------------- | ------------------------------------------- | ------------------------------- | ------------------------------------------------- |
-| `placeholder`     | `string`                                    | `''`                            | Input placeholder                                 |
-| `showOverflow`    | `boolean`                                   | `true`                          | Show `+N more` overflow indicator                 |
-| `maxVisible`      | `number \| null`                            | `null`                          | Max tokens shown (`null` = unlimited)             |
-| `allowDuplicates` | `boolean`                                   | `false`                         | Allow identical token values                      |
-| `createToken`     | `(v: string) => MlvSelectOption<T>`         | `v => ({ label: v, value: v })` | Transform input string → token                    |
-| `splitFn`         | `((v: string) => string[] \| null) \| null` | `null`                          | Split input into multiple tokens (e.g., by comma) |
+| Name              | Type                                        | Default                         | Description                                                                         |
+| ----------------- | ------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------- |
+| `placeholder`     | `string`                                    | `''`                            | Input placeholder                                                                   |
+| `showOverflow`    | `boolean`                                   | `true`                          | Show the overflow indicator (`+N more` in English — `MLV_TOKENIZER_I18N.moreItems`) |
+| `maxVisible`      | `number \| null`                            | `null`                          | Max tokens shown (`null` = unlimited)                                               |
+| `allowDuplicates` | `boolean`                                   | `false`                         | Allow identical token values                                                        |
+| `createToken`     | `(v: string) => MlvSelectOption<T>`         | `v => ({ label: v, value: v })` | Transform input string → token                                                      |
+| `splitFn`         | `((v: string) => string[] \| null) \| null` | `null`                          | Split input into multiple tokens (e.g., by comma)                                   |
 
 #### Inputs (from MlvSignalFormControlBase)
 
@@ -304,7 +304,7 @@ splitByComma = (v: string) =>
 - `@malva-ui/core/input` — `MlvInput`, the text field the tokenizer wraps
 - `@malva-ui/core/dropdown` — **runtime** since the bulk-entry dedupe (2026-09): `valueIndex` + the `MlvValueIndex` type, plus the `MlvSelectOption<T>` shape a token is. It was a type-only import before, so the built `fesm2022` bundle now carries a real `from '@malva-ui/core/dropdown'`
 - `@malva-ui/cdk/utils` — `MlvRtlService` (scoped direction for the token `FocusKeyManager`) and `defaultCompareWith`, the identity comparator `valueIndex` has to _recognise_ for its keyed fast path
-- `@malva-ui/i18n` — `MLV_TOKENIZER_I18N`
+- `@malva-ui/i18n` — `MLV_TOKENIZER_I18N`, `MlvI18nResolverService` (the ICU `moreItems`)
 
 ---
 
@@ -351,6 +351,12 @@ enabled / disabled split as the projected case. Enabled, nothing changes.
 **Disabled** the inner `mlv-input` is not rendered, so the `for` is now absent
 rather than pointing at an id no element carries; a disabled control is not a
 tab stop and no name is due.
+
+## Overflow caption text (#370)
+
+- The overflow indicator used to render `+{{ overflowCount() }} more` in English in every locale. It now renders `_overflowLabel()`, the optional `MLV_TOKENIZER_I18N.moreItems` key (ICU plural, `{count}`) resolved in the pack's `MLV_LOCALE` — `+2 weitere` under `de`, `+ ще 2` under `uk`.
+- A pack without the key falls back to `OPTIONAL_MESSAGE_FALLBACKS.moreItems`, whose English output is byte-identical to the old template text (`+2 more`).
+- Spec: `tokenizer-i18n.spec.ts`.
 
 ## Overflow caption colour (2026-09, #302)
 

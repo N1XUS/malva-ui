@@ -1450,8 +1450,9 @@ describe('MlvAutocomplete — suggestion listbox accessible name', () => {
   // `.claude/rules/accessibility.md` asks for one sweep per state that changes
   // the markup. Beyond the populated panel above, the panel's own template
   // branches on `loading()` (a `role="status"` row above the listbox, plus
-  // `aria-busy` on it), on an empty option list (the `@empty` branch), and the
-  // overlay pane is its own `[dir]` scope. Each gets its own sweep below.
+  // `aria-busy` on it), on an empty option list (the "No results found" row,
+  // projected after the listbox through `[mlvDropdownPanelEmpty]` — #370), and
+  // the overlay pane is its own `[dir]` scope. Each gets its own sweep below.
 
   it('is axe-clean while an async search is in flight (loading row)', async () => {
     host.ariaLabel.set('Fruit');
@@ -1486,6 +1487,9 @@ describe('MlvAutocomplete — suggestion listbox accessible name', () => {
     await fixture.whenStable();
 
     expect(overlayEl.querySelectorAll('[role="option"]').length).toBe(0);
+    expect(
+      overlayEl.querySelector('.mlv-dropdown-panel__empty')?.textContent,
+    ).toBe('No results found');
     await expectNoAxeViolations(document.body);
   });
 

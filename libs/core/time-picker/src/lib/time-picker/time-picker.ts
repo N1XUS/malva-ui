@@ -87,6 +87,9 @@ const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
   Record<MlvTimePickerOptionalMessageKey, string>
 > = {
   placeholder: 'Select time...',
+  hours: 'Hours',
+  minutes: 'Minutes',
+  seconds: 'Seconds',
 };
 
 /**
@@ -211,14 +214,38 @@ export class MlvTimePicker
   );
 
   /**
-   * @private Clock `defaultToNow` seeds from. The same resolution as the date
-   * pickers: a consumer's `MLV_DATE_ADAPTER`, else the native adapter — never
-   * `new Date()`, so a consumer (or a spec) that controls the adapter's clock
-   * controls this one.
+   * @protected Accessible names of the hours, minutes and seconds columns: the
+   * active pack's, else the English fallback for a pack that omits the keys.
+   */
+  protected readonly _columnLabels = computed(() => {
+    const i18n = this._i18n();
+    return {
+      hours: i18n.hours ?? OPTIONAL_MESSAGE_FALLBACKS.hours,
+      minutes: i18n.minutes ?? OPTIONAL_MESSAGE_FALLBACKS.minutes,
+      seconds: i18n.seconds ?? OPTIONAL_MESSAGE_FALLBACKS.seconds,
+    };
+  });
+
+  /**
+   * @private Clock `defaultToNow` seeds from, and the source of the 12-hour
+   * day-period names. The same resolution as the date pickers: a consumer's
+   * `MLV_DATE_ADAPTER`, else the native adapter — never `new Date()`, so a
+   * consumer (or a spec) that controls the adapter's clock controls this one.
    */
   private readonly _dateAdapter: MlvDateAdapter<unknown> =
     inject(MLV_DATE_ADAPTER, { optional: true }) ??
     (inject(MlvNativeDateAdapter) as unknown as MlvDateAdapter<unknown>);
+
+  /**
+   * @protected The 12-hour day-period names, `[AM, PM]`, from the date
+   * adapter's {@link MlvDateAdapter.getDayPeriodNames} — so they follow its
+   * locale (the active language pack's unless `MLV_DATE_LOCALE` pins one) and
+   * an adapter override. Rendered on the AM/PM toggle and after the time in
+   * the 12-hour trigger text. The model value stays 24-hour.
+   */
+  protected readonly _periodLabels = computed(() =>
+    this._dateAdapter.getDayPeriodNames(),
+  );
 
   /** @private Whether the time selection popup is open. */
   readonly isOpen = signal(false);
@@ -272,7 +299,10 @@ export class MlvTimePicker
     const ss = String(this._second()).padStart(2, '0');
     let base = `${hh}:${mm}`;
     if (this.showSeconds()) base += `:${ss}`;
-    if (is12h) base += ` ${this._period()}`;
+    if (is12h) {
+      const [am, pm] = this._periodLabels();
+      base += ` ${this._period() === 'AM' ? am : pm}`;
+    }
     return base;
   });
 

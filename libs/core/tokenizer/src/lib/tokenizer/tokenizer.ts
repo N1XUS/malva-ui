@@ -40,7 +40,28 @@ import { MlvToken } from '../token/token';
 import { MlvTokenTemplate } from '../token-template';
 import { valueIndex } from '@malva-ui/core/dropdown';
 import type { MlvSelectOption, MlvValueIndex } from '@malva-ui/core/dropdown';
-import { MLV_TOKENIZER_I18N } from '@malva-ui/i18n';
+import { MLV_TOKENIZER_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
+import type { MlvTokenizerI18n } from '@malva-ui/i18n';
+
+/** `MlvTokenizerI18n` keys a hand-written or older language pack may omit. */
+type MlvTokenizerOptionalMessageKey = {
+  [K in keyof MlvTokenizerI18n]-?: undefined extends MlvTokenizerI18n[K]
+    ? K
+    : never;
+}[keyof MlvTokenizerI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's; `{count}` rather than `#` keeps the count
+ * unformatted, as the English literal before #370 rendered it.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvTokenizerOptionalMessageKey, string>
+> = {
+  moreItems: '{count, plural, one {+{count} more} other {+{count} more}}',
+};
 
 const defaultCreateToken = (value: string): MlvSelectOption<string> => ({
   label: value,
@@ -174,6 +195,9 @@ export class MlvTokenizer<T = string>
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_TOKENIZER_I18N);
+
+  /** @private Formats ICU messages in the active pack's locale. */
+  private readonly _resolver = inject(MlvI18nResolverService);
 
   /** The token collection used by all Angular forms APIs. */
   readonly value = model<MlvSelectOption<T>[]>([]);
@@ -390,6 +414,21 @@ export class MlvTokenizer<T = string>
     if (max === null) return 0;
     return Math.max(0, this.tokens().length - max);
   });
+
+  /**
+   * @protected Text of the overflow counter ("+2 more"): the active pack's
+   * `moreItems`, else English, formatted with {@link overflowCount}.
+   */
+  protected readonly _overflowLabel = computed(() =>
+    this._resolver.resolve(
+      {
+        moreItems:
+          this._i18n().moreItems ?? OPTIONAL_MESSAGE_FALLBACKS.moreItems,
+      },
+      'moreItems',
+      { count: this.overflowCount() },
+    ),
+  );
 
   focusInput(): void {
     // Pointer interaction with the field is a caret move — disarm any selection.

@@ -79,7 +79,7 @@
             >
               <!-- Hours column -->
               <mlv-scrubber
-                label="Hours"
+                [label]="_columnLabels().hours"
                 [items]="_hourItems()"
                 [selectedValue]="_selectedHour()"
                 [displayWith]="_twoDigits"
@@ -91,7 +91,7 @@
 
               <!-- Minutes column -->
               <mlv-scrubber
-                label="Minutes"
+                [label]="_columnLabels().minutes"
                 [items]="_minuteItems()"
                 [selectedValue]="_selectedMinute()"
                 [displayWith]="_twoDigits"
@@ -106,7 +106,7 @@
 
                 <!-- Seconds column -->
                 <mlv-scrubber
-                  label="Seconds"
+                  [label]="_columnLabels().seconds"
                   [items]="_secondItems()"
                   [selectedValue]="_selectedSecond()"
                   [displayWith]="_twoDigits"
@@ -131,7 +131,7 @@
                     [disabled]="computedDisabled()"
                     (click)="_onPeriodChange('AM')"
                   >
-                    AM
+                    {{ _periodLabels()[0] }}
                   </button>
                   <button
                     type="button"
@@ -143,7 +143,7 @@
                     [disabled]="computedDisabled()"
                     (click)="_onPeriodChange('PM')"
                   >
-                    PM
+                    {{ _periodLabels()[1] }}
                   </button>
                 </div>
               }
