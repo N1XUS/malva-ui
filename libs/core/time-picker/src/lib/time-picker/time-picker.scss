@@ -368,7 +368,18 @@
       margin-inline-start: 0.25rem;
       height: var(--mlv-tp-track-height);
       justify-content: center;
-      width: var(--mlv-tp-ampm-width);
+      // The token is the size, and the content is the floor (#370). The
+      // day-period labels are localized ("a. m." / "p. m." in `es`, "a.m." /
+      // "p.m." in `nl`, `ro`, `pt-PT`, `en-CA`), and the fixed size alone
+      // clipped them under the buttons' `nowrap` + `overflow: hidden` text.
+      // `max-content` lets a longer label grow the column. It is not
+      // `min-inline-size: <token>`: that also removed the column's ability to
+      // shrink below the token, so in the full-screen sheet with seconds, where
+      // four `26cqw` columns overflow and every item shrinks, the drums
+      // absorbed it all. "AM" / "PM" are narrower than the token at every
+      // density and in the sheet, so they keep the old geometry.
+      inline-size: var(--mlv-tp-ampm-width);
+      min-inline-size: max-content;
 
       .mlv-button {
         // Matches a drum row by default, so the pair lines up with the rows it

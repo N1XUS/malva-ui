@@ -230,6 +230,20 @@ describe('MlvAutocomplete — i18n, no-results row and announcement (#370)', () 
     });
   });
 
+  it('re-words the open no-results row and re-announces it on a live language switch', async () => {
+    await withPack(enLanguage);
+    await type('zzz');
+    expect(emptyRow()).toBe('No results found');
+    expect(announcements().at(-1)).toBe('No results found | polite');
+
+    // The panel stays open: only the active pack changes underneath it.
+    TestBed.inject(MlvI18nService).setLanguage(deLanguage);
+    await settle();
+
+    expect(emptyRow()).toBe('Keine Ergebnisse gefunden');
+    expect(announcements().at(-1)).toBe('Keine Ergebnisse gefunden | polite');
+  });
+
   it("uses the pack locale's plural category (pl: few)", async () => {
     await withPack(plLanguage);
     await type('ap');

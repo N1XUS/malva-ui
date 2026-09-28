@@ -51,13 +51,27 @@ import {
 import { fromEvent, startWith } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MLV_DROPDOWN_PANEL_I18N } from '@malva-ui/i18n';
+import type { MlvDropdownPanelI18n } from '@malva-ui/i18n';
+
+/** `MlvDropdownPanelI18n` keys a hand-written or older language pack may omit. */
+type MlvDropdownPanelOptionalMessageKey = {
+  [K in keyof MlvDropdownPanelI18n]-?: undefined extends MlvDropdownPanelI18n[K]
+    ? K
+    : never;
+}[keyof MlvDropdownPanelI18n];
 
 /**
- * @private English loading text, used when neither `loadingText` nor the
- * active language pack supplies one: the English pack's
- * `dropdownPanel.loading`, and the input's default before #370.
+ * @private English fallbacks for the optional i18n keys, used when neither the
+ * bound input nor the active pack supplies one. Keyed by every optional key of
+ * the interface, so a new optional key does not compile without one (the
+ * `mlv-filter` pattern). The strings are the English pack's; `loading` is also
+ * the `loadingText` default before #370.
  */
-const DROPDOWN_PANEL_LOADING_FALLBACK = 'Loading…';
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvDropdownPanelOptionalMessageKey, string>
+> = {
+  loading: 'Loading…',
+};
 
 /**
  * The committed selection split by what the inner aria listbox may be shown
@@ -286,7 +300,7 @@ export class MlvDropdownPanel<T> {
     () =>
       this.loadingText() ??
       this._i18n?.().loading ??
-      DROPDOWN_PANEL_LOADING_FALLBACK,
+      OPTIONAL_MESSAGE_FALLBACKS.loading,
   );
 
   /**

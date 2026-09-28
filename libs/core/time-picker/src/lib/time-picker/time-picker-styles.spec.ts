@@ -273,3 +273,32 @@ describe('time-picker.scss — scrubber token aliases', () => {
     }
   });
 });
+
+/**
+ * #370 localizes the AM / PM buttons through `MlvDateAdapter.getDayPeriodNames()`,
+ * so their text is no longer always "AM" / "PM": `es` reads "a. m." / "p. m.",
+ * `nl` / `ro` / `pt-PT` and an `en-CA` locale "a.m." / "p.m.". A fixed column
+ * `width` clipped those under the buttons' `nowrap` + `overflow: hidden` text
+ * (Chrome 153, compact: "a. m." 32.3px in a 28px content box). The token
+ * stays the column's size and `min-inline-size: max-content` is its floor, so
+ * a longer label grows the column. A label that fits keeps the old geometry,
+ * including the shrink the full-screen sheet with seconds needs.
+ * `min-inline-size: <token>` was rejected because it stopped that shrink and
+ * moved width from the drums into AM / PM (375px sheet: drums 77.4 → 73.8px).
+ * jsdom performs no layout, so the compiled rule is what can be pinned here.
+ */
+describe('time-picker.scss — AM/PM column width (#370)', () => {
+  const css = stripCssLayersFromText(
+    sass.compile(resolve(HERE, './time-picker.scss')).css,
+  );
+  const ampm = collapse(ruleBody(css, '.mlv-time-picker__ampm'));
+
+  it('sizes the column from the density token on the logical axis', () => {
+    expect(ampm).toMatch(/(^|[;\s])inline-size: var\(--mlv-tp-ampm-width\);/);
+    expect(ampm).not.toMatch(/(^|[;\s])width:/);
+  });
+
+  it('floors the column at its content so a longer day-period label is not clipped', () => {
+    expect(ampm).toContain('min-inline-size: max-content;');
+  });
+});

@@ -24,12 +24,13 @@ import { MlvTimePicker } from './time-picker';
   template: `<mlv-time-picker
     label="Meeting time"
     mode="12h"
-    [showSeconds]="true"
+    [showSeconds]="showSeconds()"
     [value]="value()"
   />`,
 })
 class I18nHost {
   readonly value = signal('14:30:15');
+  readonly showSeconds = signal(true);
 }
 
 /** Pins the anchored layout: jsdom matches no `min-width` query. */
@@ -161,6 +162,27 @@ describe('MlvTimePicker — column names and day periods i18n (#370)', () => {
     await open();
     expect(columnNames()).toEqual(['Години', 'Хвилини', 'Секунди']);
     expect(periods()).toEqual(['дп', 'пп']);
+  });
+
+  it('re-labels the trigger and the open period pair on a live language switch', async () => {
+    await withPack(enLanguage);
+    fixture.componentInstance.showSeconds.set(false);
+    fixture.componentInstance.value.set('14:30');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(triggerText()).toBe('02:30 PM');
+    await open();
+    expect(periods()).toEqual(['AM', 'PM']);
+
+    // Mounted and open: only the active pack (and so `MLV_LOCALE`) changes.
+    TestBed.inject(MlvI18nService).setLanguage(jaLanguage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(triggerText()).toBe('02:30 午後');
+    expect(periods()).toEqual(['午前', '午後']);
   });
 
   it('takes the periods from a consumer MlvDateAdapter', async () => {
