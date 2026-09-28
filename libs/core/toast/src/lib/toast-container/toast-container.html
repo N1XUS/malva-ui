@@ -5,7 +5,7 @@
     animate.leave="mlv-toast-item-wrapper--leave"
   >
     <ng-template
-      [ngComponentOutlet]="component"
+      [ngComponentOutlet]="_componentFor(toast)"
       [ngComponentOutletInjector]="itemInjector"
       [ngComponentOutletInputs]="{ toast }"
     ></ng-template>

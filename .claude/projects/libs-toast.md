@@ -13,6 +13,8 @@ Every creation method returns a `MlvToastRef`. The caller, template content, com
 
 Active items use a normal linear list. Top-positioned containers prepend new items; bottom-positioned containers append them. There is no `maxShownItems` option or alternate stacked-card mode.
 
+Toasts and `@malva-ui/core/notification` items at the same position share **one** pane (#362, owner decision D37) — see _Shared stacks_ below.
+
 The library also exports the abstract container/service/item foundations reused by `@malva-ui/core/notification`.
 
 ---
@@ -71,16 +73,16 @@ export class MlvToastService extends MlvAbstractToastService<MlvToastConfig, Mlv
 
 #### Creation methods
 
-| Method    | Signature                                                                                                    | Description                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `show`    | `(config: MlvToastConfig): MlvToastRef`                                                                      | Renders the standard title/description item                                   |
-| `open`    | `<TData = unknown>(content: MlvToastContent<TData>, config?: MlvToastOpenConfig<TData>): MlvToastRef<TData>` | Renders string, template, or component content                                |
-| `success` | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `success` tone                                             |
-| `error`   | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `danger` tone                                              |
-| `warning` | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `warning` tone                                             |
-| `info`    | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `info` tone                                                |
-| `tone`    | `(tone: MlvToastTone, title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`         | Generic tone shorthand                                                        |
-| `close`   | `(id: string, position?: MlvToastPosition): void`                                                            | Closes an item by id; searches every active position when position is omitted |
+| Method    | Signature                                                                                                    | Description                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `show`    | `(config: MlvToastConfig): MlvToastRef`                                                                      | Renders the standard title/description item                                                                         |
+| `open`    | `<TData = unknown>(content: MlvToastContent<TData>, config?: MlvToastOpenConfig<TData>): MlvToastRef<TData>` | Renders string, template, or component content                                                                      |
+| `success` | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `success` tone                                                                                   |
+| `error`   | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `danger` tone                                                                                    |
+| `warning` | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `warning` tone                                                                                   |
+| `info`    | `(title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`                             | Standard item with `info` tone                                                                                      |
+| `tone`    | `(tone: MlvToastTone, title: string, config?: Omit<MlvToastConfig, 'title' \| 'tone'>): MlvToastRef`         | Generic tone shorthand                                                                                              |
+| `close`   | `(id: string, position?: MlvToastPosition): void`                                                            | Closes one of this service's items by id; ignores another service's id and, when given, an item at another position |
 
 `show()` and every shorthand remain supported. `open()` is additive; it is the content-polymorphic API.
 
@@ -112,9 +114,9 @@ Template/component content replaces the standard title, while `description`, the
 
 1. The returned ref, timer, dismiss control, or custom content requests close.
 2. The request routes to `MlvAbstractToastService.close()`.
-3. The owning position container removes the item.
+3. The shared stack at that position removes the item.
 4. The service marks the matching ref closed, emits/completes `afterClosed()`, and removes the ref from its registry.
-5. If no items remain at that position, overlay disposal is delayed by `200ms` for the CSS leave animation. A new item at that position cancels the pending disposal and reuses the container.
+5. If no items of **any** service remain in that stack, overlay disposal is delayed by `200ms` for the CSS leave animation. A new item from any service sharing the stack cancels the pending disposal and reuses the container.
 
 Repeated `MlvToastRef.close()` calls are safe and produce only one close request.
 
@@ -256,7 +258,7 @@ Internal `InjectionToken<(id: string) => void>` supplied to item components by `
 
 | Member          | Type               | Description                                      |
 | --------------- | ------------------ | ------------------------------------------------ |
-| `id`            | `string`           | Unique service-generated item id                 |
+| `id`            | `string`           | Item id, unique across toast and notification    |
 | `data`          | `TData`            | Readonly value from the matching config          |
 | `closed`        | `Signal<boolean>`  | Becomes `true` once the service removes the item |
 | `close()`       | `void`             | Requests dismissal; idempotent                   |
@@ -284,7 +286,7 @@ The same instance is returned to the caller, injected into component content, an
 
 **Files:** `libs/core/toast/src/lib/toast-container/`
 
-The service creates at most one container overlay per active `MlvToastPosition`. The container renders each item through `NgComponentOutlet`, injects the internal close callback, and uses Angular `animate.enter`/`animate.leave` classes on linear item wrappers.
+The shared stack host creates at most one container overlay per active `MlvToastPosition`, shared by toast and notification (see _Shared stacks_). The container renders each item through `NgComponentOutlet` with the item component its service supplied, injects the internal close callback, and uses Angular `animate.enter`/`animate.leave` classes on linear item wrappers.
 
 Top containers prepend new items; bottom containers append them. The container does not cap, overlap, scale, or hide items.
 
@@ -294,11 +296,29 @@ Starts the auto-dismiss timer in `ngOnInit`, clears it in `ngOnDestroy`, pauses 
 
 ### `MlvAbstractToastService<TConfig, TItem, TItemComponent, TRef>`
 
-Owns per-position overlays and containers, active refs, item ids, service destruction, the shared `show()`/`close()` path, delayed final-container disposal, and announcing each item through the shared batch (see Screen-reader announcement). Subclasses supply the container type, item type, `buildItem()`, `resolveAnnouncement()`, and optionally `_createRef()`.
+Owns its own items and their refs, service destruction, the shared `show()`/`close()` path, and announcing each item through the shared batch (see Screen-reader announcement). Panes, containers, item ids and delayed disposal belong to the internal shared stack host (see _Shared stacks_). Subclasses supply the container type, item type, `buildItem()`, `resolveAnnouncement()`, and optionally `_createRef()`.
 
 ### `MlvAbstractToastContainerComponent<T>`
 
-Owns the ordered `toasts` signal and `position` signal. `remove()` returns whether an item existed; `setCloseHandler()` registers the service-owned close callback used by the concrete container.
+Owns the ordered `toasts` signal and `position` signal. `remove()` returns whether an item existed; `setCloseHandler()` registers the close callback used by the concrete container. `_addItem(item, component)` (`@internal`) adds an item that renders with its own service's item component, so toast and notification items can share one container; `add(item)` still renders with `component`.
+
+---
+
+## Shared stacks (#362)
+
+Before #362 each `MlvAbstractToastService` subclass kept its own per-position overlay map, so a toast and a notification at the same corner created two stacked panes and only the top one took pointer input. Owner decision D37: one stack per position across both services; each keeps its own default corner (both default to `top-right`).
+
+**Owner.** `MlvToastStackHost` (`toast-stack-host.ts`), root-provided, **not** in the barrel. It creates a pane on the first item, adds every item to it, routes each item's close request back to the service that showed it, and disposes the pane `200ms` after its last item — of any service — leaves; an item joining inside that delay cancels the pending disposal, so an earlier timer never fires into a stack that emptied again later. Destroying the root injector disposes every pane.
+
+**Which services share.** The stack key is container type + the service's environment injector + position. `MlvToastService` and `MlvNotificationService` both render `MlvToastContainer` from the root injector, so they share. A subclass with its own container, or a service provided in another environment injector (a lazy route's), keeps its own pane: its panes would not be identical, and a pane created from an injector must not outlive it. At a corner both use, such a pane overlaps a root service's pane exactly as before #362 — keep the services root-provided (both are `providedIn: 'root'`; injecting them from a lazy route still resolves the root instance, only an explicit route `providers:` entry splits them). Component-provided services resolve their parent environment injector, so they share with the root services.
+
+**Order.** One list per pane, by show time across services: top positions newest first, bottom positions newest last.
+
+**Ids.** Issued by the host (`toast-N`), unique across services. An app with one instance of one service gets the same ids as before. Otherwise ids interleave: the first notification after a toast is `toast-2`, and several instances of the same service — a root `MlvToastService` plus a component-provided one — now share one pane and one counter, where each used to open its own pane and count from `toast-1`.
+
+**Ownership.** `close(id)` closes only the service's own items; another service's id is ignored. A service's destroy removes only its own items, immediately. A stack it leaves empty is disposed at once when keyed on a non-root environment injector (its pane must not outlive that injector); a root-keyed stack keeps its `200ms` delay, because another service's item may still be fading out in it (a root notification dismissed just before a component-scoped toast service is destroyed). Another service's items keep a shared pane alive either way.
+
+**Unchanged.** Pane classes (`mlv-toast-panel`, `mlv-toast-panel--<position>`), item BEM classes (`mlv-toast-item`, `mlv-notification-item`), per-item timers and pause-on-hover, announcements (per item, per service politeness, one shared batch), and direction — resolved from `MlvRtlService.direction()` when the pane is created, not watched after. There is no cap or `clear()` API.
 
 ---
 
@@ -396,7 +416,7 @@ export class SyncToastContentComponent {
 
 ## Testing
 
-Component tests cover creation, live-region role selection, and timer pause/resume for pointer-independent keyboard focus. Service tests cover all content branches, data token/context, ref closure, duplicate-close safety, caller/service/item close routing, delayed empty-overlay disposal, and announcements pending together (the real `LiveAnnouncer` region's settled text and politeness after items shown in one tick or within its 100 ms delay, and a fresh announcement once the previous one is written).
+Component tests cover creation, live-region role selection, and timer pause/resume for pointer-independent keyboard focus. Service tests cover all content branches, data token/context, ref closure, duplicate-close safety, caller/service/item close routing, delayed empty-overlay disposal, and announcements pending together (the real `LiveAnnouncer` region's settled text and politeness after items shown in one tick or within its 100 ms delay, and a fresh announcement once the previous one is written). `toast.service.spec.ts` § _shared stacks (#362)_ pins the single-service pane (one pane, same classes) and the key rule (a subclass with its own container, and a service from a child environment injector, keep their own panes). The toast-plus-notification specs live in `notification-toast-stack.spec.ts`, in the notification project, since notification depends on toast.
 
 ---
 

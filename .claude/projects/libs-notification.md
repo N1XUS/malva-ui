@@ -13,6 +13,8 @@ Every creation method returns a `MlvNotificationRef<TData>`, which extends the t
 
 Notification reuses `MlvToastContainer` and `MlvAbstractToastService` from `@malva-ui/core/toast`. Active cards are rendered as a normal linear list; there is no notification-specific container, `maxShownItems` option, or stacked-card layout mode.
 
+Notifications and toasts at the same position share **one** pane (#362, owner decision D37): cards and toasts interleave by show time (newest first at top positions, newest last at bottom ones), ids are unique across both services, `close(id)` ignores a toast's id, and the pane is disposed only once both services' items have left. Each service keeps its own default corner (`top-right`). See `libs-toast.md` § _Shared stacks_.
+
 ---
 
 ## Public API
@@ -91,7 +93,7 @@ Template/component content replaces the standard title. `description`, tone icon
 
 #### Close lifecycle
 
-All close sources delegate to `MlvAbstractToastService.close()`. The shared container removes the item, the service completes the matching `MlvNotificationRef`, and an empty position overlay is disposed after the shared `200ms` leave interval. Calling `MlvNotificationRef.close()` repeatedly is safe.
+All close sources delegate to `MlvAbstractToastService.close()`. The shared container removes the item, the service completes the matching `MlvNotificationRef`, and a position overlay left with no items — notification or toast — is disposed after the shared `200ms` leave interval. Calling `MlvNotificationRef.close()` repeatedly is safe.
 
 Action callbacks run first and then automatically request close. Action buttons are native `<button mlvButton>` bound with `(click)`, so one Enter / Space press runs the callback once — the former `(mlvClick)` binding ran it twice per key press (#299).
 
@@ -190,7 +192,7 @@ Extends `MlvToastRef<TData>` without changing its lifecycle:
 
 | Member          | Type               | Description                                      |
 | --------------- | ------------------ | ------------------------------------------------ |
-| `id`            | `string`           | Unique generated item id                         |
+| `id`            | `string`           | Item id, unique across notification and toast    |
 | `data`          | `TData`            | Readonly value from the matching config          |
 | `closed`        | `Signal<boolean>`  | Becomes `true` when the service removes the card |
 | `close()`       | `void`             | Requests dismissal; idempotent                   |
@@ -292,4 +294,4 @@ export class ReleaseContentComponent {
 
 ## Testing
 
-Component tests cover creation, the absence of live-region roles on the card, and focus-safe timer pausing. Service tests cover string/template/component content, data context/token, typed refs, duplicate-close safety, shared overlay cleanup, and announcements pending together (two notifications, and a notification beside a toast, read as one announcement from the real `LiveAnnouncer` region).
+Component tests cover creation, the absence of live-region roles on the card, and focus-safe timer pausing. Service tests cover string/template/component content, data context/token, typed refs, duplicate-close safety, shared overlay cleanup, and announcements pending together (two notifications, and a notification beside a toast, read as one announcement from the real `LiveAnnouncer` region). `notification-toast-stack.spec.ts` covers the shared stack (#362): one pane with a toast and a notification as sibling wrappers, order across services at top and bottom positions, unique ids, no cross-service close, dismiss routing to the owner, disposal only once both are empty, the pane reused inside the leave delay (and not disposed by a timer left over from before the join), a destroyed component-scoped service removing only its own items and leaving a root pane its leave delay, separate panes for mixed positions, RTL, and an axe sweep of `document.body`.
