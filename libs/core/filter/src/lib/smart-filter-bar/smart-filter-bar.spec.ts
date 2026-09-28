@@ -82,6 +82,404 @@ class NestedEditorSlotHost {
   ];
 }
 
+/** A domain value class, standing in for Dayjs / Luxon / a consumer's own type. */
+class Day {
+  constructor(readonly iso: string) {}
+
+  format(): string {
+    return `Day ${this.iso}`;
+  }
+
+  toString(): string {
+    return this.format();
+  }
+}
+
+/** A class instance holding an `Intl` object, which `structuredClone` rejects. */
+class Money {
+  readonly formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+
+  constructor(readonly amount: number) {}
+
+  format(): string {
+    return this.formatter.format(this.amount);
+  }
+}
+
+/** A `Date` subclass: a built-in with a consumer prototype on top. */
+class StampedDate extends Date {
+  stamp(): string {
+    return `stamped ${this.getTime()}`;
+  }
+}
+
+/** An `Array` subclass. */
+class Ids extends Array<number> {
+  total(): number {
+    return this.reduce((sum, id) => sum + id, 0);
+  }
+}
+
+/** A `Map` subclass. */
+class Lookup extends Map<string, number> {
+  sum(): number {
+    return [...this.values()].reduce((sum, value) => sum + value, 0);
+  }
+}
+
+/** A `Set` subclass. */
+class TagSet extends Set<string> {
+  joined(): string {
+    return [...this].join(',');
+  }
+}
+
+/** One built-in subclass instance and a call to its own method. */
+interface SubclassCase {
+  readonly name: string;
+  readonly make: () => object;
+  readonly call: (value: unknown) => unknown;
+  readonly expected: unknown;
+}
+
+const SUBCLASS_CASES: readonly SubclassCase[] = [
+  {
+    name: 'Date',
+    make: () => new StampedDate(0),
+    call: (value) => (value as StampedDate).stamp(),
+    expected: 'stamped 0',
+  },
+  {
+    name: 'Array',
+    make: () => {
+      const ids = new Ids();
+      ids.push(1, 2);
+      return ids;
+    },
+    call: (value) => (value as Ids).total(),
+    expected: 3,
+  },
+  {
+    name: 'Map',
+    make: () =>
+      new Lookup([
+        ['a', 1],
+        ['b', 2],
+      ]),
+    call: (value) => (value as Lookup).sum(),
+    expected: 3,
+  },
+  {
+    name: 'Set',
+    make: () => new TagSet(['a', 'b']),
+    call: (value) => (value as TagSet).joined(),
+    expected: 'a,b',
+  },
+];
+
+@Component({
+  imports: [MlvSmartFilterBar, MlvFilterValueEditorDef],
+  template: `
+    <mlv-smart-filter-bar [definitions]="definitions">
+      <ng-template mlvFilterValueEditor="renewal" let-value let-set="setValue">
+        <span class="day-editor__value">{{ describeValue(value) }}</span>
+        <button type="button" class="day-editor__pick" (click)="set(pick)">
+          Pick
+        </button>
+      </ng-template>
+    </mlv-smart-filter-bar>
+  `,
+})
+class ClassValueEditorHost {
+  readonly definitions: readonly MlvFilterDefinition[] = [
+    {
+      key: 'renewal',
+      label: 'Renewal',
+      editor: 'text',
+      operators: ['equals'],
+      defaultVisible: true,
+    },
+  ];
+
+  /** The value the custom editor writes through `setValue`. */
+  pick: unknown = new Day('2026-09-27');
+
+  /** What the editor renders for the value it was handed. */
+  describeValue(value: unknown): string {
+    if (value instanceof Day) return value.format();
+    return value !== null && typeof value === 'object' ? 'lost' : 'none';
+  }
+}
+
+describe('MlvSmartFilterBar — filter value cloning (#351)', () => {
+  let overlay: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvSmartFilterBar],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    overlay = TestBed.inject(OverlayContainer).getContainerElement();
+  });
+
+  afterEach(() => {
+    overlay.replaceChildren();
+  });
+
+  /** Emits one payload for a single `scope` condition holding `value`. */
+  async function payloadFor(
+    value: unknown,
+  ): Promise<MlvFilterExecutionPayload> {
+    const fixture = TestBed.createComponent(MlvSmartFilterBar);
+    fixture.componentRef.setInput('definitions', [
+      { key: 'scope', label: 'Scope', editor: 'text', defaultVisible: true },
+    ] satisfies MlvFilterDefinition[]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const bar = fixture.componentInstance;
+    bar.filters.set([
+      {
+        key: 'scope',
+        strategy: 'or',
+        conditions: [{ operator: 'equals', value }],
+      },
+    ]);
+    fixture.detectChanges();
+    const execute = vi.fn();
+    bar.execute.subscribe(execute);
+    bar.executeQuery();
+    expect(execute).toHaveBeenCalledTimes(1);
+    return execute.mock.calls[0][0] as MlvFilterExecutionPayload;
+  }
+
+  /** The operand as `filters` and as `expression` carry it. */
+  function emittedValues(payload: MlvFilterExecutionPayload): unknown[] {
+    const child =
+      payload.expression.kind === 'group'
+        ? payload.expression.children[0]
+        : payload.expression;
+    return [
+      payload.filters[0].conditions[0].value,
+      child?.kind === 'condition' ? child.condition.value : undefined,
+    ];
+  }
+
+  it('keeps a class-instance value set through a custom editor, by reference', async () => {
+    const fixture = TestBed.createComponent(ClassValueEditorHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const bar = fixture.debugElement.query(By.directive(MlvSmartFilterBar))
+      .componentInstance as MlvSmartFilterBar;
+    const pick = fixture.componentInstance.pick;
+    const trigger = root.querySelector<HTMLButtonElement>(
+      '.mlv-filter__trigger',
+    );
+
+    trigger?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlay.querySelector<HTMLButtonElement>('.day-editor__pick')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // The model holds the consumer's instance, not a prototype-less copy.
+    const stored = bar.filters()[0]?.conditions[0]?.value;
+    expect(stored instanceof Day).toBe(true);
+    expect(stored === pick).toBe(true);
+    // …so the trigger's summary still reaches the class's own `toString()`.
+    expect(trigger?.textContent).toContain('Day 2026-09-27');
+
+    // Reopening re-seeds the editor from `filters`: `$implicit` is the
+    // instance, and a method call on it works.
+    trigger?.click();
+    fixture.detectChanges();
+    overlay
+      .querySelector<HTMLElement>('.mlv-popup')
+      ?.dispatchEvent(new Event('animationend'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    trigger?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(
+      overlay.querySelector('.day-editor__value')?.textContent?.trim(),
+    ).toBe('Day 2026-09-27');
+
+    const execute = vi.fn();
+    bar.execute.subscribe(execute);
+    bar.executeQuery();
+    const payload = execute.mock.calls[0][0] as MlvFilterExecutionPayload;
+    expect(emittedValues(payload).map((value) => value === pick)).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it('passes an Intl-bearing class instance through instead of emptying it', async () => {
+    const money = new Money(5);
+
+    const values = emittedValues(await payloadFor(money));
+
+    expect(values.map((value) => value === money)).toEqual([true, true]);
+    expect((values[0] as Money).format()).toBe('$5.00');
+  });
+
+  it.each(SUBCLASS_CASES)(
+    'passes a $name subclass through with its prototype',
+    async ({ make, call, expected }) => {
+      const value = make();
+
+      const values = emittedValues(await payloadFor(value));
+
+      expect(values.map((emitted) => emitted === value)).toEqual([true, true]);
+      expect(call(values[0])).toBe(expected);
+    },
+  );
+
+  it('summarises a null-prototype operand written through a custom editor', async () => {
+    const fixture = TestBed.createComponent(ClassValueEditorHost);
+    const dictionary = Object.assign(Object.create(null) as object, { k: 1 });
+    fixture.componentInstance.pick = dictionary;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const bar = fixture.debugElement.query(By.directive(MlvSmartFilterBar))
+      .componentInstance as MlvSmartFilterBar;
+    const trigger = root.querySelector<HTMLButtonElement>(
+      '.mlv-filter__trigger',
+    );
+
+    trigger?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlay.querySelector<HTMLButtonElement>('.day-editor__pick')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Copied as plain data, prototype kept — so it has no `toString()`, and the
+    // trigger summary must not throw on it.
+    const stored = bar.filters()[0]?.conditions[0]?.value;
+    expect(stored === dictionary).toBe(false);
+    expect(stored !== null && Object.getPrototypeOf(stored)).toBeNull();
+    expect(root.querySelector('.mlv-filter__value')?.textContent?.trim()).toBe(
+      '[object Object]',
+    );
+  });
+
+  it('keeps an Array-subclass operand written through a custom editor', async () => {
+    const fixture = TestBed.createComponent(ClassValueEditorHost);
+    const ids = new Ids();
+    ids.push(1, 2);
+    fixture.componentInstance.pick = ids;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const bar = fixture.debugElement.query(By.directive(MlvSmartFilterBar))
+      .componentInstance as MlvSmartFilterBar;
+
+    root.querySelector<HTMLButtonElement>('.mlv-filter__trigger')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlay.querySelector<HTMLButtonElement>('.day-editor__pick')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Through `mlv-filter`'s commit and the bar's copy, end to end.
+    const stored = bar.filters()[0]?.conditions[0]?.value;
+    expect(stored instanceof Ids).toBe(true);
+    expect(stored === ids).toBe(true);
+    expect((stored as Ids).total()).toBe(3);
+  });
+
+  it('still copies plain data, keeping a nested class instance by reference', async () => {
+    const day = new Day('2026-01-01');
+    const lookup = { n: 1 };
+    const value = {
+      from: new Date(0),
+      to: new Date(86_400_000),
+      ids: [1, [2]] as [number, number[]],
+      tags: new Set(['a']),
+      lookup: new Map([['k', lookup]]),
+      day,
+    };
+
+    const [copy] = emittedValues(await payloadFor(value)) as [typeof value];
+
+    // The one member that is not plain data is shared, not flattened.
+    expect(copy.day === day).toBe(true);
+    expect(copy === value).toBe(false);
+    expect(copy.from === value.from).toBe(false);
+    expect(copy.from instanceof Date && copy.from.getTime()).toBe(0);
+    expect(copy.to.getTime()).toBe(86_400_000);
+    expect(copy.ids === value.ids).toBe(false);
+    expect(copy.ids[1] === value.ids[1]).toBe(false);
+    expect(copy.ids).toEqual([1, [2]]);
+    expect(copy.tags === value.tags).toBe(false);
+    expect(copy.tags instanceof Set && [...copy.tags]).toEqual(['a']);
+    expect(copy.lookup === value.lookup).toBe(false);
+    expect(copy.lookup.get('k') === lookup).toBe(false);
+    expect(copy.lookup.get('k')).toEqual({ n: 1 });
+    // A write to the source after emission does not reach the snapshot.
+    value.ids[1].push(3);
+    lookup.n = 2;
+    expect(copy.ids).toEqual([1, [2]]);
+    expect(copy.lookup.get('k')).toEqual({ n: 1 });
+  });
+
+  it('keeps a null prototype, shared references and cycles of plain data', async () => {
+    // Nested, so the null prototype is checked below the top level; a
+    // top-level one is covered by the custom-editor spec above.
+    const shared = { n: 1 };
+    const inner = Object.create(null) as Record<string, unknown>;
+    inner['a'] = shared;
+    inner['b'] = shared;
+    const value: Record<string, unknown> = { inner };
+    value['self'] = value;
+
+    const [copy] = emittedValues(await payloadFor(value)) as [
+      Record<string, Record<string, unknown>>,
+    ];
+
+    expect(Object.getPrototypeOf(copy['inner'])).toBeNull();
+    expect(copy === value).toBe(false);
+    expect(copy['inner'] === inner).toBe(false);
+    expect(copy['inner']['a'] === shared).toBe(false);
+    expect(copy['inner']['a'] === copy['inner']['b']).toBe(true);
+    expect(copy['self'] === copy).toBe(true);
+  });
+
+  it('copies an own `__proto__` key as data, never as a prototype', async () => {
+    // A guard, not a regression: `structuredClone` got this right. It pins
+    // that the copy defines each key rather than assigning it, since
+    // `copy['__proto__'] = …` would re-point the copy's prototype instead.
+    const value = JSON.parse('{"__proto__":{"polluted":true},"n":1}') as Record<
+      string,
+      unknown
+    >;
+
+    const [copy] = emittedValues(await payloadFor(value)) as [
+      Record<string, unknown>,
+    ];
+
+    expect(Object.hasOwn(copy, '__proto__')).toBe(true);
+    expect('polluted' in copy).toBe(false);
+    expect(copy['n']).toBe(1);
+  });
+});
+
 describe('MlvSmartFilterBar', () => {
   let fixture: ComponentFixture<MlvSmartFilterBar>;
   let component: MlvSmartFilterBar;

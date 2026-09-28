@@ -71,6 +71,37 @@ class ValuelessOperatorHost {
   readonly conditions = signal<readonly MlvFilterCondition[]>([]);
 }
 
+@Component({
+  imports: [MlvFilter, MlvFilterValueEditorDef],
+  template: `
+    <mlv-filter label="Renewal" editor="text" [(conditions)]="conditions">
+      <ng-template mlvFilterValueEditor let-set="setValue">
+        <button type="button" class="pick-editor" (click)="set(pick)">
+          Pick
+        </button>
+      </ng-template>
+    </mlv-filter>
+  `,
+})
+class PickSlotHost {
+  readonly conditions = signal<readonly MlvFilterCondition[]>([]);
+
+  /** The value the custom editor writes through `setValue`. */
+  pick: unknown = null;
+}
+
+/** An `Array` subclass operand, as a custom editor might write one. */
+class IdList extends Array<number> {
+  total(): number {
+    return this.reduce((sum, id) => sum + id, 0);
+  }
+}
+
+/** A plain-data object with no prototype, so no `toString()` to call. */
+function nullPrototype(): object {
+  return Object.assign(Object.create(null) as object, { k: 1 });
+}
+
 describe('MlvFilter', () => {
   let fixture: ComponentFixture<MlvFilter>;
   let component: MlvFilter;
@@ -1149,5 +1180,105 @@ describe('MlvFilter condition control names', () => {
       'Apply',
     ]);
     await expectNoAxeViolations(document.body);
+  });
+});
+
+describe('MlvFilter — operands that are not strings (#351)', () => {
+  let overlay: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MlvFilter],
+      providers: [provideMlvI18nTesting()],
+    }).compileComponents();
+    overlay = TestBed.inject(OverlayContainer).getContainerElement();
+  });
+
+  afterEach(() => overlay.replaceChildren());
+
+  /** A text filter holding one condition, with its editor optionally open. */
+  async function textFilter(
+    condition: MlvFilterCondition,
+  ): Promise<ComponentFixture<MlvFilter>> {
+    const fixture = TestBed.createComponent(MlvFilter);
+    fixture.componentRef.setInput('label', 'Scope');
+    fixture.componentRef.setInput('editor', 'text');
+    fixture.componentRef.setInput('operators', ['equals', 'between']);
+    fixture.componentInstance.conditions.set([condition]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return fixture;
+  }
+
+  it.each([
+    {
+      name: 'a single operand',
+      condition: { operator: 'equals', value: nullPrototype() },
+      summary: '[object Object]',
+      inputs: ['[object Object]'],
+    },
+    {
+      name: 'a range',
+      condition: {
+        operator: 'between',
+        value: [nullPrototype(), nullPrototype()],
+      },
+      summary: '[object Object] – [object Object]',
+      inputs: ['[object Object]', '[object Object]'],
+    },
+  ] satisfies {
+    name: string;
+    condition: MlvFilterCondition;
+    summary: string;
+    inputs: string[];
+  }[])(
+    'summarises and edits $name of null-prototype objects without throwing',
+    async ({ condition, summary, inputs }) => {
+      const fixture = await textFilter(condition);
+      const host = fixture.nativeElement as HTMLElement;
+
+      expect(host.querySelector('.mlv-filter__value')?.textContent).toBe(
+        summary,
+      );
+
+      (host.querySelector('.mlv-filter__trigger') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // The built-in editor's native input converts its value to a string
+      // itself, and would throw on the same object.
+      expect(
+        [
+          ...overlay.querySelectorAll<HTMLInputElement>(
+            '.mlv-filter__value-cell input',
+          ),
+        ].map((input) => input.value),
+      ).toEqual(inputs);
+    },
+  );
+
+  it('keeps an Array-subclass operand written through a custom editor', async () => {
+    const fixture = TestBed.createComponent(PickSlotHost);
+    const ids = new IdList();
+    ids.push(1, 2);
+    fixture.componentInstance.pick = ids;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    (host.querySelector('.mlv-filter__trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    overlay.querySelector<HTMLButtonElement>('.pick-editor')?.click();
+    fixture.detectChanges();
+
+    // Live mode commits on `setValue`; the commit's defensive copy must not
+    // flatten the subclass into a plain array.
+    const stored = fixture.componentInstance.conditions()[0]?.value;
+    expect(stored instanceof IdList).toBe(true);
+    expect(stored === ids).toBe(true);
+    expect((stored as IdList).total()).toBe(3);
   });
 });

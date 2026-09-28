@@ -115,7 +115,17 @@ export interface MlvFilterFieldState {
   readonly strategy: MlvFilterConditionStrategy;
 }
 
-/** Deeply cloned snapshot emitted when a smart filter bar executes or refreshes. */
+/**
+ * Snapshot emitted when a smart filter bar executes or refreshes. Its field
+ * states and the plain-data part of every operand are deep copies — arrays,
+ * objects whose prototype is `Object.prototype` or `null`, and exact `Date` /
+ * `Map` / `Set` instances — so editing the bar afterwards never reaches it.
+ * Any other operand object is shared **by reference** with the bar's state and
+ * with later payloads: a class instance (Dayjs, Luxon, a domain type), a
+ * built-in subclass, `RegExp`, `URL`, typed arrays, `Blob` / `File`, and plain
+ * data from another realm. Treat shared values as immutable — mutating one in
+ * place (a Moment is mutable) changes the bar's state and every later payload.
+ */
 export interface MlvFilterExecutionPayload {
   /** Search term submitted alongside structured filters. */
   readonly search: string;
