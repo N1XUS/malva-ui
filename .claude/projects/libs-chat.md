@@ -53,8 +53,10 @@ Data-driven chat surface. `mlv-chat` renders an oldest→newest `messages` array
 | `groupWindow`    | `number`               | `5`      | Max gap in minutes inside one author group             |
 | `showAuthors`    | `'auto' \| boolean`    | `'auto'` | `'auto'` shows the author slot once `users.length > 2` |
 | `dateSeparators` | `BooleanInput`         | `true`   | Calendar-day separators                                |
-| `windowSize`     | `number`               | `150`    | Newest messages kept in the DOM                        |
+| `windowSize`     | `number`               | `150`    | Newest messages kept in the DOM while pinned           |
 | `mlvDensity`     | `MlvDensity`           | ambient  | Via `MlvDensityDirective` host directive               |
+
+**Message ids.** `MlvChatMessageData.id` must be unique across **every conversation one `mlv-chat` instance shows**, not just within one. Ids drive the `@for` track, the live-arrival marks, append/prepend detection and the scrolled-up window anchor. Per-conversation ids (`1`, `2`, … in each channel) reused after an in-place switch are read as the same messages — measured: a switch while scrolled up from `m0…m199` to another channel's `m0…m999` held 950 rows and replayed the enter animation on 800. Prefix ids with the conversation, or key the chat per conversation (`@for (c of [conversation()]; track c.id)`).
 
 ### Outputs
 
@@ -94,15 +96,29 @@ Content order inside the bubble: reply quote → media grid → audio players �
 
 Pure function in `chat-render-list.ts`. Breaks a group on author change, on a gap larger than `groupWindow` minutes, and always at a calendar-day boundary. Emits `{ kind: 'date' }` items (ids `date-YYYY-M-D`) and `{ kind: 'group' }` items (ids `group-<first message id>`) with each message's `position`.
 
+**Stable group track ids (#354).** `mlv-chat` does not track groups by those ids directly. `_renderItems` is a read-only `linkedSignal` whose computation passes the fresh list and its own previous value through `stabilizeChatGroupIds` (`chat-group-ids.ts`, not exported). A group takes, in order:
+
+1. its own id, when a previous group carried it (it kept its first message);
+2. the previous id of its oldest message that had one, unless another group took it (its first message left the window);
+3. its own id (a new group).
+
+- Ids stay unique — steps 1–2 hand out previously carried ids once each, a step-3 id was carried by nobody — and never move to another author.
+- Why: the window moving past a group's first message (pinned slide, re-pin trim) changed the id, so `@for` destroyed the group and re-created every bubble — focus inside it lost, audio stopped, live messages replaying the enter animation. Pinned by `chat-window.spec.ts` (node identity) and `chat-group-ids.spec.ts`.
+- `buildChatRenderList` itself is unchanged and keeps its documented ids.
+
 ### Scroll engine
 
 Native scroll plus `content-visibility: auto` on group rows (no view recycling, so animations and reading order stay intact).
 
-- Pinned when within 48px of the bottom. Appending while pinned smooth-scrolls down; while unpinned it increments the "N new messages" pill.
+- Pinned when within 48px of the bottom. Appending while pinned smooth-scrolls down (the window slides: the oldest rendered message leaves, far above the view); while unpinned it increments the "N new messages" pill and nothing else.
+- **Unpinned, the window holds its first message (#354).** Every `messages` change while unpinned re-finds the first message the DOM rendered (`_holdWindowStart`, a scan from the end) and grows `_renderCount` so it stays first — never shrinks it.
+  - Before, the count stayed fixed, so each arrival trimmed the top: the text being read left the DOM, and with `overflow-anchor: auto` the anchor node could be the removed one.
+  - Anchor: `_renderedStartId`, recorded by an `afterRenderEffect` over `_windowed` after every render that moved the window (arrival, top growth, trim). Not an appended count — an arrival that also swaps the newest id (optimistic `tmp` → server id) or lands mid-list holds too. Not an index into the previous array — a consumer mutating it in place (`list.shift(); list.push(x); set([...list])`) shifted that index and trimmed the read message anyway.
+  - **No upper bound:** while scrolled up the DOM grows by **every** arrival until the reader returns; `windowSize` caps the DOM only at the bottom. Parked in a busy channel that reaches thousands of rows (measured in jsdom for #354: ~7 µs per rendered row per arrival end to end, 10k rows ≈ 72 ms per arrival). A cap is a follow-up. Patch (VERSIONING row 117): the docs promised the pill only, and the issue accepted the growth.
 - Pinning is re-applied from a `MlvResizeObserverService` subscription on the inner `.mlv-chat__content` wrapper, not from renders alone — media loading late and `content-visibility` revealing height both change the scroll height without a change-detection pass.
 - Within 150px of the top the render window grows by 50 messages; once the window covers the whole array and `hasOlder` is set (and `loadingOlder` is not), `loadOlder` fires.
 - Prepending compensates the scroll position by the height delta (captured before render, applied in an `afterRenderEffect`).
-- Re-pinning trims the window back to `windowSize` and clears the pill.
+- Re-pinning trims the window back to `windowSize` and clears the pill — by scrolling to the bottom (`_evaluateScroll`) or through the pill. `_scrollToBottom` trims itself when it starts unpinned: it pre-sets `_pinned`, so the landing scroll event sees no change of pinned state, and a jump that lands in one event (the render's `_stickToBottom` is one) used to leave everything held in the DOM, every later arrival sliding at that size (650 rows measured after 500 held arrivals). Adjacent fix in #354.
 - `_evaluateScroll(scrollTop, scrollHeight, clientHeight)` holds the logic separately from DOM measurement so it is testable without layout.
 
 **Listener wiring (issues #73 / #7).** The scroll listener is registered
@@ -180,7 +196,7 @@ Scope note: only this component's own view was ever re-checked per tick, not the
 
 ### Animations
 
-Only live-appended messages animate in — ids are recorded in `_liveIds` when the array's last id changes, so initial load, window growth, and prepended history render instantly. Enter: grid-rows collapse + fade + translateY (`--mlv-duration-slow`, `--mlv-ease-out-strong`). Leave via `animate.leave="mlv-chat__item--leave"`. `@include mixins.reduced-motion` on `mlv-chat`, `mlv-chat-message`, and `mlv-chat-typing`.
+Only live-appended messages animate in — ids are recorded in `_liveIds` when the array's last id changes, so initial load, window growth, and prepended history render instantly. `_liveIds` is bounded by the render window: a `linkedSignal` over `_windowed` whose computation keeps only the marks of rendered messages (`_keepRenderedMarks`, returning the same set when nothing drops), and `_markLiveMessages` marks only fresh messages inside the post-hold window. No effect prunes it, so nothing depends on effect order — the pruning runs on the first read after the window moves (the template's, or the one inside the mark's `update`). While scrolled up the window grows with every arrival and the set with it (9,857 marks at 10k rows measured). Before #354 the set grew with every arrival for the chat's life — a 10k-id copy per arrival costs 0.05 ms against 0.0005 ms at 150 — and a live message scrolled back into the window animated in again. Enter: grid-rows collapse + fade + translateY (`--mlv-duration-slow`, `--mlv-ease-out-strong`). Leave via `animate.leave="mlv-chat__item--leave"`. `@include mixins.reduced-motion` on `mlv-chat`, `mlv-chat-message`, and `mlv-chat-typing`.
 
 ---
 

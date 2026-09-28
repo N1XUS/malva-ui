@@ -13,8 +13,10 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -35,9 +37,11 @@ import type {
   MlvChatAttachment,
   MlvChatMessageData,
   MlvChatMessageStatus,
+  MlvChatRenderItem,
   MlvChatUser,
 } from '../chat.types';
 import { buildChatRenderList, toChatDate } from '../chat-render-list';
+import { stabilizeChatGroupIds } from '../chat-group-ids';
 import {
   formatChatTime,
   injectChatTimezoneOffset,
@@ -145,7 +149,14 @@ export class MlvChat {
     transform: coerceBooleanProperty,
   });
 
-  /** Number of newest messages kept in the DOM. */
+  /**
+   * Number of newest messages kept in the DOM while the view sits at the newest
+   * message — the only place it caps the DOM. Scrolled up, the window only
+   * grows: by 50 near the top, and by every message that arrives, without
+   * bound, so none is removed from under the reader. It is trimmed back to this
+   * size once the view returns to the bottom, by scrolling or through the
+   * new-messages pill.
+   */
   readonly windowSize = input<number>(150);
 
   /** Emits when the user scrolls past the oldest rendered message and more history exists. */
@@ -210,15 +221,27 @@ export class MlvChat {
     this.messages().slice(-this._renderCount()),
   );
 
-  /** @internal Flattened author groups and date separators of the render window. */
-  protected readonly _renderItems = computed(() =>
-    buildChatRenderList(
-      this._windowed(),
-      this.selfId(),
-      this.groupWindow(),
-      this.dateSeparators(),
-    ),
-  );
+  /**
+   * @internal Flattened author groups and date separators of the render window.
+   *
+   * A `linkedSignal` for its `previous` value only: each group keeps the track
+   * id it had, so the window moving past a group's first message does not
+   * re-create the group (`stabilizeChatGroupIds`). Read-only; nothing writes it.
+   */
+  protected readonly _renderItems = linkedSignal<
+    MlvChatRenderItem[],
+    MlvChatRenderItem[]
+  >({
+    source: () =>
+      buildChatRenderList(
+        this._windowed(),
+        this.selfId(),
+        this.groupWindow(),
+        this.dateSeparators(),
+      ),
+    computation: (items, previous) =>
+      stabilizeChatGroupIds(items, previous?.value ?? []),
+  }).asReadonly();
 
   /**
    * @internal Accessible name of each rendered message article, keyed by message
@@ -292,14 +315,42 @@ export class MlvChat {
   /** @internal Messages appended while unpinned; drives the new-messages pill. */
   protected readonly _newCount = signal(0);
 
-  /** @internal Ids of messages that arrived live, so only those animate in. */
-  protected readonly _liveIds = signal<ReadonlySet<string>>(new Set());
+  /**
+   * @internal Ids of rendered messages that arrived live, so only those animate
+   * in. Bounded by the render window: a mark is only added for a message
+   * inside it, and every recomputation over a moved window drops the marks of
+   * messages that left it, so a message scrolled back into the window renders
+   * without animating again. While the reader is scrolled up the window itself
+   * grows by every arrival, and this set can grow with it.
+   *
+   * A `linkedSignal` over `_windowed` rather than a signal pruned by an effect,
+   * so the pruning does not depend on the order effects run in: it happens on
+   * the first read after the window moves — the template's, or the one inside
+   * `_markLiveMessages`' update.
+   */
+  protected readonly _liveIds = linkedSignal<
+    readonly MlvChatMessageData[],
+    ReadonlySet<string>
+  >({
+    source: () => this._windowed(),
+    computation: (windowed, previous) =>
+      this._keepRenderedMarks(previous?.value, windowed),
+  });
 
   /** @private First/last ids of the previous `messages` value, to classify changes. */
   private _edgeIds: { first: string | null; last: string | null } = {
     first: null,
     last: null,
   };
+
+  /**
+   * @private Id of the first message the DOM rendered, recorded after every
+   * render that moved the window. `_holdWindowStart` anchors on it rather than
+   * on an index into the previous `messages` array, which the consumer may
+   * have mutated in place (`list.shift(); list.push(x); set([...list])`)
+   * before handing over the next one.
+   */
+  private _renderedStartId: string | null = null;
 
   /** @private Distance from the viewport bottom captured before a prepend renders. */
   private _pendingCompensation: number | null = null;
@@ -311,24 +362,17 @@ export class MlvChat {
     // the user scrolls up and trims it back once they return to the bottom.
     effect(() => this._renderCount.set(this.windowSize()));
 
+    // Tracks `messages` alone: the reaction reads the render count, the pinned
+    // state and the viewport, none of which is a reason to run it again.
     effect(() => {
       const list = this.messages();
-      const first = list[0]?.id ?? null;
-      const last = list[list.length - 1]?.id ?? null;
-      const previous = this._edgeIds;
-      this._edgeIds = { first, last };
-      if (previous.last === null) return;
+      untracked(() => this._onMessagesChange(list));
+    });
 
-      const appended = last !== null && last !== previous.last;
-      const prepended =
-        first !== null && first !== previous.first && last === previous.last;
-
-      if (prepended) this._captureCompensation();
-      if (appended) {
-        this._markLiveMessages(list, previous.last);
-        if (this._pinned()) this._scrollToBottom('smooth');
-        else this._newCount.update((count) => count + 1);
-      }
+    // Records what the reader has on screen: the window as the DOM last
+    // rendered it, whatever moved it (an arrival, top growth, a re-pin trim).
+    afterRenderEffect(() => {
+      this._renderedStartId = this._windowed()[0]?.id ?? null;
     });
 
     afterRenderEffect(() => {
@@ -439,19 +483,90 @@ export class MlvChat {
     if (this.hasOlder() && !this.loadingOlder()) this.loadOlder.emit();
   }
 
-  /** @internal Scrolls to the newest message and clears the pill counter. */
+  /**
+   * @internal Scrolls to the newest message and clears the pill counter.
+   *
+   * Coming from scrolled up (the pill), it also trims the window back to
+   * `windowSize` here. `_pinned` is set before the scroll lands, so the
+   * scroll event at the bottom sees no change of pinned state and
+   * `_evaluateScroll` never trims: a jump that lands in one event — the
+   * render's `_stickToBottom` is one — left everything held while scrolled
+   * up in the DOM, and every later arrival slid the window at that size.
+   */
   protected _scrollToBottom(behavior: ScrollBehavior = 'smooth'): void {
     const viewport = this._viewport()?.viewportElement;
     this._newCount.set(0);
+    if (!this._pinned()) this._renderCount.set(this.windowSize());
     this._pinned.set(true);
     if (!viewport) return;
     viewport.scrollTo?.({ top: viewport.scrollHeight, behavior });
   }
 
   /**
-   * @private Records every message newer than the previous last id so only
-   * live arrivals animate in — initial load, window growth, and prepended
+   * @private Classifies a `messages` change against the previous value and
+   * reacts to it. Runs untracked, from the constructor effect.
+   */
+  private _onMessagesChange(list: readonly MlvChatMessageData[]): void {
+    const first = list[0]?.id ?? null;
+    const last = list[list.length - 1]?.id ?? null;
+    const previous = this._edgeIds;
+    this._edgeIds = { first, last };
+    if (previous.last === null) return;
+
+    if (!this._pinned()) this._holdWindowStart(list);
+
+    const appended = last !== null && last !== previous.last;
+    const prepended =
+      first !== null && first !== previous.first && last === previous.last;
+
+    if (prepended) this._captureCompensation();
+    if (appended) {
+      this._markLiveMessages(list, previous.last);
+      if (this._pinned()) this._scrollToBottom('smooth');
+      else this._newCount.update((count) => count + 1);
+    }
+  }
+
+  /**
+   * @private While the reader is scrolled up, keeps the first message the DOM
+   * rendered as the first rendered message. The window grows by whatever
+   * changed below that message instead of trimming the top, which would
+   * remove the text being read from under the reader — and, with
+   * `overflow-anchor`, possibly the scroll anchor with it.
+   *
+   * Anchored on the rendered message (`_renderedStartId`), not on a count of
+   * appended messages, so an arrival that also replaces the newest message (an
+   * optimistic id swapped for the server's) or lands mid-list holds the window
+   * too; and not on an index into the previous array, which an in-place
+   * mutation would have shifted. It never shrinks the window, so a prepended
+   * page the window already reached still renders. There is no upper bound:
+   * the window grows by every arrival until the reader returns to the newest
+   * message, where re-pinning trims it back to `windowSize`.
+   */
+  private _holdWindowStart(list: readonly MlvChatMessageData[]): void {
+    const startId = this._renderedStartId;
+    if (startId === null) return;
+    const count = this._renderCount();
+    // The start sits about `count` messages from the end, so a scan from the
+    // end reaches it in O(window) rather than O(messages).
+    for (let index = list.length - 1; index >= 0; index--) {
+      if (list[index].id !== startId) continue;
+      const held = list.length - index;
+      if (held > count) this._renderCount.set(held);
+      return;
+    }
+  }
+
+  /**
+   * @private Records every rendered message newer than the previous last id so
+   * only live arrivals animate in — initial load, window growth, and prepended
    * history render instantly.
+   *
+   * Only messages inside the render window get a mark. Runs after
+   * `_holdWindowStart`, so the window is the one this change renders: a
+   * change whose previous last id is gone (every message counts as newer) marks
+   * the window, not the whole list, and a message rendered later by window
+   * growth does not animate.
    */
   private _markLiveMessages(
     list: readonly MlvChatMessageData[],
@@ -460,13 +575,33 @@ export class MlvChat {
     const previousIndex = list.findIndex(
       (message) => message.id === previousLast,
     );
-    const fresh = list.slice(previousIndex + 1).map((message) => message.id);
+    const windowStart = list.length - this._windowed().length;
+    const fresh = list
+      .slice(Math.max(previousIndex + 1, windowStart))
+      .map((message) => message.id);
     if (!fresh.length) return;
     this._liveIds.update((ids) => {
       const next = new Set(ids);
       for (const id of fresh) next.add(id);
       return next;
     });
+  }
+
+  /**
+   * @private `_liveIds`' computation: keeps only the marks of messages inside
+   * `windowed`, returning `ids` itself when none is dropped. A mark only
+   * matters while its message is rendered; kept any longer, the set grows with
+   * every arrival for the life of the chat, and a message scrolled back into
+   * the window would animate in a second time.
+   */
+  private _keepRenderedMarks(
+    ids: ReadonlySet<string> | undefined,
+    windowed: readonly MlvChatMessageData[],
+  ): ReadonlySet<string> {
+    if (!ids?.size) return ids ?? new Set<string>();
+    const rendered = new Set(windowed.map((message) => message.id));
+    const kept = [...ids].filter((id) => rendered.has(id));
+    return kept.length < ids.size ? new Set(kept) : ids;
   }
 
   /** @private Records the distance from the bottom so a prepend keeps the view still. */
