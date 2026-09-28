@@ -128,4 +128,19 @@ describe('slider.scss — inline-axis geometry', () => {
       'left: 50%',
     );
   });
+
+  // #364: the slider stamps its own `mlv-slider--<density>`. A tick is a
+  // descendant, so the density mixin's ancestor branch
+  // (`[class*='--compact'] .mlv-slider__tick:not(…)`) matched on any compact
+  // ancestor — the slider's own modifier excludes the host, not its ticks. The
+  // short tick is keyed on the slider's own modifier instead.
+  it('keys the compact tick on the slider’s own density modifier (#364)', () => {
+    expect(rule('.mlv-slider[class*="--compact"] .mlv-slider__tick')).toContain(
+      'height: 0.375rem',
+    );
+    // No selector that *starts* at an ancestor attribute match survives.
+    expect(css).not.toMatch(
+      /(^|[\s,}])\[class\*=["']?--compact["']?\]\s+\.mlv-slider__tick/,
+    );
+  });
 });

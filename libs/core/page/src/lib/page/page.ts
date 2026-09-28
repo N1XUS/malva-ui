@@ -17,6 +17,10 @@ import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { ScrollDispatcher } from '@angular/cdk/scrolling';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
 import { MlvPageSnapController } from './page-snap-controller';
@@ -97,7 +101,15 @@ export type MlvPageSurface = 'anchored' | 'flat';
   styleUrl: './page.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [MlvPageSnapController, MlvPageGeometry],
+  providers: [
+    MlvPageSnapController,
+    MlvPageGeometry,
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'page' },
+  ],
+  // Density: stamps `mlv-page--<density>` from `mlvDensity`, else the nearest
+  // density scope, else the service; an explicit `mlvDensity` scopes the whole
+  // page (#364).
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-page',
     'data-slot': 'page',

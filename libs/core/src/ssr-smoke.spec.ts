@@ -384,7 +384,10 @@ import {
         <mlv-slider [min]="0" [max]="10" [(value)]="level" />
       </fieldset>
 
-      <fieldset mlvFieldset legend="Preferences">
+      <!-- An explicit density on a fieldset inside a form that has none: the
+           nearest scope, not the form, sizes the controls in it, and each
+           stamps its own modifier on the server (issue #364). -->
+      <fieldset mlvFieldset legend="Preferences" mlvDensity="compact">
         <mlv-switch-group label="Alerts">
           <!-- A static consumer id: it must reach the native input and leave
                the host in the server payload, not only after hydration
@@ -1652,6 +1655,64 @@ describe('@malva-ui/core SSR safety', () => {
       'no aria-checked="mixed" in the server markup — the indeterminate ' +
         'checkbox in SsrFormControlsHost did not render its mixed state',
     ).toBe(true);
+  });
+
+  it('server-renders each density modifier from the nearest scope', async () => {
+    const { html } = await renderAllHosts();
+
+    // #364. Every density-aware component stamps its own modifier through a
+    // host `[class]` binding, which the server renders — so the payload
+    // already carries the level the nearest scope resolved, not only after
+    // hydration. The "Preferences" fieldset is `mlvDensity="compact"` inside a
+    // form with no density: its controls follow the fieldset, the controls in
+    // the "Contact" fieldset beside it follow the form (the service default).
+    const classesOf = (tag: string): string[] =>
+      Array.from(
+        html.matchAll(new RegExp(`<${tag}(?=[\\s>])[^>]*>`, 'g')),
+        (match) => /\sclass="([^"]*)"/.exec(match[0])?.[1] ?? '',
+      );
+
+    const radios = classesOf('mlv-radio');
+    expect(radios.length, 'no mlv-radio in the payload').toBeGreaterThan(0);
+    expect(
+      radios.filter((cls) => !cls.includes('mlv-radio--compact')),
+      'mlv-radio hosts without the fieldset-scoped compact modifier',
+    ).toEqual([]);
+
+    const checkboxes = classesOf('mlv-checkbox');
+    expect(checkboxes.length, 'no mlv-checkbox in the payload').toBeGreaterThan(
+      0,
+    );
+    expect(
+      checkboxes.filter((cls) => !cls.includes('mlv-checkbox--compact')),
+      'mlv-checkbox hosts without the fieldset-scoped compact modifier',
+    ).toEqual([]);
+
+    const fieldsets = classesOf('fieldset').filter((cls) =>
+      cls.includes('mlv-fieldset'),
+    );
+    expect(fieldsets.some((cls) => cls.includes('mlv-fieldset--compact'))).toBe(
+      true,
+    );
+    expect(
+      fieldsets.some((cls) => cls.includes('mlv-fieldset--comfortable')),
+    ).toBe(true);
+
+    // The cascade-only blocks of #364 now stamp too.
+    for (const modifier of [
+      'mlv-form-control-wrapper--comfortable',
+      'mlv-form-control-wrapper--compact',
+      'mlv-label--comfortable',
+      'mlv-list-item--comfortable',
+      'mlv-tab-item--comfortable',
+      'mlv-segmented-item--comfortable',
+      'mlv-sidebar--comfortable',
+      'mlv-page--comfortable',
+    ]) {
+      expect(html.includes(modifier), `${modifier} not in the payload`).toBe(
+        true,
+      );
+    }
   });
 
   it('server-renders a consumer id on the checkbox and switch input, not the host', async () => {

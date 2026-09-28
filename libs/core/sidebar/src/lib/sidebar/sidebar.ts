@@ -16,6 +16,10 @@ import {
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { DOWN_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import type { MlvBreakpoint } from '@malva-ui/cdk/utils';
 import {
   clamp,
@@ -48,7 +52,12 @@ import { MlvScrollbar } from '@malva-ui/core/scrollbar';
       provide: SIDEBAR_CONTEXT,
       useExisting: forwardRef(() => MlvSidebar),
     },
+    { provide: MLV_DENSITY_ELEMENT, useValue: 'sidebar' },
   ],
+  // Density: stamps `mlv-sidebar--<density>` from `mlvDensity`, else the
+  // nearest density scope, else the service (#364). Its `[class]` binding
+  // merges with the mode binding below.
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-sidebar',
     '[class.mlv-sidebar--collapsed]': '_effectiveCollapsed()',

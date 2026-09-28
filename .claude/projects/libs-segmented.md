@@ -172,6 +172,7 @@ An `effect` guarded by `ngDevMode` `console.warn`s the two group shapes that oth
 **Styles:** `libs/core/segmented/src/lib/segmented-item/segmented-item.scss`
 **Template:** `<ng-content />` — icons, text and badges are projected.
 **Change detection:** `OnPush` · **Encapsulation:** `None`
+**Provides:** `MLV_DENSITY_ELEMENT: 'segmented-item'` · **Host directives:** `MlvDensityDirective` (no input, #364) — stamps its own `mlv-segmented-item--<density>`, resolved from the group's scope (an explicit `mlvDensity` on `mlv-segmented`, else the nearest ancestor scope, else `MlvDensityService`). Item sizing keys on that modifier, so an ancestor `mlv--<density>` class no longer reaches it.
 
 Enhances a **native** `<button>` or `<a>` rather than wrapping one, so native `disabled`, `type`, `href`, `routerLink`, `download` and middle-click keep working.
 

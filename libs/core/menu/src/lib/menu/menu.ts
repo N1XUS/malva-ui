@@ -24,6 +24,7 @@ import { MlvPopup, MlvPopupContent } from '@malva-ui/core/popup';
 import { MlvList } from '@malva-ui/core/list';
 import { MlvLoader } from '@malva-ui/core/loader';
 import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
+import { MLV_DENSITY_CONTEXT } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
 import { MlvMenuItem } from './menu-item';
 import { MlvMenuDataRenderer } from './menu-data-renderer';
@@ -167,6 +168,13 @@ function mlvNearestEnabledItem(
       provide: MLV_MENU_ITEM_REGISTRY,
       useFactory: () => new MlvMenuItemRegistryStore(),
     },
+    // Consumer-projected items are declared in the consumer's template, so
+    // their node injector reaches this host, not the `mlv-popup` they render
+    // inside (#364). Hand them the same scope the popup hands its own content.
+    {
+      provide: MLV_DENSITY_CONTEXT,
+      useFactory: () => inject(MlvMenu)._scopeDensity,
+    },
   ],
 })
 export class MlvMenu<
@@ -226,11 +234,34 @@ export class MlvMenu<
    * The panel is portaled to the CDK overlay container, outside the trigger's
    * DOM tree, so ancestor density classes cannot cascade into it. Forwarded to
    * the underlying `mlv-popup`, which stamps the resolved `mlv--{density}`
-   * class on the detached panel. When omitted, the global `MlvDensityService`
-   * density applies. Submenus are separate `mlv-menu` instances — set the
-   * input on each when overriding the density of a nested menu tree.
+   * class on the detached panel, and handed to the items through
+   * `MLV_DENSITY_CONTEXT` — projected and data-driven alike — which is what
+   * each `mlv-list-item` row stamps its own modifier from (#364). When
+   * omitted, the nearest ancestor density scope applies, then the global
+   * `MlvDensityService`. Submenus are separate `mlv-menu` instances; one
+   * declared inside this menu's content inherits this value as its scope, and
+   * its own input overrides it.
    */
   readonly mlvDensity = input<MlvDensity | undefined>(undefined);
+
+  /**
+   * @private Density scope inherited from above this menu. `skipSelf`: the menu
+   * provides the token for its own items.
+   */
+  private readonly _densityContext = inject(MLV_DENSITY_CONTEXT, {
+    optional: true,
+    skipSelf: true,
+  });
+
+  /**
+   * @internal The density scope this menu hands to its items through
+   * `MLV_DENSITY_CONTEXT`: the explicit {@link mlvDensity}, else the inherited
+   * scope, else `undefined` (no opinion — the service applies below). Read by
+   * this component's own provider only.
+   */
+  readonly _scopeDensity = computed<MlvDensity | undefined>(
+    () => this.mlvDensity() ?? this._densityContext?.(),
+  );
 
   /**
    * Optional data source for this menu. Arrays render immediately; an

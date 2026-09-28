@@ -303,7 +303,16 @@ export const ROLLOUT_PENDING = [
     ],
   },
   'core-file-upload',
-  'core-form',
+  {
+    // #364 swept a labelled `form[mlvForm]` holding two `mlvFieldset`s with a
+    // `legend` input, one of them with an explicit `mlvDensity`.
+    project: 'core-form',
+    owes: [
+      'a fieldset `description` (wired to `aria-describedby`)',
+      'a projected native `<legend>` in place of the `legend` input',
+      '`[mlvFormHeader]` / `[mlvFormActions]` regions',
+    ],
+  },
   {
     // #301 swept default with a value and its clear button, readonly, disabled.
     project: 'core-input',

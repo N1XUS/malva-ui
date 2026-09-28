@@ -3,15 +3,16 @@
     @for (level of densityLevels; track level) {
       <button
         mlvButton
-        [variant]="densityService.density() === level ? 'primary' : 'secondary'"
-        (click)="densityService.setDensity(level)"
+        type="button"
+        [variant]="density() === level ? 'primary' : 'secondary'"
+        (click)="density.set(level)"
       >
         {{ level }}
       </button>
     }
   </div>
-  <div mlvDensityRoot class="demo-col">
+  <form mlvForm [mlvDensity]="density()" aria-label="Contact details">
     <mlv-input label="First name" placeholder="John" />
     <mlv-input label="Email" placeholder="john@example.com" />
-  </div>
+  </form>
 </div>

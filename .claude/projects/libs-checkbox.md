@@ -323,3 +323,11 @@ context it sat in, which is what made it visibly mismatch other controls in
 the same form. See `.claude/projects/libs-form-utils.md` → _Control-text
 type & padding ramp_. The swatch geometry (`__visual`) is unaffected — it is
 sized in fixed `rem`, not `em`, and does not respond to density.
+
+**Which level (#364).** `mlv-checkbox` hosts `MlvDensityDirective` with its
+`mlvDensity` input (`MLV_DENSITY_ELEMENT` `'checkbox'`) and stamps
+`mlv-checkbox--<density>` from its own `mlvDensity`, else the nearest density
+scope, else `MlvDensityService`. Before it was CSS-only, so a nested scope
+resolved by stylesheet order (a checkbox in `spacious > compact` read 16px).
+New public input: `mlvDensity: MlvDensity | undefined`. `mlv-checkbox-group`
+is unchanged. Pinned by `checkbox-density.spec.ts`.

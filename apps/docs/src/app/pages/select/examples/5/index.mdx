@@ -2,4 +2,4 @@
 title: Content Density
 ---
 
-`mlv-select` honours the surrounding `mlvDensityRoot` scope. This example provides its own `MlvDensityService`, so switching across `tight`, `compact`, `comfortable`, `spacious`, and `airy` rescales only the trigger and option rows shown here without changing the documentation site's global density.
+`mlv-select` takes its density from the nearest density scope. Here that scope is the surrounding `form[mlvForm]`, whose `mlvDensity` is bound to the buttons, so switching across `tight`, `compact`, `comfortable`, `spacious`, and `airy` rescales only the trigger, label and option rows shown here without changing the documentation site's global density. The select's own `mlvDensity` input sets the detached option panel only.

@@ -72,6 +72,8 @@ Uses `MlvCompactComfortableDensity` as a `hostDirective` (no spacious support â€
 
 CSS density classes applied: `mlv-slider--compact`, `mlv-slider--comfortable`.
 
+The compact tick height is keyed on the slider's **own** modifier (`.mlv-slider[class*='--compact'] .mlv-slider__tick`), not through `density.density-compact`: that mixin's ancestor branch would let an outer `--compact` class reach the tick past a slider resolved to comfortable (#364; pinned in `slider-styles.spec.ts`). The level itself comes from the nearest density scope (an explicit `mlvDensity`, an ancestor `form[mlvForm]` / `main[mlvPage]` / `[mlvDensity]` element), else `MlvDensityService`.
+
 #### Keyboard Navigation
 
 | Key                       | Action                                 |

@@ -7,6 +7,10 @@ import {
   output,
   ViewEncapsulation,
 } from '@angular/core';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 
 @Component({
   selector: 'mlv-tab-item',
@@ -14,6 +18,10 @@ import {
   styleUrl: './tab-item.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-tab-item--<density>` from the nearest density scope —
+  // normally the owning `mlv-tab-group` (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'tab-item' }],
+  hostDirectives: [MlvDensityDirective],
   host: {
     class: 'mlv-tab-item',
     '[class.mlv-tab-item--active]': 'active()',

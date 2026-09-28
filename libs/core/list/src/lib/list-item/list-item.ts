@@ -9,6 +9,10 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import type { MlvTone } from '@malva-ui/cdk/utils';
 import { MlvListItemLink } from '../list-item-link/list-item-link';
 import { MlvListItemActions } from '../list-item-actions';
@@ -41,6 +45,11 @@ export type MlvListItemAccent =
   imports: [NgTemplateOutlet],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-list-item--<density>` from the nearest density
+  // scope, so two density ancestors resolve by nesting, not stylesheet order
+  // (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'list-item' }],
+  hostDirectives: [MlvDensityDirective],
   host: {
     class: 'mlv-list-item',
     '[attr.role]': 'itemRole()',

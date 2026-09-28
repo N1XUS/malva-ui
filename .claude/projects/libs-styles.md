@@ -711,7 +711,12 @@ Exists because `transform` has no logical form. Consume it through
 
 ## Density Mixins (`density.scss`)
 
-Five density levels controlled via BEM modifier classes on the element itself or an ancestor. Matching is selector-based, not true DOM-proximity-aware: when multiple density ancestors can match, the later compiled rule wins rather than the nearest ancestor automatically winning.
+Five density levels controlled via BEM modifier classes on the element itself or an ancestor. The CSS alone is **not** proximity-aware: when several density ancestors match, the later compiled rule wins, not the nearest ancestor. Nearest-scope resolution lives in Angular (#364, `docs/migrations/2026-09-density-nearest-scope.md`):
+
+- Every component styled through these mixins stamps its **own** `mlv-<block>--<density>` from `MlvDensityDirective` (own `mlvDensity` → nearest density scope via DI → `MlvDensityService`). A mixin's `:not(<other four>)` then shuts the ancestor branch off for that element, so the stamped level wins.
+- **A new block** styled with a mixin needs a `MlvDensityDirective` host directive + `MLV_DENSITY_ELEMENT`, or it is sized by stylesheet order again.
+- **An element** (`&__tick`, `> legend`) carries no modifier, so a mixin inside it still matches on any ancestor. Key it on the block's own modifier: `&[class*='--compact'] &__tick { … }` (`slider.scss`, `fieldset.scss`).
+- A hand-written `class="mlv--compact"` on a wrapper sizes nothing that stamps its own modifier. `[mlvDensity="compact"]` is the scope.
 
 | Mixin                       | Activated by                                                 |
 | --------------------------- | ------------------------------------------------------------ |

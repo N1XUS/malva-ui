@@ -2,7 +2,13 @@
 // _density.scss
 // Density system — tight / compact / comfortable / spacious / airy.
 // Controlled via BEM modifier classes at root, container, or element level.
-// The closest modifier in the DOM tree wins.
+// The selectors are NOT proximity-aware: with several matching ancestors, the
+// rule compiled last wins, whichever ancestor is nearest. An element that
+// carries its own modifier excludes every ancestor branch (`:not(...)`), so
+// each component using these mixins stamps its own `mlv-<block>--<density>`
+// from `MlvDensityDirective`, which resolves the nearest density scope through
+// DI (#364). An element selector (`&__x`) never carries a modifier: key it on
+// the block's own modifier instead (`&[class*='--compact'] &__x`).
 // ==========================================================================
 
 @use 'sass:math';

@@ -26,10 +26,13 @@
     --mlv-list-item-reveal-mask-solid: 6rem;
     --mlv-list-item-reveal-mask-size: 8rem;
 
-    // Density ladder — rows respond to the density cascade (an ancestor
-    // `mlv--{density}` class, e.g. the one `mlv-popup` stamps on its detached
-    // overlay panel, or a `mlvDensityRoot` region). Only the padding vars move;
-    // the comfortable default above stays the baseline.
+    // Density ladder — each row stamps its own `mlv-list-item--{density}`
+    // from the nearest density scope through DI (#364; `mlv-popup` and
+    // `mlv-menu` provide their density as `MLV_DENSITY_CONTEXT` to their
+    // rows), so the ladder keys on the row's own modifier; an ancestor class
+    // such as the popup panel's `mlv--{density}` reaches a row only when no
+    // density directive runs on it. Only the padding vars move; the
+    // comfortable default above stays the baseline.
     @include density.density-tight {
       --mlv-list-item-padding-block: var(--mlv-spacing-1-5);
       --mlv-list-item-padding-inline: var(--mlv-spacing-1);

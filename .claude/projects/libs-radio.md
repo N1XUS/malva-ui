@@ -271,6 +271,13 @@ previously had no type ramp at all. `&__label`'s `gap` also moved from the
 raw literal `0.25rem` to `var(--mlv-spacing-1)` (same value, tokenized). See
 `.claude/projects/libs-form-utils.md` → _Control-text type & padding ramp_.
 
+**Which level (#364).** `mlv-radio` hosts `MlvDensityDirective` with its
+`mlvDensity` input (`MLV_DENSITY_ELEMENT` `'radio'`) and stamps
+`mlv-radio--<density>` from its own `mlvDensity`, else the nearest density
+scope, else `MlvDensityService` — no longer by stylesheet order. New public
+input: `mlvDensity: MlvDensity | undefined`. `mlv-radio-group` is unchanged.
+Pinned by `radio-density.spec.ts`.
+
 ## Naming from a projected `<mlv-label>` (2026-09, #197)
 
 `MlvRadioGroup` reports `_externalLabelStrategy()` **`'aria'`**: `id()` sits on

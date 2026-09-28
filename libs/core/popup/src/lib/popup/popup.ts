@@ -167,6 +167,15 @@ export type MlvPopupMobileMode = 'auto' | 'fullscreen' | 'off';
     // ordinary container-mode arrangement, `mlv-sidebar-group`'s flyout
     // included — is outside this boundary and is unaffected.
     { provide: POPUP_CONTAINER, useValue: null },
+    // The panel is a density scope (#364): its content resolves density through
+    // DI — every density-aware Malva component stamps its own modifier, which
+    // shuts out the `mlv--{density}` class stamped on the detached panel — so
+    // an explicit `mlvDensity` has to reach it as `MLV_DENSITY_CONTEXT` too.
+    // With no explicit value this hands on the inherited scope unchanged.
+    {
+      provide: MLV_DENSITY_CONTEXT,
+      useFactory: () => inject(MlvPopup)._scopeDensity,
+    },
   ],
 })
 export class MlvPopup {
@@ -236,10 +245,12 @@ export class MlvPopup {
    *
    * The popup panel is portaled to the CDK overlay container on `<body>`, so it
    * sits outside any `mlvDensityRoot` / ancestor density cascade in the page.
-   * This input restores the cascade on the detached panel: the resolved density
-   * is stamped as a `mlv--{density}` class on the panel element, and every
-   * density-aware descendant (e.g. `mlv-list-item` rows in a dropdown panel)
-   * responds through the standard CSS cascade.
+   * This input restores it on the detached panel: the resolved density is
+   * stamped as a `mlv--{density}` class on the panel element (for plain
+   * markup), and the popup is a density scope — content declared inside it
+   * resolves an explicit value through `MLV_DENSITY_CONTEXT`, which is what
+   * every density-aware Malva component (e.g. `mlv-list-item` rows in a
+   * dropdown panel) stamps its own modifier from.
    *
    * When omitted, the nearest ancestor `MLV_DENSITY_CONTEXT` (e.g. a
    * `form[mlvForm]`) is used, then the global `MlvDensityService`, so popovers
@@ -258,10 +269,22 @@ export class MlvPopup {
   /**
    * @private Density projected by an ancestor container (e.g. `form[mlvForm]`).
    * Consulted after the explicit {@link mlvDensity} input, before the service.
+   * `skipSelf`: the popup provides the token for its own content.
    */
   private readonly _densityContext = inject(MLV_DENSITY_CONTEXT, {
     optional: true,
+    skipSelf: true,
   });
+
+  /**
+   * @internal The density scope this popup hands to its content through
+   * `MLV_DENSITY_CONTEXT`: the explicit {@link mlvDensity}, else the inherited
+   * scope, else `undefined` (no opinion — the service applies below). Read by
+   * this component's own provider only.
+   */
+  readonly _scopeDensity = computed<MlvDensity | undefined>(
+    () => this.mlvDensity() ?? this._densityContext?.(),
+  );
 
   /**
    * @protected Class list for the detached panel element: consumer classes from

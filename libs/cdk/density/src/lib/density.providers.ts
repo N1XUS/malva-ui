@@ -45,10 +45,17 @@ export interface MlvDensityContextSource {
 }
 
 /**
- * Makes a container project its resolved density to every density-aware
+ * Makes a container project its **resolved** density to every density-aware
  * descendant. Add to the container's `providers` next to its density host
  * directive; the descendant directives resolve `MLV_DENSITY_CONTEXT` before
  * falling back to `MlvDensityService`.
+ *
+ * Every density directive is already a scope that hands on its explicit
+ * `mlvDensity` (or the scope it inherited) and nothing else. This provider
+ * replaces that on its host — a component provider beats a host directive's —
+ * with the container's `effectiveDensity`, which is never `undefined`: the
+ * container pins what it resolved, service included, so a component-scoped
+ * `MlvDensityService` below it no longer applies.
  *
  * @param source — The density directive class hosted on the same element.
  *

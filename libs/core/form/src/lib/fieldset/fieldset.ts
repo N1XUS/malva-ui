@@ -7,6 +7,10 @@ import {
   input,
   ViewEncapsulation,
 } from '@angular/core';
+import {
+  MLV_DENSITY_ELEMENT,
+  MlvDensityDirective,
+} from '@malva-ui/cdk/density';
 import { mlvNextId } from '@malva-ui/cdk/utils';
 import type { MlvFieldsetColumns, MlvFormGap } from '../form.types';
 import { mlvFormGapValue } from '../form-gap';
@@ -50,6 +54,12 @@ function coerceColumns(value: MlvFieldsetColumns | string): MlvFieldsetColumns {
   styleUrl: './fieldset.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Density: stamps `mlv-fieldset--<density>` from `mlvDensity`, else the
+  // nearest density scope (a surrounding `form[mlvForm]`), else the service;
+  // the legend's dense rules key on that modifier. An explicit `mlvDensity`
+  // scopes every control in the fieldset (#364).
+  providers: [{ provide: MLV_DENSITY_ELEMENT, useValue: 'fieldset' }],
+  hostDirectives: [{ directive: MlvDensityDirective, inputs: ['mlvDensity'] }],
   host: {
     class: 'mlv-fieldset',
     '[attr.id]': 'id()',

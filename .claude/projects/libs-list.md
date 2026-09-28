@@ -112,7 +112,10 @@ Rendered row content is wrapped in `.mlv-list-item__surface`; the host owns focu
 
 #### Density
 
-`list-item.scss` carries a density ladder driven by the shared cascade mixins (`@malva-ui/styles` `density.scss`): an ancestor `mlv--{density}` class (from `mlvDensityRoot`, or the class `mlv-popup` stamps on its detached overlay panel) scales the `--mlv-list-item-padding-block` / `--mlv-list-item-padding-inline` vars — tight `--mlv-spacing-1`, compact `--mlv-spacing-1-5`, comfortable `--mlv-spacing-2` (baseline default), spacious `--mlv-spacing-2-5`, airy `--mlv-spacing-3`. Consumers that override row padding must route it through those vars (not a direct `padding:`), or the ladder cannot apply — see the menu-panel row rule in `menu.scss` for the pattern.
+`list-item.scss` carries a density ladder driven by the shared density mixins (`@malva-ui/styles` `density.scss`), scaling the `--mlv-list-item-padding-block` / `--mlv-list-item-padding-inline` vars — tight `--mlv-spacing-1`, compact `--mlv-spacing-1-5`, comfortable `--mlv-spacing-2` (baseline default), spacious `--mlv-spacing-2-5`, airy `--mlv-spacing-3`. Consumers that override row padding must route it through those vars (not a direct `padding:`), or the ladder cannot apply — see the menu-panel row rule in `menu.scss` for the pattern.
+
+- **Which level (#364).** `mlv-list-item` carries `MlvDensityDirective` as a host directive with `MLV_DENSITY_ELEMENT = 'list-item'` (no `mlvDensity` input of its own), so every row stamps `mlv-list-item--{density}` resolved from the **nearest** density scope through DI — an ancestor `form[mlvForm]`, `main[mlvPage]`, a `[mlvDensity]` element, a scoping component — else `MlvDensityService`. Its own modifier shuts out every ancestor `mlv--{density}` class (`mlvDensityRoot`'s, the one `mlv-popup` stamps on its detached panel), so those classes no longer size a row.
+- **Rows in an overlay** are sized by DI, not by the panel class: `mlv-popup` hands its explicit `mlvDensity` to its content as `MLV_DENSITY_CONTEXT`, `mlv-menu` does the same for consumer-projected items (declared in the consumer's template, so their injector reaches the menu host, not the popup), and `[mlvAutocomplete]` gives its panel a child injector carrying `mlvAutocompleteDensity`. A row inside a custom `ng-template` resolves where the template is **declared**.
 
 ---
 

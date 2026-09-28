@@ -652,6 +652,20 @@ cannot inherit `--form-ctrl-font-size` through the DOM. `label.scss` instead
 carries its own copy of the same five values via the `density.*` mixins, so
 a label still reads at the size of the field it names at every density.
 
+**Which level (#364).** The wrapper and `mlv-label` each carry
+`MlvDensityDirective` as a host directive (`MLV_DENSITY_ELEMENT` `'form-control-wrapper'`
+/ `'label'`, no public input) and stamp `mlv-form-control-wrapper--<density>` /
+`mlv-label--<density>` from the nearest density scope (DI: an explicit
+`mlvDensity` on an enclosing `form[mlvForm]`, `fieldset[mlvFieldset]`,
+`main[mlvPage]`, a directive-backed control or a static `<div mlvDensity>`),
+else `MlvDensityService`. Before, both were CSS-only and a nested scope
+resolved by stylesheet order — `spacious > compact` rendered a 3.25rem field.
+The stamped modifier shuts every ancestor class out (the mixins' `:not(…)`),
+so a hand-written `class="mlv--compact"` wrapper no longer sizes them, and the
+wrapper's own `[class]` state binding merges with the density one. A control
+rendered through `ngTemplateOutlet` takes the scope of the template's
+**declaration** site. Pinned by `form-control-wrapper-density.spec.ts`.
+
 **2026-08-26 fix.** Before this pass, `mlv-input__native` declared a flat,
 non-ramped `padding: var(--mlv-spacing-1)` on top of the wrapper's own
 (already ramped) container padding — a doubled, non-scaling inline padding
