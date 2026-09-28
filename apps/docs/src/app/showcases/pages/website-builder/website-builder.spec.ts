@@ -1281,6 +1281,48 @@ describe('website builder showcase', () => {
       expect(rendered.component['blockValid']()).toBe(true);
     });
 
+    // The upload is destroyed with the dialog and hands its preview on with
+    // the value (#352), so the page, which owns `heroFiles`, revokes it.
+    it('revokes the hero image preview once the block dialog has closed', async () => {
+      let created = 0;
+      vi.spyOn(URL, 'createObjectURL').mockImplementation(
+        () => `blob:hero/${++created}`,
+      );
+      const revoked: string[] = [];
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => {
+        revoked.push(String(url));
+      });
+      try {
+        const rendered = await render();
+        await click(rendered, tabButton(rendered, 'Homepage'));
+        await click(rendered, byId('wb-settings-home-hero-block'));
+        await settle(rendered);
+
+        const input = overlayRoot().querySelector<HTMLInputElement>(
+          '.mlv-file-upload__input',
+        );
+        const cover = new File(['x'], 'cover.png', { type: 'image/png' });
+        Object.defineProperty(input, 'files', {
+          value: [cover],
+          configurable: true,
+        });
+        input?.dispatchEvent(new Event('change'));
+        await settle(rendered);
+        expect(
+          rendered.component['heroFiles']().map((file) => file.previewUrl),
+        ).toEqual(['blob:hero/1']);
+
+        await click(rendered, dialogButton('Cancel'));
+        await new Promise((resolve) => setTimeout(resolve, DIALOG_LEAVE));
+        await settle(rendered);
+
+        expect(revoked).toEqual(['blob:hero/1']);
+        expect(rendered.component['heroFiles']()).toEqual([]);
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
     it('requires a URL once a call-to-action label exists', async () => {
       const rendered = await render();
       await click(rendered, tabButton(rendered, 'Homepage'));
