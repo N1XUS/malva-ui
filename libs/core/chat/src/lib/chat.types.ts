@@ -1,5 +1,10 @@
 /** Delivery lifecycle of an own message; rendered as tick icons in the meta row. */
-export type MlvChatMessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MlvChatMessageStatus =
+  | 'sending'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed';
 
 /** Participant referenced by {@link MlvChatMessageData.authorId}. */
 export interface MlvChatUser {
@@ -43,7 +48,13 @@ export interface MlvChatAttachment {
  * `MlvChatMessage` class name.
  */
 export interface MlvChatMessageData<TData = unknown> {
-  /** Stable unique id (track key, animation gating, edge detection). */
+  /**
+   * Stable unique id (track key, animation gating, edge detection, the render
+   * window's anchor while scrolled up). Unique across every conversation one
+   * `mlv-chat` instance shows: per-conversation ids (`1`, `2`, … in each
+   * channel) reused after a switch are read as the same messages — prefix
+   * them with the conversation, or key the chat per conversation.
+   */
   id: string;
   /** Author reference; `=== selfId` ⇒ own message (right-aligned, accent). */
   authorId: string;
@@ -75,4 +86,10 @@ export interface MlvChatRenderMessage {
 /** Item of the flattened render list produced by {@link buildChatRenderList}. */
 export type MlvChatRenderItem =
   | { kind: 'date'; id: string; date: Date }
-  | { kind: 'group'; id: string; authorId: string; own: boolean; messages: MlvChatRenderMessage[] };
+  | {
+      kind: 'group';
+      id: string;
+      authorId: string;
+      own: boolean;
+      messages: MlvChatRenderMessage[];
+    };

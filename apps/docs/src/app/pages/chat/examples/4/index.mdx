@@ -13,5 +13,9 @@ Messages appended at the end animate in and, while the user sits at the bottom,
 scroll into view. Scrolled up, they are counted into a "N new messages" pill
 instead; activating it jumps back to the newest message. Older pages and window
 growth never animate — only live arrivals do. `windowSize` (30 here, 150 by
-default) caps how many messages stay in the DOM; off-screen groups are skipped
-via `content-visibility`.
+default) caps how many messages stay in the DOM while the user sits at the
+bottom, and only there. Scrolled up, arrivals never push a message out from
+under the reader: the window grows by every one of them instead, with no upper
+bound, and is trimmed back once the user returns to the newest message —
+scrolling down or through the pill. Off-screen groups are skipped via
+`content-visibility`.
