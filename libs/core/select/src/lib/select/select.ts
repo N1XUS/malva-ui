@@ -587,11 +587,19 @@ export class MlvSelect<T>
    * @protected Normalized native option groups. Each option receives an
    * internal index key so arbitrary `T` values can travel through the native
    * select without stringifying the public form value.
+   *
+   * One group per run of consecutive options sharing a label (`''` and
+   * `undefined` both unlabelled), so a label that recurs after another starts
+   * a new group. Built in one pass: each run's `options` array is created
+   * here, per computation, and appended to in place (the `mlv-dropdown-panel`
+   * `_groups` shape). Copying the run for every option instead made an
+   * ungrouped list — one run — cost n²/2 element copies (#373).
    */
   protected readonly _nativeOptionGroups = computed<
     readonly NativeOptionGroup<T>[]
   >(() => {
     const groups: NativeOptionGroup<T>[] = [];
+    let run: NativeOption<T>[] = [];
     this.resolvedOptions().forEach((option, index) => {
       const nativeOption: NativeOption<T> = {
         key: String(index),
@@ -601,14 +609,11 @@ export class MlvSelect<T>
         disabled: option.disabled,
       };
       const label = option.group || null;
-      const previous = groups[groups.length - 1];
-      if (previous?.label === label) {
-        groups[groups.length - 1] = {
-          label,
-          options: [...previous.options, nativeOption],
-        };
+      if (groups[groups.length - 1]?.label === label) {
+        run.push(nativeOption);
       } else {
-        groups.push({ label, options: [nativeOption] });
+        run = [nativeOption];
+        groups.push({ label, options: run });
       }
     });
     return groups;
