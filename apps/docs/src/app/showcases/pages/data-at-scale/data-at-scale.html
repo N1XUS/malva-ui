@@ -137,13 +137,14 @@
             </ng-template>
             A virtual viewport still reserves
             <code>rowHeight × rowCount</code> pixels of scrollable height, and a
-            browser will not scroll past about
+            browser will not reliably scroll past about
             {{ maxScrollablePx | number }} CSS pixels. At {{ rowHeight }} px a
-            row that ceiling arrives at roughly
-            {{ maxVirtualRows | number }} rows — beyond it the spacer is
-            silently clamped and the table renders nothing. This is a limit of
-            the DOM, not of <code>mlv-data-table</code>, and it is the point
-            where server-side paging stops being a preference.
+            row — 3.75rem at your browser's font size — that ceiling arrives at
+            roughly {{ maxVirtualRows | number }} rows. Beyond it the browser
+            silently stops scrolling: Firefox drops the height and shows only
+            the first screen of rows, Chrome and Safari clamp it a little later.
+            This is a limit of the DOM, not of <code>mlv-data-table</code>, and
+            it is the point where server-side paging stops being a preference.
           </mlv-alert>
         }
 
@@ -389,7 +390,6 @@
         [error]="source.error() ?? false"
         (retry)="retryQuery()"
         [virtualScroll]="effectiveMode() === 'virtual'"
-        [rowHeight]="rowHeight"
         [maxHeight]="tableHeight"
         [searchQuery]="search()"
         (searchQueryChange)="onSearchChange($event)"
@@ -525,9 +525,11 @@
             table: a viewport reserves <code>rowHeight × rowCount</code> pixels
             of scrollable height, and browsers stop scrolling at about
             {{ maxScrollablePx | number }} CSS pixels — roughly
-            {{ maxVirtualRows | number }} rows at {{ rowHeight }} px each. Above
-            that this page pages on the backend instead, and says so, because
-            the alternative is a silently clamped spacer and an empty table.
+            {{ maxVirtualRows | number }} rows at {{ rowHeight }} px each, fewer
+            under a larger browser font size, because rows are sized in rem.
+            Above that this page pages on the backend instead, and says so,
+            because the alternative is a table whose tail silently cannot be
+            scrolled to.
           </li>
           <li>
             Transfer is a real, unavoidable main-thread cost: the structured

@@ -29,6 +29,14 @@ import type {
 import { SCALE_BACKEND_FACTORY } from './scale-backend';
 import type { ScaleBackend } from './scale-backend';
 import { DataAtScaleShowcaseComponent } from './data-at-scale';
+import {
+  SCALE_DEFAULT_ROOT_FONT_PX,
+  SCALE_MAX_SCROLLABLE_PX,
+  SCALE_ROW_HEIGHT_REM,
+  readScaleRootFontPx,
+  scaleMaxVirtualRows,
+  scaleRowHeightPx,
+} from './data-at-scale.data';
 
 const MD_QUERY = '(min-width: 768px)';
 const LG_QUERY = '(min-width: 1200px)';
@@ -400,9 +408,9 @@ describe('DataAtScaleShowcaseComponent', () => {
     expect(rendered.component.virtualScrollFits()).toBe(true);
 
     // 60 px a row past ~279,000 rows asks for a spacer taller than the
-    // 16,777,214 px a browser will scroll. The spacer is clamped with nothing
-    // logged, the rendered range lands outside the window, and the table goes
-    // blank — so the mode has to give way, not the dataset.
+    // 16,777,214 px the page allows one scroller. Past it the browser stops
+    // scrolling with nothing logged (Firefox drops the height outright), so
+    // the mode has to give way, not the dataset.
     rendered.component.setRowCount(1_000_000);
     await settle(rendered, 200);
 
@@ -430,6 +438,44 @@ describe('DataAtScaleShowcaseComponent', () => {
     rendered.component.setRowCount(100_000);
     await settle(rendered, 200);
     expect(rendered.component.effectiveMode()).toBe('virtual');
+  });
+
+  it('lowers the one-scroller ceiling under a larger browser font size', async () => {
+    // The table measures its rem row height (#363), so at a 20px root it
+    // strides 75px, not 60: 250,000 rows ask for an 18,750,000px spacer,
+    // which Firefox drops outright — measured, `scrollHeight` collapsed to
+    // the container and the tail was unreachable. The ceiling has to follow
+    // the same root font size the rows do.
+    const root = document.documentElement;
+    const previous = root.style.fontSize;
+    root.style.fontSize = '20px';
+    try {
+      const rendered = await renderShowcase();
+      expect(rendered.component.rowHeight).toBe(75);
+      expect(rendered.component.maxVirtualRows).toBe(223_696);
+
+      rendered.component.setRowCount(250_000);
+      await settle(rendered, 200);
+
+      expect(rendered.component.virtualScrollFits()).toBe(false);
+      expect(rendered.component.effectiveMode()).toBe('paged');
+      expect(rendered.table.virtualScroll()).toBe(false);
+      expect(rendered.component.benchmarkStatus()).toContain('75 px');
+
+      rendered.component.setRowCount(100_000);
+      await settle(rendered, 200);
+      expect(rendered.component.effectiveMode()).toBe('virtual');
+      // Only 100,000 still fits in one scroller at this font size, and the
+      // size control says so.
+      const description = textOf(
+        rendered.root,
+        '.data-at-scale-showcase__controls mlv-select mlv-description',
+      );
+      expect(description).toMatch(/virtual scroll on, 100.?000 rows transfer/);
+      expect(description).toMatch(/250.?000, 500.?000 and 1.?000.?000 rows/);
+    } finally {
+      root.style.fontSize = previous;
+    }
   });
 
   it('sends search and filters to the backend rather than filtering locally', async () => {
@@ -740,5 +786,53 @@ describe('DataAtScaleShowcaseComponent', () => {
     rendered.component.setMode('paged');
     await settle(rendered);
     await expectNoAxeViolations(rendered.root);
+  });
+});
+
+describe('data-at-scale scroll-limit arithmetic', () => {
+  /** A document whose root reports `fontSize` as its computed font size. */
+  function documentWithRootFont(fontSize: string): Document {
+    return {
+      documentElement: {},
+      defaultView: { getComputedStyle: () => ({ fontSize }) },
+    } as unknown as Document;
+  }
+
+  it('resolves the comfortable 3.75rem row against the root font size', () => {
+    expect(SCALE_ROW_HEIGHT_REM).toBe(3.75);
+    expect(scaleRowHeightPx(16)).toBe(60);
+    expect(scaleRowHeightPx(18)).toBe(67.5);
+    expect(scaleRowHeightPx(20)).toBe(75);
+  });
+
+  it('stays below every engine’s measured scroll-height cap', () => {
+    // Firefox honours up to 17,895,688px and drops the height past it; Chrome
+    // and WebKit clamp at 33,554,428px. The page's limit is under both.
+    expect(SCALE_MAX_SCROLLABLE_PX).toBeLessThan(17_895_688);
+  });
+
+  it('fits fewer rows in one scroller as the root font grows', () => {
+    expect(scaleMaxVirtualRows(scaleRowHeightPx(16))).toBe(279_620);
+    expect(scaleMaxVirtualRows(scaleRowHeightPx(18))).toBe(248_551);
+    expect(scaleMaxVirtualRows(scaleRowHeightPx(20))).toBe(223_696);
+    // The 250,000 preset: one scroller at 16px, paged from 18px up.
+    expect(250_000 * scaleRowHeightPx(16)).toBeLessThanOrEqual(
+      SCALE_MAX_SCROLLABLE_PX,
+    );
+    expect(250_000).toBeGreaterThan(scaleMaxVirtualRows(scaleRowHeightPx(18)));
+  });
+
+  it('reads the root font size, and falls back to 16px where it cannot', () => {
+    expect(readScaleRootFontPx(documentWithRootFont('20px'))).toBe(20);
+    expect(readScaleRootFontPx(documentWithRootFont('17.5px'))).toBe(17.5);
+    expect(readScaleRootFontPx(documentWithRootFont(''))).toBe(
+      SCALE_DEFAULT_ROOT_FONT_PX,
+    );
+    expect(readScaleRootFontPx(documentWithRootFont('0px'))).toBe(
+      SCALE_DEFAULT_ROOT_FONT_PX,
+    );
+    // A server render passes no document.
+    expect(readScaleRootFontPx(null)).toBe(SCALE_DEFAULT_ROOT_FONT_PX);
+    expect(SCALE_DEFAULT_ROOT_FONT_PX).toBe(16);
   });
 });

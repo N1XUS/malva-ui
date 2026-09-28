@@ -140,6 +140,14 @@ const DEFAULT_SELECTION_COLUMN_WIDTH = 40;
 const DEFAULT_ACTIONS_COLUMN_WIDTH = 80;
 const COLUMN_RESIZE_KEYBOARD_STEP = 8;
 const COLUMN_RESIZE_KEYBOARD_LARGE_STEP = 32;
+/**
+ * Virtual-scroll stride used until the row probe has been measured: the
+ * comfortable `--mlv-dt-row-height` (`3.75rem`) at the CSS initial 16px root.
+ * In force only where nothing has been laid out yet — a server render (where
+ * the viewport attaches no strategy and never reads it), a layout-less test
+ * environment, and the frame before the first `ResizeObserver` delivery.
+ */
+const FALLBACK_VIRTUAL_ROW_HEIGHT = 60;
 
 interface ColumnResizeBounds {
   min: number;
@@ -248,7 +256,23 @@ export class MlvDataTable {
   readonly data = input<MlvDataRow[] | MlvDataSource<MlvDataRow> | undefined>(
     undefined,
   );
-  readonly rowHeight = input(40);
+  /**
+   * Pixel height virtual scroll strides by, and pins every virtual row to.
+   *
+   * Leave it unset (the default) and the table measures the row height it
+   * actually renders — `--mlv-dt-row-height`, which follows the table's
+   * density, the root font size and any override of that property or of the
+   * `--mlv-height-*` token it is built from — and re-measures whenever any of
+   * those change. The stride matches while cell content fits inside
+   * `--mlv-dt-row-height` minus the 1px row separator; taller content grows
+   * the row past it, so raise the property on the host or bind this input.
+   * Set it only to force a fixed px pitch; the rows are then pinned to it with
+   * an inline `height`, so a value below the rendered content height is taken
+   * up by the cell rather than honoured, and no probe is rendered.
+   *
+   * Only read in `virtualScroll` mode.
+   */
+  readonly rowHeight = input<number | undefined>(undefined);
   /** Enable CDK virtual scroll for large datasets. */
   readonly virtualScroll = input<boolean, BooleanInput>(false, {
     transform: coerceBooleanProperty,
@@ -477,6 +501,35 @@ export class MlvDataTable {
 
   /** @private CDK virtual-scroll viewport (only present in virtual-scroll mode). */
   private readonly _virtualViewportRef = viewChild(CdkVirtualScrollViewport);
+
+  /**
+   * @private Hidden, zero-width element sized `height: var(--mlv-dt-row-height)`
+   * — the property every data cell is sized by — rendered directly under the
+   * host only in virtual-scroll mode with `rowHeight` unset. Its measured
+   * height is the row pitch the viewport strides by then.
+   */
+  private readonly _rowProbeRef =
+    viewChild<ElementRef<HTMLElement>>('rowProbe');
+
+  /**
+   * @private Last non-zero height the row probe reported, in px. `null` until
+   * the first `ResizeObserver` delivery — never on a server, where no observer
+   * exists. A zero report (a `display: none` ancestor) is ignored: nothing is
+   * rendered then, and the last real height stays correct for when it returns.
+   */
+  private readonly _measuredRowHeight = signal<number | null>(null);
+
+  /**
+   * @protected Row pitch handed to the viewport's `itemSize`: an explicit
+   * `rowHeight` first, then the measured `--mlv-dt-row-height`, then
+   * `FALLBACK_VIRTUAL_ROW_HEIGHT` until the first measurement lands.
+   */
+  protected readonly _virtualItemSize = computed(
+    () =>
+      this.rowHeight() ??
+      this._measuredRowHeight() ??
+      FALLBACK_VIRTUAL_ROW_HEIGHT,
+  );
 
   // ---- Services ---------------------------------------------------------------
   /** @private DestroyRef used for observable cleanup. */
@@ -1302,6 +1355,30 @@ export class MlvDataTable {
       afterNextRender(() => this._measureHeaderWidths(), {
         injector: this._injector,
       });
+    });
+
+    // The virtual row pitch is measured, not configured: the probe is sized by
+    // `--mlv-dt-row-height`, so a density change, a root font-size change or a
+    // consumer override of that property resizes it and the observer reports
+    // the new height — no code path of its own for any of them. Released from
+    // `onCleanup`, not `takeUntilDestroyed`: the probe is re-created every time
+    // virtual scroll is toggled on or `rowHeight` is unbound, and each
+    // generation must let go of the element it observed. The last measurement
+    // is kept while the probe is absent — it is the likeliest pitch when the
+    // probe returns, and the new probe's first report replaces it. On a
+    // server the observable never emits (no `ResizeObserver`), so the
+    // fallback stride stands — and is never read, because the viewport
+    // attaches no strategy there.
+    effect((onCleanup) => {
+      const probe = this._rowProbeRef()?.nativeElement;
+      if (!probe) return;
+      const subscription = this._resizeService
+        .observe(probe)
+        .subscribe((entries) => {
+          const height = entries[0]?.contentRect.height ?? 0;
+          if (height > 0) this._measuredRowHeight.set(height);
+        });
+      onCleanup(() => subscription.unsubscribe());
     });
 
     effect((onCleanup) => {

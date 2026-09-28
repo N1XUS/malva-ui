@@ -2,6 +2,7 @@ import { DecimalPipe, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DOCUMENT,
   DestroyRef,
   ElementRef,
   Injector,
@@ -62,11 +63,12 @@ import {
   SCALE_DEFAULT_TABLE_STATE,
   SCALE_DEFAULT_VIEW,
   SCALE_MAX_SCROLLABLE_PX,
-  SCALE_MAX_VIRTUAL_ROWS,
-  SCALE_ROW_HEIGHT_PX,
   SCALE_SEED,
   SCALE_TABLE_HEIGHT,
   SCALE_VIEW_VARIANTS,
+  readScaleRootFontPx,
+  scaleMaxVirtualRows,
+  scaleRowHeightPx,
   type ScaleTableMode,
   type ScaleViewState,
 } from './data-at-scale.data';
@@ -151,13 +153,15 @@ export function normalizeScaleViewState(state: ScaleViewState): ScaleViewState {
  *    `Set<row>`, so `ScaleDataSource` hands back the same instance per row id
  *    across refetches. Nothing here may clone rows between the source and
  *    `[data]`.
- * 3. **Virtual scroll positions rows from a fixed `rowHeight`.** The table is
- *    pinned to `comfortable` density so `SCALE_ROW_HEIGHT_PX` cannot drift out
- *    of sync with the docs-wide density control.
+ * 3. **Virtual scroll strides by one fixed row height.** The table measures it
+ *    itself (no `[rowHeight]` is bound, #363); the page pins it to
+ *    `comfortable` so `SCALE_ROW_HEIGHT_REM` cannot drift out of sync with the
+ *    docs-wide density control, and resolves it against the root font size
+ *    (see {@link rowHeight}), because the table's pitch follows that too.
  * 4. **A virtual viewport cannot be taller than the browser will scroll.**
- *    `rowHeight × rowCount` past `SCALE_MAX_SCROLLABLE_PX` is silently clamped
- *    and the table renders nothing, so above `SCALE_MAX_VIRTUAL_ROWS` the mode
- *    falls back to server-side paging — see {@link effectiveMode}.
+ *    `rowHeight × rowCount` past `SCALE_MAX_SCROLLABLE_PX` can no longer be
+ *    scrolled to its end, so above {@link maxVirtualRows} the mode falls back
+ *    to server-side paging — see {@link effectiveMode}.
  */
 @Component({
   selector: 'docs-data-at-scale-showcase',
@@ -214,6 +218,9 @@ export class DataAtScaleShowcaseComponent {
    */
   private readonly _isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
+  /** @private Document the root font size is read from, in a browser only. */
+  private readonly _document = inject(DOCUMENT);
+
   /**
    * @private Aborts an in-flight scroll benchmark.
    *
@@ -269,8 +276,21 @@ export class DataAtScaleShowcaseComponent {
   /** Row counts offered by the dataset-size control. */
   readonly datasetSizeValues = SCALE_DATASET_SIZES.map((size) => size.rows);
 
-  /** Row height the virtual viewport positions rows from. */
-  readonly rowHeight = SCALE_ROW_HEIGHT_PX;
+  /**
+   * Row pitch the table renders and strides by, in CSS pixels: the
+   * comfortable `3.75rem` resolved against the root font size — 60px on a
+   * 16px root, 75px under a browser font setting of 20px. Quoted in the page
+   * copy and the paging fallback's status message, and the divisor of
+   * {@link maxVirtualRows}. Not bound to the table, which measures its own
+   * row pitch (#363).
+   *
+   * Read once, when the page is created: a browser font-size change while the
+   * page is open takes effect on the next visit. A server render assumes the
+   * CSS initial 16px.
+   */
+  readonly rowHeight = scaleRowHeightPx(
+    readScaleRootFontPx(this._isBrowser ? this._document : null),
+  );
 
   /** Height of the table's scroll surface. */
   readonly tableHeight = SCALE_TABLE_HEIGHT;
@@ -278,8 +298,12 @@ export class DataAtScaleShowcaseComponent {
   /** Frames slower than this are reported as jank. */
   readonly longFrameMs = SCALE_LONG_FRAME_MS;
 
-  /** Most rows one virtual scroller can address before the browser clamps it. */
-  readonly maxVirtualRows = SCALE_MAX_VIRTUAL_ROWS;
+  /**
+   * Most rows one virtual scroller can address before the browser stops
+   * scrolling it — {@link maxScrollablePx} over {@link rowHeight}, so fewer
+   * under a larger root font size.
+   */
+  readonly maxVirtualRows = scaleMaxVirtualRows(this.rowHeight);
 
   /** The browser's maximum scrollable height, in CSS pixels. */
   readonly maxScrollablePx = SCALE_MAX_SCROLLABLE_PX;
@@ -358,13 +382,14 @@ export class DataAtScaleShowcaseComponent {
    * Whether the selected dataset still fits inside one virtual scroller.
    *
    * `cdk-virtual-scroll-viewport` reserves `rowHeight × rowCount` pixels of
-   * scrollable height, and a browser will not scroll further than
-   * {@link SCALE_MAX_SCROLLABLE_PX}. Past that the spacer is clamped, the
-   * rendered range falls outside the visible window, and the table goes blank
-   * with nothing logged anywhere.
+   * scrollable height, and past {@link SCALE_MAX_SCROLLABLE_PX} a browser
+   * stops scrolling it: Firefox drops the height outright, leaving only the
+   * first screen of rows, and Chrome and WebKit clamp it a little further on.
+   * Nothing is logged either way. The threshold follows the root font size
+   * through {@link rowHeight}.
    */
   readonly virtualScrollFits = computed(
-    () => this.rowCount() <= SCALE_MAX_VIRTUAL_ROWS,
+    () => this.rowCount() <= this.maxVirtualRows,
   );
 
   /**
@@ -393,12 +418,18 @@ export class DataAtScaleShowcaseComponent {
     if (this.mode() !== 'virtual') {
       return 'Server-side paging returns one page whatever the size, so a larger dataset costs generation time in the backend, not rows on the main thread.';
     }
-    const format = (predicate: (rows: number) => boolean): string =>
-      SCALE_DATASET_SIZES.filter((size) => predicate(size.rows))
-        .map((size) => size.rows.toLocaleString())
-        .join(' and ');
-    const wholeSet = format((rows) => rows <= SCALE_MAX_VIRTUAL_ROWS);
-    const paged = format((rows) => rows > SCALE_MAX_VIRTUAL_ROWS);
+    // How many sizes land on each side depends on the root font size (see
+    // `maxVirtualRows`), so the list reads correctly at any length.
+    const format = (predicate: (rows: number) => boolean): string => {
+      const sizes = SCALE_DATASET_SIZES.filter((size) =>
+        predicate(size.rows),
+      ).map((size) => size.rows.toLocaleString());
+      return sizes.length > 2
+        ? `${sizes.slice(0, -1).join(', ')} and ${sizes[sizes.length - 1]}`
+        : sizes.join(' and ');
+    };
+    const wholeSet = format((rows) => rows <= this.maxVirtualRows);
+    const paged = format((rows) => rows > this.maxVirtualRows);
     return `With virtual scroll on, ${wholeSet} rows transfer the whole result set to the main thread on every sort, filter and search — not one page. ${paged} rows are more than one scroller can address, so they fall back to server-side paging.`;
   });
 

@@ -582,11 +582,16 @@ visitor's own browser.
   control (`effectiveMode()`) rather than pretending they compose. Pinned
   start column (`ref`), optional tree rows (`_mlvChildren` workspaces on about
   a third of the accounts), and saved views through `mlv-view-variant-list` /
-  `mlv-view-variant-status` all work in both modes. Above
-  `SCALE_MAX_VIRTUAL_ROWS` (≈279,620 = the browser's ~16.7M px scroll-height
-  ceiling ÷ `SCALE_ROW_HEIGHT_PX`) the virtual option is disabled and the page
-  falls back to paging with an `mlv-alert` explaining why — a taller scroller
-  is silently clamped by the browser and renders nothing.
+  `mlv-view-variant-status` all work in both modes. Above `maxVirtualRows`
+  (`scaleMaxVirtualRows(rowHeight)` = `SCALE_MAX_SCROLLABLE_PX` (16,777,214, a
+  floor under every engine's cap) ÷ the row pitch) the virtual option is
+  disabled and the page falls back to paging with an `mlv-alert` explaining
+  why — past the cap Firefox drops the scroller's height (only the first
+  screen is reachable) and Chrome / WebKit clamp it. The pitch is
+  `SCALE_ROW_HEIGHT_REM` (3.75) × the root font size, read once at creation
+  (`readScaleRootFontPx`, 16 on the server), because the table measures its
+  rem rows (#363): 279,620 rows at a 16px root, 223,696 at 20px, so the
+  250,000 preset pages from an 18px root.
 - **Benchmarks** live in `data-at-scale.metrics.ts` as pure functions
   (`measureAfterPaint`, `runScrollBenchmark`, `summarizeFrameTimestamps`) so
   they are unit-testable without a browser. Initial render is

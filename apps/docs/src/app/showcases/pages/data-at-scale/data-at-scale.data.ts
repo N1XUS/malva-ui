@@ -62,42 +62,89 @@ export const SCALE_DATASET_SIZES: readonly ScaleDatasetSize[] = [
 export const SCALE_DEFAULT_LATENCY_MS = 120;
 
 /**
- * Row height in CSS pixels at `comfortable` density (`--mlv-dt-row-height`,
- * `3.75rem`).
+ * Row height at `comfortable` density, in rem: `--mlv-dt-row-height`, which is
+ * `--mlv-height-m` (`2.75rem`) plus `--mlv-spacing-4` (`1rem`).
  *
- * Virtual scroll positions rows from this number, so it must match what the
- * table actually renders. The showcase pins the table to `comfortable` rather
- * than inheriting the docs-wide density control for exactly that reason.
+ * The showcase pins the table to `comfortable`, so this is the pitch it
+ * renders — and, since #363, the pitch it strides by: `mlv-data-table` is not
+ * given a `rowHeight`, it measures its own rows. Being rem, that pitch scales
+ * with the root font size, so the scroll-limit arithmetic works from
+ * {@link scaleRowHeightPx} rather than from a px constant: 60px on a 16px
+ * root, 75px under a browser font setting of 20px.
  */
-export const SCALE_ROW_HEIGHT_PX = 60;
+export const SCALE_ROW_HEIGHT_REM = 3.75;
+
+/**
+ * Root font size assumed where none can be read, in CSS pixels: the CSS
+ * initial value, and what a server render uses.
+ */
+export const SCALE_DEFAULT_ROOT_FONT_PX = 16;
 
 /** Height of the table's scroll surface — the virtual viewport in virtual mode. */
 export const SCALE_TABLE_HEIGHT = '34rem';
 
 /**
- * The tallest element a browser will actually scroll, in CSS pixels.
+ * The tallest scroll container the showcase lets one virtual viewport ask for,
+ * in CSS pixels.
  *
- * Chromium clamps a scroll container's height to 2^24 − 2 px; Firefox stops a
- * little higher and WebKit higher still, so this is the smallest of the three
- * and the one worth designing against. It is not an `mlv-data-table` limit and
- * not a CDK limit — it is the DOM's.
+ * Measured with one tall child in a 300px scroller: Firefox is the tightest —
+ * it honours up to 17,895,688px and, past that, drops the height entirely, so
+ * `scrollHeight` collapses to the container and only the first screen of rows
+ * is ever reachable. Chrome and WebKit clamp at 33,554,428px. 2^24 − 2 is kept
+ * as a conservative floor below all three, with room for the header and a
+ * fractional row pitch. It is not an `mlv-data-table` limit and not a CDK
+ * limit — it is the DOM's.
  */
 export const SCALE_MAX_SCROLLABLE_PX = 16_777_214;
+
+/**
+ * Reads the root font size the table's rem row height resolves against.
+ *
+ * Falls back to {@link SCALE_DEFAULT_ROOT_FONT_PX} when nothing can be read —
+ * on a server, or where the computed value is empty or not a positive length.
+ *
+ * @param document - The document to read `documentElement`'s computed
+ *   `font-size` from, or `null` where there is none to read (a server render).
+ * @returns The root font size in CSS pixels.
+ */
+export function readScaleRootFontPx(document: Document | null): number {
+  const root = document?.documentElement;
+  const view = document?.defaultView;
+  if (!root || !view) return SCALE_DEFAULT_ROOT_FONT_PX;
+  const px = Number.parseFloat(view.getComputedStyle(root).fontSize);
+  return Number.isFinite(px) && px > 0 ? px : SCALE_DEFAULT_ROOT_FONT_PX;
+}
+
+/**
+ * Row pitch the showcase's virtual table strides by, in CSS pixels.
+ *
+ * @param rootFontPx - Root font size in CSS pixels ({@link readScaleRootFontPx}).
+ * @returns {@link SCALE_ROW_HEIGHT_REM} resolved against that root.
+ */
+export function scaleRowHeightPx(rootFontPx: number): number {
+  return SCALE_ROW_HEIGHT_REM * rootFontPx;
+}
 
 /**
  * Rows above which one fixed-height virtual scroller stops working.
  *
  * `cdk-virtual-scroll-viewport` sizes its spacer at `rowHeight × rowCount`, so
- * past this many rows the spacer is taller than {@link SCALE_MAX_SCROLLABLE_PX},
- * the browser silently clamps it, and the rendered range lands outside the
- * visible window — an empty table, with no error anywhere. The showcase falls
- * back to server-side paging above it and says why, because "your data no
- * longer fits in one scroller" is exactly the point at which paging stops being
- * a preference.
+ * past this many rows the spacer is taller than {@link SCALE_MAX_SCROLLABLE_PX}:
+ * Chrome and WebKit eventually clamp it and Firefox drops it, and either way
+ * the tail of the table can no longer be scrolled to, with no error anywhere.
+ * The showcase falls back to server-side paging above it and says why, because
+ * "your data no longer fits in one scroller" is exactly the point at which
+ * paging stops being a preference.
+ *
+ * Depends on the root font size through the row pitch: 279,620 rows at 60px
+ * (a 16px root), 223,696 at 75px (20px).
+ *
+ * @param rowHeightPx - Row pitch in CSS pixels ({@link scaleRowHeightPx}).
+ * @returns The largest row count whose spacer stays within the limit.
  */
-export const SCALE_MAX_VIRTUAL_ROWS = Math.floor(
-  SCALE_MAX_SCROLLABLE_PX / SCALE_ROW_HEIGHT_PX,
-);
+export function scaleMaxVirtualRows(rowHeightPx: number): number {
+  return Math.floor(SCALE_MAX_SCROLLABLE_PX / rowHeightPx);
+}
 
 /** @private Turns a string pool into the option list a filterable column takes. */
 function optionsOf(
