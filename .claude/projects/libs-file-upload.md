@@ -100,11 +100,11 @@ the browser never dispatches `drop` at all.
 
 #### Public Methods
 
-| Method                     | Description                                               |
-| -------------------------- | --------------------------------------------------------- |
-| `openFilePicker()`         | Programmatically opens the native file picker dialog      |
-| `onFileInputChange(event)` | Handles changes from the hidden file `<input>`            |
-| `removeFile(id)`           | Removes a file by its id, revoking preview URL if present |
+| Method                     | Description                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `openFilePicker()`         | Programmatically opens the native file picker dialog                                                                              |
+| `onFileInputChange(event)` | Handles changes from the hidden file `<input>`                                                                                    |
+| `removeFile(id)`           | Removes a file by its id; revokes the preview URL the component created for it (see **Preview URL lifetime**), never a consumer's |
 
 #### Validation Logic
 
@@ -112,7 +112,7 @@ the browser never dispatches `drop` at all.
 - **Size check:** Files exceeding `maxSize` bytes are rejected. Skipped when `maxSize === 0`.
 - **Count check / single-file replace:** when `multiple === false` the value holds at most one file, and a new file **replaces** it.
   - Counted per batch (one pick or one drop), never against the file already selected.
-  - Browse, drop and the cover **Replace** action all take this path: an accepted file replaces the current one, `URL.revokeObjectURL(previous.previewUrl)`, `filesChange` / `value` emit `[replacement]`, and the error list is replaced by this batch's errors (empty when the batch is one accepted file).
+  - Browse, drop and the cover **Replace** action all take this path: an accepted file replaces the current one, the preview URL the component created for it is revoked (a consumer-supplied one is not — see **Preview URL lifetime**), `filesChange` / `value` emit `[replacement]`, and the error list is replaced by this batch's errors (empty when the batch is one accepted file).
   - A rejected file (type / size) leaves the current file and its preview untouched; the error names the real reason.
   - A multi-file drop keeps its **first accepted** file and reports the rest with **one** `code: 'count'` error (`errorSingleFile`), not one per extra file.
   - Order per file: count → type → size, so `[bad.pdf, b.png]` under `accept="image/*"` keeps `b.png` with a type error for `bad.pdf`.
@@ -212,9 +212,113 @@ cover state: it would only repeat the image and a second remove control that
 the toolbar already provides. The validation error list still renders below the
 zone as usual.
 
+#### Preview URL lifetime
+
+Fixed 2026-09 (#352). Before, the only revocations were `removeFile` and the
+single-file replace, and both revoked **any** `previewUrl` — a consumer's own
+`blob:` URL included — while an external write (form `reset()`, `[(value)]`
+set to `[]`) or a destroy revoked nothing, so every reset kept each selected
+image's object URL (and the `File` behind it) registered until the page
+unloaded.
+
+- **Owned URLs only.** The component creates a `blob:` URL for each accepted
+  `image/*` file through the internal root service `MlvFileUploadPreviewUrls`
+  (`file-upload-preview-urls.ts`, not exported) and revokes only those.
+  Ownership follows the URL **string**: an owned URL copied into a new entry,
+  another upload's value or the consumer's own state stays owned.
+- **Consumer-supplied URLs are the consumer's to revoke.** A `previewUrl` the
+  consumer supplies (edit-mode seed: `https://…`, `data:`, or its own `blob:`)
+  is never revoked. Before #352 `removeFile` and the single-file replace
+  revoked it anyway, and their JSDoc promised so with no ownership condition —
+  so a consumer that seeded its own `blob:` preview and let those two clean it
+  up now keeps it alive until unload. **Do:** revoke a `blob:` URL you created
+  when you drop the entry (in your `filesChange` handler, or where you clear
+  the value). Patch-class under the #316 template: ticket-prescribed, memory
+  only.
+- **Revoked when it leaves the value, after the render.** `_syncPreviews(files)`
+  reconciles the owned URLs the instance holds with the value: an `effect` over
+  `_files()` catches every write (form `reset()` / `setValue`, `ngModel`,
+  `[(value)]`, a signal-forms model write — the forms interop writes the model
+  during change detection, not synchronously — and `removeFile`), and
+  `_validateAndAdd` also calls it synchronously, before `filesChange`, so a
+  pick a consumer filters out of a one-way `[value]` in that handler has been
+  retained and is released (never retained, it would never be revoked). A
+  release to zero does not revoke on the spot: the registry queues the URL and
+  revokes it in an `afterNextRender` flush **only if it is still at zero**.
+  Constructor effects run in view order, so a file moved between two mounted
+  uploads in one tick (`a.set([]); b.set(moved)`, or a copy into `b` followed
+  by `a.removeFile()`, or a replaced file archived into `b` from `filesChange`)
+  touches zero before the target retains it; revoking there handed the target
+  a dead URL. A microtask is not enough: the replace and `removeFile` run in an
+  event handler, and the zoneless render — where the target retains — is a
+  later task. On the server `afterNextRender` never runs, but nothing is ever
+  queued there: URLs are created only from browser `change` / `drop` events.
+  At application teardown the flush is not deferred: `ApplicationRef.destroy()`
+  marks the root injector destroyed **before** it destroys the views, so an
+  upload dropping a URL from its destroy hook (a `removeFile` or write in the
+  same task — a micro-frontend or Angular Elements unmount, a Storybook story
+  switch) would call `afterNextRender` on a destroyed injector, which throws
+  NG0205 out of `appRef.destroy()` and skips every later destroy hook. With the
+  injector destroyed the registry revokes what is queued at once — no upload can
+  mount to retain it — including anything queued behind a flush scheduled before
+  the teardown, which Angular destroys unrun after the views. TestBed never
+  reaches this order (it destroys fixtures before its injector); the specs boot
+  a real `createApplication`. A write that keeps an entry — an immutable
+  progress patch `{ ...file, progress }` — keeps its URL. O(files) per value
+  change.
+- **Destroy hands on, it does not revoke.** The value outlives the upload in
+  the consumer's hands (a form, a signal, a dialog result), so `onDestroy`
+  reconciles once more (a direct model write in the same tick lands before any
+  effect could) and then releases what the value still holds **without**
+  revoking it. An upload later mounted with that value retains the URL and
+  revokes it when it leaves that upload's value. Deliberately not the issue's
+  proposal ("revoke all on destroy"): revoking there breaks every upload that
+  sits in an `@if` over a value kept outside it — measured in Chromium 153, an
+  `<img>` created after `URL.revokeObjectURL()` fails to load — which is the
+  docs website-builder hero image (background image → colour → image) and the
+  publishing-workspace media section (open, then close, version comparison).
+  Ablating the hand-off turns exactly the re-mount spec red.
+- **Several mounted uploads.** The registry counts, per URL, the mounted
+  uploads whose value references it; a URL is revoked only when the last of
+  them drops it. A value an unmounted upload handed on is not counted: if a
+  mounted upload still shares the URL and later drops it, it is revoked, and
+  the handed-on value re-mounts with a dead preview — the contract is
+  "referenced by a mounted upload".
+- **Residual leak, by design.** A value discarded while it still holds owned
+  previews — the upload destroyed and the consumer's state dropped with it,
+  never cleared — keeps those URLs until the page unloads, as before; the
+  component cannot tell a discarded value from one kept for a re-mount. So does
+  a value dropped in the same change detection that destroys the upload through
+  a binding (`files.set([])`, a reactive `reset()` or a signal-forms model write,
+  plus an `@if` turning false): the binding never reaches the destroyed view,
+  and so does every route leave. Clear the value while the upload is mounted,
+  or revoke the previews yourself (`apps/docs`' publishing-workspace revokes its
+  attachments' `blob:` URLs on destroy, and the website-builder revokes the
+  hero image's when the block dialog closes, in `clearEditing()`;
+  `@malva-ui/editor`'s image-upload dialog revokes its one preview on close). A consumer revoke
+  leaves only a string entry in the registry; a second revoke by the registry
+  is a no-op. Reclaiming discarded values is a follow-up filed from #352: a
+  `FinalizationRegistry` keyed on `entry.file` (never on the entry object,
+  which every immutable progress patch replaces while the URL stays live).
+- **Consumer caveat.** A consumer that copies an owned `previewUrl` elsewhere
+  sees it die with the entry. For a preview that must outlive the entry, create
+  one from `entry.file` with `URL.createObjectURL` and own it.
+- Specs: `file-upload-preview-urls.spec.ts` — 18 cases asserting **which** URLs
+  were revoked through a `URL.revokeObjectURL` spy; 14 are red on the
+  pre-#352 component (the two teardown specs and the `@if`-receiver spec pass
+  there, since it never deferred a revoke). Ablations, each turning its own
+  specs red: the effect; the `_validateAndAdd` sync (the veto spec); the
+  destroy-time sync (plus both teardown specs); the hand-off
+  (`release(url, true)` at destroy); the refcount; the deferred flush (revoking
+  at zero turns the four same-tick move specs red, the `@if`-created receiver
+  among them); the zero check at flush (the move specs); an `afterNextRender` →
+  microtask swap (the archive spec, among others); the teardown guard (both
+  teardown specs — NG0205 escapes `appRef.destroy()`); the guard placed after
+  the scheduled-flush check (the queued-before-teardown spec).
+
 #### Forms behaviour
 
-- External `value` model writes replace the internal file list; transient `ngModel` null initialization is normalized to an empty list.
+- External `value` model writes replace the internal file list; transient `ngModel` null initialization is normalized to an empty list. They also revoke the owned preview URLs the new list no longer references (see **Preview URL lifetime**).
 - `registerOnChange(fn)` — called with the full `MlvUploadedFile[]` array on every add, remove or replace.
 - Form-bound disabled state drives the base `disabled` input and `computedDisabled()`.
 - Provides `MLV_FORM_CONTROL`, `useExisting` itself (2026-09, #217). It was the
@@ -367,6 +471,10 @@ interface MlvUploadedFile {
   error?: MlvFileValidationError;
 }
 ```
+
+`previewUrl`: generated for picked / dropped images and revoked by the
+component when the entry leaves the value; a supplied one is never revoked (see
+**Preview URL lifetime**).
 
 ### `MlvFileValidationError`
 

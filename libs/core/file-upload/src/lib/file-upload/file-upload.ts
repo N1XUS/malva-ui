@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  effect,
   forwardRef,
   inject,
   input,
@@ -27,6 +29,7 @@ import { LucideRefreshCw, LucideTrash2, LucideUpload } from '@lucide/angular';
 import type { MlvFileUploadI18n } from '@malva-ui/i18n';
 import { MLV_FILE_UPLOAD_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
 import { MlvFileUploadItem } from '../file-upload-item/file-upload-item';
+import { MlvFileUploadPreviewUrls } from './file-upload-preview-urls';
 import type {
   MlvFileUploadPreviewMode,
   MlvFileValidationError,
@@ -99,9 +102,9 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
    * Whether to allow selecting multiple files.
    *
    * When `false`, a picked or dropped file that passes validation **replaces**
-   * the current one (revoking its preview URL); a rejected file leaves it in
-   * place. A drop of several files keeps the first accepted file and reports
-   * the rest with a single `count` error.
+   * the current one (revoking the preview URL the component created for it);
+   * a rejected file leaves it in place. A drop of several files keeps the
+   * first accepted file and reports the rest with a single `count` error.
    */
   readonly multiple = input<boolean, BooleanInput>(true, {
     transform: coerceBooleanProperty,
@@ -161,11 +164,44 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
   /** @private Reference to the host element for dragleave boundary detection. */
   private readonly _elementRef = inject(ElementRef<HTMLElement>);
 
+  /**
+   * @private Application-wide registry of the preview URLs this component
+   * creates. It decides when one is revoked; see `MlvFileUploadPreviewUrls`.
+   */
+  private readonly _previewUrls = inject(MlvFileUploadPreviewUrls);
+
+  /**
+   * @private The registered preview URLs the value referenced at the last
+   * {@link _syncPreviews} — the ones this instance currently holds.
+   */
+  private _heldPreviews = new Set<string>();
+
   constructor() {
     super();
     // Touched only when focus leaves the whole control, not on a move
     // between its own parts (#347, D22).
     this._reportTouchOnFocusLeave();
+
+    // Reconcile the held previews after every value change: an external write
+    // (a form `reset()`, `setValue`, `[(value)]`, a signal-forms model write)
+    // lands in `value` without passing through this class, and `removeFile`
+    // is caught here too. A dropped URL is revoked only after the render, by
+    // `MlvFileUploadPreviewUrls`, so a file moved to another mounted upload in
+    // the same tick survives. A second pass over an unchanged value is a no-op.
+    effect(() => this._syncPreviews(this._files()));
+
+    // Reconcile once more first: a direct model write (`value.set(…)`) followed
+    // by a destroy in the same change detection never reaches the effect.
+    // Previews the value still holds are then handed on, not revoked — the
+    // value outlives this instance in the consumer's hands (a form, a signal,
+    // a dialog result), and an upload re-mounted with it takes them over.
+    inject(DestroyRef).onDestroy(() => {
+      this._syncPreviews(this._files());
+      this._heldPreviews.forEach((url) =>
+        this._previewUrls.release(url, false),
+      );
+      this._heldPreviews.clear();
+    });
 
     // `dragover` is bound here rather than as a `(dragover)` host binding.
     // It is the one high-frequency event of the three: the browser fires it
@@ -260,14 +296,12 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
   }
 
   /**
-   * Removes a file by its id, revoking the preview URL if present.
+   * Removes a file by its id. A preview URL the component created for it is
+   * revoked after the next render, unless a mounted upload's value still
+   * references it by then; a `previewUrl` the consumer supplied is left alone.
    * @param id - The id of the `MlvUploadedFile` to remove.
    */
   removeFile(id: string): void {
-    const target = this._files().find((f) => f.id === id);
-    if (target?.previewUrl) {
-      URL.revokeObjectURL(target.previewUrl);
-    }
     this.value.update((files) =>
       (files ?? []).filter((file) => file.id !== id),
     );
@@ -365,7 +399,7 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
         file,
         name: file.name,
         size: file.size,
-        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
+        previewUrl: isImage ? this._previewUrls.create(file) : undefined,
         state: 'pending',
         progress: 0,
       };
@@ -378,16 +412,43 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
       if (this.multiple()) {
         this.value.update((previous) => [...(previous ?? []), ...newFiles]);
       } else {
-        // Single-file mode replaces the current file, revoking its preview.
-        // Reached only with an accepted file: a rejected batch keeps it.
-        const previous = this._files();
-        previous.forEach((f) => {
-          if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-        });
+        // Single-file mode replaces the current file; the sync below releases
+        // the preview the component created for it. Reached only with an
+        // accepted file: a rejected batch keeps it.
         this.value.set(newFiles);
       }
+      // Retain the new previews before `filesChange` reaches the consumer: a
+      // handler that filters a pick out of a one-way `[value]` writes the
+      // model back before the effect ever sees the pick, and a URL never
+      // retained is never released, so it would never be revoked.
+      this._syncPreviews(this._files());
       this._emitChange();
     }
+  }
+
+  /**
+   * @private Reconciles the preview URLs this instance holds with `files`:
+   * retains the registered ones that appeared and releases, for revocation,
+   * the ones that left. Only URLs `MlvFileUploadPreviewUrls` created are
+   * considered, so a consumer-supplied `previewUrl` is never revoked.
+   *
+   * O(files) per call. Runs after every value change, including each
+   * upload-progress patch a consumer writes back.
+   */
+  private _syncPreviews(files: readonly MlvUploadedFile[]): void {
+    const next = new Set<string>();
+    for (const file of files) {
+      if (file.previewUrl && this._previewUrls.owns(file.previewUrl)) {
+        next.add(file.previewUrl);
+      }
+    }
+    for (const url of next) {
+      if (!this._heldPreviews.has(url)) this._previewUrls.retain(url);
+    }
+    for (const url of this._heldPreviews) {
+      if (!next.has(url)) this._previewUrls.release(url, true);
+    }
+    this._heldPreviews = next;
   }
 
   /**

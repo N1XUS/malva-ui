@@ -1104,9 +1104,21 @@ export class WebsiteBuilderShowcaseComponent {
     }
   }
 
-  /** Clears the shared editing handle once a dialog has finished closing. */
+  /**
+   * Clears the shared editing handle once a dialog has finished closing, and
+   * discards the local hero image. The upload that created its `blob:`
+   * preview is gone with the dialog, and an upload destroyed over a value
+   * hands the preview on rather than revoking it — so the value's owner, this
+   * page, revokes it.
+   */
   protected clearEditing(): void {
     this._editing.set(null);
+    for (const file of this.heroFiles()) {
+      if (file.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+    }
+    this.heroFiles.set([]);
   }
 
   /* ---- Container dialog ------------------------------------------------- */
