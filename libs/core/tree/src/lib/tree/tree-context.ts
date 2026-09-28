@@ -46,9 +46,14 @@ export interface MlvTreeAccessor {
   /**
    * Reacts to the aria `TreeItem.expanded` model changing (keyboard, pointer,
    * chevron, or programmatic). Syncs the expansion set, triggers lazy loading,
-   * and emits `nodeToggle`.
+   * and emits `nodeToggle`. `item` is the node's aria item, which a failed
+   * lazy load collapses.
    */
-  _onExpandedChange(node: MlvTreeNode, expanded: boolean): void;
+  _onExpandedChange(
+    node: MlvTreeNode,
+    expanded: boolean,
+    item: TreeItem<string | number>,
+  ): void;
 
   /**
    * Chevron toggle handler. Guards disabled nodes, stops propagation so the

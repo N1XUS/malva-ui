@@ -3,7 +3,10 @@ import {
   Component,
   computed,
   contentChild,
+  DestroyRef,
+  ElementRef,
   forwardRef,
+  inject,
   input,
   type OnInit,
   output,
@@ -13,8 +16,11 @@ import {
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { Tree } from '@angular/aria/tree';
-import type { MlvTreeNode } from './tree-node';
-import type { MlvTreeSelectMode } from './tree-node';
+import type {
+  MlvTreeLoadError,
+  MlvTreeNode,
+  MlvTreeSelectMode,
+} from './tree-node';
 import { MlvTreeNodeDef } from './tree-node-def';
 import { MLV_TREE } from './tree-context';
 import type { MlvTreeAccessor } from './tree-context';
@@ -151,8 +157,22 @@ export class MlvTree<T = unknown> implements OnInit, MlvTreeAccessor {
   /** Emits when a node is activated (clicked or Enter in single-select/none mode). */
   readonly nodeActivate = output<MlvTreeNode<T>>();
 
-  /** Emits when a node's expanded state changes. */
+  /**
+   * Emits when a node's expanded state changes — by the user, or by the tree
+   * itself when it collapses a node whose `loadChildren()` failed. Not
+   * emitted for the programmatic `expandNode` / `collapseNode` /
+   * `expandAll` / `collapseAll`.
+   */
   readonly nodeToggle = output<{ node: MlvTreeNode<T>; expanded: boolean }>();
+
+  /**
+   * Emits when a node's `loadChildren()` rejects or throws. By then the tree
+   * has cleared the loading spinner, collapsed the node if it was still
+   * expanded (emitting `nodeToggle` with `expanded: false` first) and cached
+   * nothing, so the next expand calls `loadChildren()` again. The tree shows
+   * no error text of its own: use this to tell the user, or to log.
+   */
+  readonly loadError = output<MlvTreeLoadError<T>>();
 
   /**
    * @public Selected node ids, mirrored to the aria `Tree.value` model (aria
@@ -181,6 +201,18 @@ export class MlvTree<T = unknown> implements OnInit, MlvTreeAccessor {
 
   /** @public The custom node template if provided. */
   readonly _nodeDefDirective = contentChild(MlvTreeNodeDef<T>);
+
+  /**
+   * @private Read when a lazy load fails, so a load that outlives the tree
+   * does not emit on its destroyed outputs.
+   */
+  private readonly _destroyRef = inject(DestroyRef);
+
+  /**
+   * @private The host element; a failed lazy load checks that the node's aria
+   * item is still rendered inside it before collapsing it through its model.
+   */
+  private readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
   ngOnInit(): void {
     // Seed expansion state from nodes flagged `expanded: true`.
@@ -239,9 +271,14 @@ export class MlvTree<T = unknown> implements OnInit, MlvTreeAccessor {
   /**
    * @public Reacts to the aria `TreeItem.expanded` model changing (keyboard,
    * pointer, chevron, or programmatic). Syncs the expansion set, triggers lazy
-   * loading, and emits `nodeToggle`.
+   * loading, and emits `nodeToggle`. `item` is handed to the lazy load, whose
+   * failure path collapses the node through it.
    */
-  _onExpandedChange(node: MlvTreeNode<T>, expanded: boolean): void {
+  _onExpandedChange(
+    node: MlvTreeNode<T>,
+    expanded: boolean,
+    item: TreeItem<string | number>,
+  ): void {
     if (expanded) {
       this._expandedIds.update((s) => {
         const next = new Set(s);
@@ -253,7 +290,7 @@ export class MlvTree<T = unknown> implements OnInit, MlvTreeAccessor {
         !this._loadedChildren().has(node.id) &&
         !this._loadingIds().has(node.id)
       ) {
-        this._loadLazy(node);
+        this._loadLazy(node, item);
       }
       this.nodeToggle.emit({ node, expanded: true });
     } else {
@@ -332,25 +369,121 @@ export class MlvTree<T = unknown> implements OnInit, MlvTreeAccessor {
     }
   }
 
-  /** @private Load lazy children then keep the node expanded to reveal them. */
-  private _loadLazy(node: MlvTreeNode<T>): void {
+  /**
+   * @private Loads a lazy node's children and caches them, leaving the node's
+   * expansion alone so a node collapsed during the load stays collapsed.
+   *
+   * `loadChildren()` runs synchronously here, called as a method of the node
+   * so a class-model or object-literal loader keeps `this` — never read into
+   * a local first, which would drop the receiver. Its promise goes through
+   * `Promise.resolve()`, which hands a native promise back unchanged, so the
+   * success callback runs in the same microtask it always did; a synchronous
+   * throw becomes a rejected promise instead of escaping into the aria
+   * `expandedChange` handler. Both outcomes settle in a later microtask, and
+   * either way the id leaves the loading set, so the spinner goes and the
+   * retry guard in `_onExpandedChange` lets the next expand call
+   * `loadChildren()` again.
+   */
+  private _loadLazy(
+    node: MlvTreeNode<T>,
+    item: TreeItem<string | number>,
+  ): void {
     if (!node.loadChildren) return;
     this._loadingIds.update((s) => {
       const next = new Set(s);
       next.add(node.id);
       return next;
     });
-    node.loadChildren().then((children) => {
-      this._loadedChildren.update((m) => {
-        const next = new Map(m);
-        next.set(node.id, children);
-        return next;
-      });
-      this._loadingIds.update((s) => {
+    let pending: Promise<MlvTreeNode<T>[]>;
+    try {
+      pending = Promise.resolve(node.loadChildren());
+    } catch (error: unknown) {
+      pending = Promise.reject(error);
+    }
+    pending.then(
+      (children) => {
+        this._loadedChildren.update((m) => {
+          const next = new Map(m);
+          next.set(node.id, children);
+          return next;
+        });
+        this._clearLoading(node.id);
+      },
+      (error: unknown) => this._failLazy(node, item, error),
+    );
+  }
+
+  /**
+   * @private Recovers from a rejected (or throwing) `loadChildren()`: clears
+   * the loading state, collapses the node if it is still expanded — so an
+   * expanded row never sits over an empty group, and one expand retries —
+   * emitting `nodeToggle` for that collapse, then emits `loadError`. Nothing
+   * is cached, so the next expand calls `loadChildren()` again. Handling the
+   * rejection here is what keeps it from surfacing as an unhandled one.
+   *
+   * Two steps collapse the node:
+   *
+   * 1. While the item is rendered in this tree and its node is still in
+   *    `nodes`, the aria item's `expanded` model is set to `false`. That routes
+   *    back into `_onExpandedChange` (id dropped, `nodeToggle` emitted).
+   *    Dropping the id alone is not enough when the load fails before change
+   *    detection has run since the expand — a synchronous throw, an
+   *    already-rejected promise: the `[expanded]` binding then still holds its
+   *    last value, `false`, so the drop changes nothing it pushes and the item
+   *    stays open. "Inside the tree's host" alone does not prove the item is
+   *    alive: a leave animation (`animate.leave` in a consumer node template)
+   *    keeps a destroyed row's element attached until it ends, and a destroyed
+   *    item's model reaches no listener and warns NG0953. So the node must
+   *    also still be in the data.
+   * 2. If the id is still expanded after that — the item was destroyed, sits
+   *    under a collapsed ancestor, or step 1 reached no listener — it is
+   *    dropped directly and `nodeToggle` is emitted here; change detection has
+   *    run since the expand in each of those cases, so the binding carries
+   *    the drop. When step 1 did collapse the node, the id is already gone and
+   *    this step emits nothing, so `nodeToggle` fires once.
+   *
+   * Residual: a node moved to another parent (or re-added elsewhere in the
+   * tree) while its old row's leave animation is still running passes both
+   * checks through the old item, so step 1 writes to a destroyed item and
+   * Angular logs one NG0953 warning — in production too, with the message
+   * text only in dev mode. Step 2 still collapses the node's new row. A
+   * re-add in the same position does not reach this: Angular drops the
+   * leaving row at once.
+   *
+   * Once the tree is destroyed nothing is emitted (a destroyed `OutputRef`
+   * warns NG0953).
+   */
+  private _failLazy(
+    node: MlvTreeNode<T>,
+    item: TreeItem<string | number>,
+    error: unknown,
+  ): void {
+    this._clearLoading(node.id);
+    if (this._destroyRef.destroyed) return;
+    if (
+      item.expanded() &&
+      this._elementRef.nativeElement.contains(item.element) &&
+      this._findNode(node.id) !== undefined
+    ) {
+      item.expanded.set(false);
+    }
+    if (this._expandedIds().has(node.id)) {
+      this._expandedIds.update((s) => {
         const next = new Set(s);
         next.delete(node.id);
         return next;
       });
+      this.nodeToggle.emit({ node, expanded: false });
+    }
+    this.loadError.emit({ node, error });
+  }
+
+  /** @private Removes a node id from the loading set. */
+  private _clearLoading(id: string | number): void {
+    this._loadingIds.update((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
     });
   }
 

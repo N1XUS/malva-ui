@@ -10,7 +10,7 @@
     [selectable]="tree.selectMode() !== 'none'"
     [preserveContent]="true"
     [expanded]="tree._isExpanded(node.id)"
-    (expandedChange)="tree._onExpandedChange(node, $event)"
+    (expandedChange)="tree._onExpandedChange(node, $event, item)"
     [class.mlv-tree__item--expanded]="item.expanded()"
     [class.mlv-tree__item--selected]="tree._isSelected(node.id)"
     [class.mlv-tree__item--disabled]="node.disabled"

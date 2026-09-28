@@ -3,3 +3,5 @@ title: Lazy Loading
 ---
 
 Nodes with a `loadChildren` callback load their children asynchronously on first expand. A `mlv-loader` spinner replaces the chevron during the load. Once resolved, children are cached — re-expanding the node does not trigger a second network call.
+
+If the promise rejects (or the callback throws), the tree clears the spinner, collapses the node, caches nothing and emits `loadError` with the node and the error. Expanding the node again calls `loadChildren` again. The tree shows no error text of its own, so tell the user from `loadError` — here, Antarctica's first load fails and a `role="status"` line reports it.
