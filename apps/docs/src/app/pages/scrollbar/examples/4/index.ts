@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { MlvScrollbar } from '@malva-ui/core/scrollbar';
-import { MlvCard, MlvCardHeader } from '@malva-ui/core/card';
+import { MlvCard, MlvCardHeader, MlvCardHeaderDef } from '@malva-ui/core/card';
 import { MlvBadge } from '@malva-ui/core/badge';
 
 interface LogEntry {
@@ -12,7 +12,7 @@ interface LogEntry {
 @Component({
   selector: 'docs-scrollbar-card-example',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MlvScrollbar, MlvCard, MlvCardHeader, MlvBadge],
+  imports: [MlvScrollbar, MlvCard, MlvCardHeaderDef, MlvCardHeader, MlvBadge],
   templateUrl: './index.html',
   styleUrl: './index.scss',
 })

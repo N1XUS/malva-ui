@@ -21,7 +21,7 @@ Cards are surface containers that group related content and actions.
 | 2   | Elevation                  | `[elevated]="true"` for drop shadow; hover lifts card with deepened shadow and `translateY` |
 | 3   | Header with Action Buttons | `mlvCardHeader` and `mlvCardActions` for heading and icon buttons on the same row           |
 | 4   | Background Image           | `[backgroundImage]` URL for full-cover background with overlay for readable text            |
-| 5   | Footer Variations          | Footer with links, buttons, or a single full-width action                                   |
+| 5   | Footer Variations          | Footer with links, a `withBorder` button pair, or a single `fullWidth` action               |
 | 6   | Minimal Card               | Body content only — no header, subheading, or footer                                        |
 | 7   | Card with form             | A card wrapping a form built from `mlv-form-field` / `mlv-input` / `mlv-toolbar`            |
 | 8   | Body layout                | `bodyLayout="stack"` and the size-scaled `--mlv-card-body-gap`                              |

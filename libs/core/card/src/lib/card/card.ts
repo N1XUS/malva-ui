@@ -63,12 +63,12 @@ export class MlvCard {
    */
   readonly bodyLayout = input<MlvCardBodyLayout>('none');
 
-  /** @protected Header slot template projected via `[mlvCardHeader]`. */
+  /** @protected Header slot template projected via `[mlvCardHeaderDef]`. */
   protected readonly headerRef = contentChild(MlvCardHeaderDef);
-  /** @protected Subheader slot template projected via `[mlvCardSubheader]`. */
+  /** @protected Subheader slot template projected via `[mlvCardSubheaderDef]`. */
   protected readonly subheaderRef = contentChild(MlvCardSubheaderDef);
-  /** @protected Actions slot template projected via `[mlvCardActions]`. */
+  /** @protected Actions slot template projected via `[mlvCardActionsDef]`. */
   protected readonly actionsRef = contentChild(MlvCardActionsDef);
-  /** @protected Footer slot template projected via `[mlvCardFooter]`. */
+  /** @protected Footer slot template projected via `[mlvCardFooterDef]`. */
   protected readonly footerRef = contentChild(MlvCardFooterDef);
 }
