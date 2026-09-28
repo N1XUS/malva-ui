@@ -27,6 +27,9 @@ const MEMBERS_7: MlvAvatarGroupMember[] = [
 
 // ── Width helpers for size 'm' (avatarPx=40, overlapPx=8, effectivePx=32) ──
 //
+//  At the default 16px root: the fit counts 2.5rem / 0.5rem times the root
+//  font size (#356); avatar-group-rem-fit.spec.ts covers other roots.
+//
 //  maxFit = floor((containerWidth - 40) / 32) + 1
 //
 //  W=9999 → maxFit=∞  → show all, no overflow

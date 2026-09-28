@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MlvAvatar, MlvColorFromTextPipe } from '@malva-ui/core/avatar';
 import type { MlvAvatarSize, MlvAvatarShape } from '@malva-ui/core/avatar';
@@ -38,28 +38,42 @@ export interface MlvAvatarGroupMember {
   color?: string;
 }
 
-/** Avatar size to pixel mapping (matches mlv-avatar SCSS size tokens). */
-const AVATAR_SIZE_PX: Record<MlvAvatarSize, number> = {
-  xs: 24,
-  s: 32,
-  m: 40,
-  l: 56,
-  xl: 80,
-  xxl: 96,
+/**
+ * Avatar edge length per size, in rem — `--mlv-avatar-size` on
+ * `.mlv-avatar--<size>` in `mlv-avatar`'s stylesheet. Kept in rem, not px:
+ * the fit multiplies it by the root font size read with each measurement,
+ * because a browser font-size preference scales rem but not px (#356).
+ * Pinned to the compiled stylesheet, with {@link AVATAR_OVERLAP_REM}, by
+ * `avatar-group-rem-fit.spec.ts`.
+ */
+const AVATAR_SIZE_REM: Record<MlvAvatarSize, number> = {
+  xs: 1.5,
+  s: 2,
+  m: 2.5,
+  l: 3.5,
+  xl: 5,
+  xxl: 6,
 };
 
 /**
- * Overlap in pixels per size — the absolute value of the negative
- * `margin-left` applied to stacked avatars in avatar-group.scss.
+ * Overlap per size, in rem — the magnitude of the negative
+ * `--mlv-ag-overlap` inline-start margin applied to stacked avatars in
+ * avatar-group.scss.
  */
-const AVATAR_OVERLAP_PX: Record<MlvAvatarSize, number> = {
-  xs: 4,
-  s: 6,
-  m: 8,
-  l: 10,
-  xl: 12,
-  xxl: 14,
+const AVATAR_OVERLAP_REM: Record<MlvAvatarSize, number> = {
+  xs: 0.25,
+  s: 0.375,
+  m: 0.5,
+  l: 0.625,
+  xl: 0.75,
+  xxl: 0.875,
 };
+
+/**
+ * Root font size (the size of `1rem`) assumed before the first measurement
+ * and whenever the computed value cannot be read — the CSS initial `medium`.
+ */
+const DEFAULT_ROOT_FONT_SIZE_PX = 16;
 
 /**
  * Avatar group component rendering a horizontal stack of overlapping `mlv-avatar` instances.
@@ -168,24 +182,41 @@ export class MlvAvatarGroup {
   private readonly _i18n = inject(MLV_AVATAR_GROUP_I18N);
   /** @private ICU resolver for count-aware accessible labels. */
   private readonly _resolver = inject(MlvI18nResolverService);
+  /**
+   * @private Injected document. The root font size is read through its
+   * `defaultView`, never the ambient `document` / `getComputedStyle` globals
+   * (#337), which under server rendering are not this render's document.
+   */
+  private readonly _document = inject(DOCUMENT);
 
-  /** Measured width of the host element in pixels. 0 = not yet measured. */
+  /** @private Measured width of the host element in pixels. 0 = not yet measured. */
   private readonly _containerWidth = signal(0);
 
-  /** Avatar size in pixels for the current `size()` input. */
-  private readonly _avatarSizePx = computed(() => AVATAR_SIZE_PX[this.size()]);
+  /**
+   * @private Size of `1rem` in pixels, read from the root element with every
+   * host measurement — so never on the server, where no measurement arrives.
+   * A root font-size change resizes the rendered avatars and with them the
+   * host's content-box height, so the same observer delivers the new value
+   * even when the width stays put — unless something other than the avatars
+   * sets the host's height (an explicit `height`, or a taller flex / grid
+   * sibling it stretches to), in which case the next width change picks it
+   * up.
+   */
+  private readonly _rootFontSizePx = signal(DEFAULT_ROOT_FONT_SIZE_PX);
 
   /**
-   * Maximum total avatars (visible + overflow) that fit in the current container.
-   * Returns `Infinity` before the first ResizeObserver measurement so that
-   * all members are shown during the initial render pass.
+   * @private Maximum total avatars (visible + overflow) that fit in the
+   * current container, counted in rendered pixels: the rem geometry times the
+   * root font size. Returns `Infinity` before the first ResizeObserver
+   * measurement so that all members are shown during the initial render pass.
    */
   private readonly _maxFit = computed(() => {
     const w = this._containerWidth();
     if (w <= 0) return Infinity;
 
-    const avatarPx = this._avatarSizePx();
-    const overlapPx = AVATAR_OVERLAP_PX[this.size()];
+    const remPx = this._rootFontSizePx();
+    const avatarPx = AVATAR_SIZE_REM[this.size()] * remPx;
+    const overlapPx = AVATAR_OVERLAP_REM[this.size()] * remPx;
     const effectivePx = avatarPx - overlapPx; // width each additional avatar adds
 
     if (effectivePx <= 0) return 1;
@@ -262,8 +293,24 @@ export class MlvAvatarGroup {
       .pipe(takeUntilDestroyed())
       .subscribe((entries) => {
         const width = entries[0]?.contentRect.width ?? 0;
+        this._rootFontSizePx.set(this._readRootFontSizePx());
         this._containerWidth.set(width);
       });
+  }
+
+  /**
+   * @private The root element's computed `font-size` in pixels — what `1rem`
+   * resolves to. Called only from the resize callback, which never fires on
+   * the server. Falls back to {@link DEFAULT_ROOT_FONT_SIZE_PX} when the
+   * document has no view, or the value does not parse or is 0.
+   */
+  private _readRootFontSizePx(): number {
+    const view = this._document.defaultView;
+    if (!view) return DEFAULT_ROOT_FONT_SIZE_PX;
+    const px = parseFloat(
+      view.getComputedStyle(this._document.documentElement).fontSize,
+    );
+    return Number.isFinite(px) && px > 0 ? px : DEFAULT_ROOT_FONT_SIZE_PX;
   }
 
   // ── Event handlers ─────────────────────────────────────────────────────────
