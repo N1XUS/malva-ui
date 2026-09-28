@@ -9,6 +9,13 @@
     // Override the form-control-wrapper's fixed height so the textarea can grow
     .mlv-form-control-wrapper__control-container {
       height: auto;
+      // `mlv-input`'s control height as the floor (border-box, like the
+      // combobox and editor overrides), so a one-row textarea matches it at any
+      // root font size from 16px up: the scrollbar's inline min-height
+      // subtracts the border as `0.125rem`, but Chrome floors each `0.0625rem`
+      // border to a whole pixel, so above a 16px root that alone leaves the
+      // container short (#365).
+      min-height: var(--form-ctrl-height);
       align-items: flex-start;
       padding: 0;
     }
