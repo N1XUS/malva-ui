@@ -14,6 +14,20 @@
       "options": {
         "config": "libs/core/table/vite.config.mts"
       }
+    },
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "outputs": ["{workspaceRoot}/dist/.playwright/libs/core/table"],
+      "dependsOn": [
+        {
+          "projects": "docs",
+          "target": "serve",
+          "params": "forward"
+        }
+      ],
+      "options": {
+        "config": "libs/core/table/playwright.config.mts"
+      }
     }
   }
 }
