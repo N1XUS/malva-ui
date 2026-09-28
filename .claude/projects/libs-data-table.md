@@ -73,7 +73,7 @@ Feature-rich data table component for Angular. Accepts a plain `T[]` array or a 
 | ------------------------- | -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `columns`                 | `MlvDataTableColumn[]`                 | required    | Column definitions                                                                                                                                                                                                       |
 | `data`                    | `T[] \| MlvDataSource<T> \| undefined` | `undefined` | Row data — array (auto-wrapped) or custom data source                                                                                                                                                                    |
-| `rowHeight`               | `number`                               | `40`        | Row height in px. Required when `virtualScroll` is on — must match the actual rendered row height (which depends on the active density) so the CDK viewport positions rows correctly.                                    |
+| `rowHeight`               | `number \| undefined`                  | `undefined` | Virtual-scroll row pitch in px. Unset: measured from `--mlv-dt-row-height` (follows density, root font size, overrides; see _Row height_). Set: a forced pitch, each virtual row pinned to it.                           |
 | `virtualScroll`           | `boolean`                              | `false`     | Enable CDK virtual scroll for large datasets. Splits the table into a header table, a `cdk-virtual-scroll-viewport` body, and an optional footer table so only the visible row slice is rendered.                        |
 | `striped`                 | `boolean`                              | `false`     | Alternating row shading                                                                                                                                                                                                  |
 | `bordered`                | `boolean`                              | `false`     | Cell border lines                                                                                                                                                                                                        |
@@ -132,6 +132,9 @@ Density-aware CSS custom properties set on the host cascade through the entire t
 | `--mlv-dt-font-size`        | `font-size-s` | `font-size-s` | `font-size-m` | `font-size-l` | `font-size-l` |
 | `--mlv-dt-header-font-size` | `font-size-s` | `font-size-s` | `font-size-m` | `font-size-l` | `font-size-l` |
 | `--mlv-dt-icon-size`        | `0.75rem`     | `0.875rem`    | `1rem`        | `1.125rem`    | `1.25rem`     |
+
+- `--mlv-dt-row-height` = `calc(var(--mlv-height-{xs,s,m,l,xl}) + var(--mlv-spacing-4))`; rem values above pinned against the compiled SCSS by `data-table-virtual-row-height.spec.ts`.
+- Virtual scroll strides by the **measured** `--mlv-dt-row-height` (see _Virtual Scroll → Row height_), so a density change reaches `itemSize` with no density code path.
 
 #### Content children (structural directives)
 
@@ -441,11 +444,20 @@ A single `<table>` cannot be used with `cdk-virtual-scroll-viewport` because the
 
 All three tables share the same `<colgroup>` (rendered via the internal `#colgroupTpl`) and use `table-layout: fixed`, so column widths stay perfectly aligned across the split tables. The wrapper itself uses `overflow-y: visible` in virtual mode — all vertical scrolling happens inside the viewport.
 
-### Row height requirement
+### Row height
 
-CDK virtual scroll requires a fixed item height so it can compute the positions of non-rendered rows. The `rowHeight` input is passed to `[itemSize]` on the viewport, and each rendered `<tr>` has its height forced via `[style.height.px]="rowHeight()"`.
+CDK virtual scroll strides by one fixed `itemSize` to place non-rendered rows; a stride that differs from the rendered row pitch makes rows jump on scroll and misplaces the list end. Since #363 (owner ruling D18, [`docs/migrations/2026-09-data-table-virtual-row-height.md`](../../docs/migrations/2026-09-data-table-virtual-row-height.md)) the table **measures** it:
 
-**`rowHeight` MUST match the actual rendered row height for the active density**, otherwise the viewport will mis-position rows and the table will appear jumpy. See the density table above for the default `--mlv-dt-row-height` per density step (e.g. `60` for comfortable at 3.75rem = 60px).
+- **Probe.** Only in virtual mode with `rowHeight` unset, `div.mlv-data-table__row-probe` (`aria-hidden`, empty) is the host's direct child: `position: absolute`, `width: 0`, `height: var(--mlv-dt-row-height)` (the property every data cell is sized by, same physical axis), `visibility: hidden`, `pointer-events: none` — no scroll range, no hit, no paint. A bound `rowHeight` renders no probe and no observer: that path's host children are what they were before #363.
+- **Measure.** `MlvResizeObserverService` observes it; each non-zero `contentRect.height` sets `_measuredRowHeight`. A zero report (`display: none` ancestor) keeps the last value, and so does the probe's absence while `rowHeight` is bound. Released from the owning `effect`'s `onCleanup` — the probe is re-created on every virtual toggle and every `rowHeight` unbind.
+- **Stride.** `_virtualItemSize` → `[itemSize]`: `rowHeight()` → measured height → `FALLBACK_VIRTUAL_ROW_HEIGHT` (`60`, comfortable at a 16px root; server render, layout-less tests, the frame before the first delivery).
+- **Follows, no density code path:** density (own `mlvDensity`, `MLV_DENSITY_CONTEXT`, `MlvDensityService`) and runtime flips, root font size (a 20px root → comfortable `75`), a `--mlv-dt-row-height` or `--mlv-height-*` override on the host or any ancestor. An override **below** the host (on `tbody` / `td`) is not seen by the probe — override on the host.
+- **Rows.** With `rowHeight` unset no inline `height` is written; rows are sized by the `<td>`'s `height: var(--mlv-dt-row-height)`, the probe's token. A cell height is a **minimum**, so the stride matches only while cell content fits inside the token minus the 1px row separator (the `border-bottom` sits inside the cell's border-box): 5rem content gives pitch 81 against a probe of 60, and even `--mlv-dt-row-height: 5rem` gives probe 80, pitch 81. For taller content set `--mlv-dt-row-height` on the host to at least content height + 1px, or bind `rowHeight`.
+- **Explicit.** A bound `rowHeight` pins every virtual `<tr>` via `[style.height.px]` and wins over the measurement — a px value does **not** follow density or root font size.
+- **Scroll cap.** Browsers cap one scroller's height: Firefox at 17,895,688px, past which it drops the height and only the first screen is reachable; Chrome / WebKit clamp at 33,554,428px. So one virtual table holds ≈ 17.8M px ÷ pitch rows (≈ 298k at comfortable / 16px, fewer at spacious / airy or a larger root font). Above that page server-side (the data-at-scale showcase does), or bind a smaller `rowHeight` knowingly.
+- **Server.** The probe renders for an unset `rowHeight` (pinned in `ssr-smoke.spec.ts`); nothing is measured and the viewport attaches no strategy there, so the fallback is never read.
+- Measured in Chromium, Firefox and WebKit on docs example 15 (10 000 rows): unfixed `itemSize` 40 vs pitch 60 → rows jumped up to 60px per range change (105px at a 20px root) and the last row was unreachable at a 20px root; fixed, `itemSize` = pitch in all six scenarios (three densities, 20px root, both overrides) with zero drift, cell content within the token.
+- **Limit.** A pitch change while scrolled keeps `scrollTop`, so the row at the top moves (`scrollTop / itemSize`; row 5001 → 5771 on a comfortable → compact flip at 300 000px). CDK preserves no anchor.
 
 ### Viewport height
 
@@ -523,7 +535,7 @@ readonly columns: MlvDataTableColumn[] = [
 ```
 
 ```html
-<mlv-data-table [data]="rows()" [columns]="columns" [virtualScroll]="true" [rowHeight]="60" maxHeight="32rem" />
+<mlv-data-table [data]="rows()" [columns]="columns" [virtualScroll]="true" maxHeight="32rem" />
 ```
 
 ---
@@ -1064,5 +1076,5 @@ readonly rows = signal<Transaction[]>(generateLargeDataset(10_000));
 ```
 
 ```html
-<mlv-data-table [data]="rows()" [columns]="columns" [virtualScroll]="true" [rowHeight]="60" maxHeight="32rem" />
+<mlv-data-table [data]="rows()" [columns]="columns" [virtualScroll]="true" maxHeight="32rem" />
 ```

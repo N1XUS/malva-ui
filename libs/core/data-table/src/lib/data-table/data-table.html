@@ -165,6 +165,18 @@
   </div>
 }
 
+@if (virtualScroll() && rowHeight() === undefined) {
+  <!-- Row-height probe: an empty, zero-width, hidden box sized by the same
+       `--mlv-dt-row-height` every data cell is. Its measured height is what
+       virtual scroll strides by, so density, the root font size and any
+       override of the property all reach `itemSize` with no rem table in
+       code. A direct child of the host so a host-level override reaches it,
+       and absolutely positioned so it adds no scroll range anywhere. Not
+       rendered while `rowHeight` is bound: that value wins, so the explicit
+       path carries no extra node and no observer. -->
+  <div class="mlv-data-table__row-probe" aria-hidden="true" #rowProbe></div>
+}
+
 <div
   class="mlv-data-table__wrapper"
   [class.mlv-data-table__wrapper--virtual]="virtualScroll()"
@@ -202,7 +214,7 @@
          exclusive in this component. -->
     <cdk-virtual-scroll-viewport
       class="mlv-data-table__virtual-viewport"
-      [itemSize]="rowHeight()"
+      [itemSize]="_virtualItemSize()"
       [style.height]="virtualViewportHeight()"
     >
       <table

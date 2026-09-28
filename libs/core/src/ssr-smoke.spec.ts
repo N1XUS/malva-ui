@@ -1913,6 +1913,35 @@ describe('@malva-ui/core SSR safety', () => {
     ).toBe(true);
   });
 
+  it('server-renders the virtual data table row probe, hidden and unmeasured', async () => {
+    const { html } = await renderAllHosts();
+
+    // #363. The virtual table strides by the measured height of a probe sized
+    // `var(--mlv-dt-row-height)`. The server measures nothing (no
+    // ResizeObserver, and the viewport attaches no scroll strategy there), so
+    // the probe must ship as the same empty, hidden element the client claims
+    // at hydration — one per virtual table with `rowHeight` unset (a bound
+    // `rowHeight` wins and renders none), none on the plain one.
+    const probes =
+      html.match(
+        /<div[^>]*class="mlv-data-table__row-probe"[^>]*>[^<]*<\/div>/g,
+      ) ?? [];
+    expect(
+      probes.length,
+      'expected exactly one row probe — SsrDataHost renders one virtual ' +
+        'mlv-data-table with no rowHeight and one non-virtual one',
+    ).toBe(1);
+    const probe = probes[0];
+    expect(probe).toContain('aria-hidden="true"');
+    expect(
+      probe,
+      `the server wrote a style onto the probe: ${probe}`,
+    ).not.toContain('style=');
+    expect(/>\s*<\/div>$/.test(probe), `the probe is not empty: ${probe}`).toBe(
+      true,
+    );
+  });
+
   it('server-renders a copy-to-clipboard named by ids that resolve in the payload', async () => {
     const { html } = await renderAllHosts();
 

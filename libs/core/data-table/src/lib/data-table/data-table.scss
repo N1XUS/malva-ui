@@ -105,6 +105,25 @@
       color: var(--mlv-text-secondary);
     }
 
+    // ---- Virtual row-height probe -----------------------------------------------
+    // Measured by the component to find the pitch virtual scroll strides by. It
+    // takes its height from the same property, on the same physical axis, as
+    // `&__cell--data`, so what it measures is what a data row renders at while
+    // cell content fits inside the property minus the 1px row separator (a cell
+    // height is a minimum; taller content grows the row past it). Out of flow
+    // (the host is `position: relative`), zero-width and invisible: it adds no
+    // scroll range, takes no pointer and paints nothing.
+
+    &__row-probe {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      width: 0;
+      height: var(--mlv-dt-row-height);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     // ---- Table wrapper ----------------------------------------------------------
     // Completely flat — no border, no shadow, no radius. The table lives directly
     // on the page like the reference designs. Separators do all the work.
