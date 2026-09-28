@@ -90,19 +90,25 @@ The member popup lists the counter in `dismissExcludeElements`: it has no backdr
 `_maxFit` computed signal returns the maximum **total** avatars (visible + overflow) that fit:
 
 - Returns `Infinity` until the first `MlvResizeObserverService` measurement (so the initial render shows everything before width is known).
-- Otherwise: `Math.max(1, Math.floor((width - avatarPx) / (avatarPx - overlapPx)) + 1)`.
+- Otherwise: `Math.max(1, Math.floor((width - avatarPx) / (avatarPx - overlapPx)) + 1)`, where `avatarPx` / `overlapPx` are the per-size **rem** values below times `_rootFontSizePx` — the root element's computed `font-size`, i.e. the size of `1rem` (#356).
 - When `members.length > _maxFit`, reserves 1 slot for the `+N` counter (`_visibleMembers().length === Math.max(1, maxFit - 1)`).
 
-Avatar pixel sizes (matches `mlv-avatar` SCSS tokens):
+The root font size is read with **every** observer callback, through the injected `DOCUMENT`'s `defaultView` (never the ambient globals), falling back to 16 when there is no view, or the value does not parse or is 0. It is never read on the server — no measurement arrives there, and `_maxFit` stays `Infinity`. A root font-size change resizes the rendered avatars and so the host's content-box height, which re-fires the same observer with an unchanged width; only a host whose height something else sets (an explicit `height`, a taller stretched sibling) waits for its next width change.
 
-| Size  | Avatar px | Overlap px |
-| ----- | --------: | ---------: |
-| `xs`  |        24 |          4 |
-| `s`   |        32 |          6 |
-| `m`   |        40 |          8 |
-| `l`   |        56 |         10 |
-| `xl`  |        80 |         12 |
-| `xxl` |        96 |         14 |
+Until #356 the size and overlap tables were px constants assuming a 16px root: a browser font-size preference scales the rem-sized avatars but not px, so at a 20px root a 200px size-`m` group counted six slots (five avatars and `+2`, 250px of stack) where four fit. Identical at a 16px root. Measured in system Chrome with the "default font size" preference at 20: a plain group pinned to 200px showed five avatars and `+2` running 50px past the host; `/avatar-group` example 4 (interactive, `max-width: 10rem` = 200px), whose action button shrinks, drew the counter over the fourth and fifth avatars with the fifth past the host edge. After, both fit inside the host at every size (size m: three and `+4`); unchanged at the 16px preference.
+
+Rendered geometry per size (rem; `--mlv-avatar-size` on `.mlv-avatar--<size>`, magnitude of `--mlv-ag-overlap` on `.mlv-avatar-group--size-<size>`). `avatar-group-rem-fit.spec.ts` pins these to the compiled stylesheets. No density scaling: neither `mlv-avatar` nor this component reads density, so the fit depends on size and root font size only.
+
+| Size  | Avatar rem | Overlap rem | px at 16px root |
+| ----- | ---------: | ----------: | --------------: |
+| `xs`  |        1.5 |        0.25 |          24 / 4 |
+| `s`   |          2 |       0.375 |          32 / 6 |
+| `m`   |        2.5 |         0.5 |          40 / 8 |
+| `l`   |        3.5 |       0.625 |         56 / 10 |
+| `xl`  |          5 |        0.75 |         80 / 12 |
+| `xxl` |          6 |       0.875 |         96 / 14 |
+
+Not honoured by the fit: a consumer override of `--mlv-avatar-size` or `--mlv-ag-overlap` — the tables mirror the shipped values, so an override changes the rendered stack but not the count.
 
 #### Computed (protected)
 
@@ -140,11 +146,11 @@ interface MlvAvatarGroupMember {
 
 Declared in `avatar-group.scss`:
 
-| Variable              | Default                              | Purpose                                                               |
-| --------------------- | ------------------------------------ | --------------------------------------------------------------------- |
-| `--mlv-ag-overlap`    | `-0.5rem` (size `m`); see size table | Negative `margin-left` applied to stacked items (per-size override).  |
-| `--mlv-ag-ring-width` | `0.125rem`                           | Outline width of each avatar's ring (used to separate stacked tiles). |
-| `--mlv-ag-ring-color` | `var(--mlv-background-base)`         | Outline color of the ring.                                            |
+| Variable              | Default                              | Purpose                                                                      |
+| --------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| `--mlv-ag-overlap`    | `-0.5rem` (size `m`); see size table | Negative `margin-inline-start` applied to stacked items (per-size override). |
+| `--mlv-ag-ring-width` | `0.125rem`                           | Outline width of each avatar's ring (used to separate stacked tiles).        |
+| `--mlv-ag-ring-color` | `var(--mlv-background-base)`         | Outline color of the ring.                                                   |
 
 Per-size `--mlv-ag-overlap` defaults applied via `&--size-{xs,s,m,l,xl,xxl}` modifiers:
 
@@ -207,7 +213,15 @@ Per-size `--mlv-ag-overlap` defaults applied via `&--size-{xs,s,m,l,xl,xxl}` mod
 
 ## Testing
 
-`libs/core/avatar-group/src/lib/avatar-group/avatar-group.spec.ts`. Member-count,
+`libs/core/avatar-group/src/lib/avatar-group/avatar-group.spec.ts`, plus
+`avatar-group-rem-fit.spec.ts` (#356): the per-size rem table pinned to the
+compiled `avatar.scss` / `avatar-group.scss`, and the fit at 20px and 12px roots
+for every size — four slots at their exact rendered width, three one pixel
+short — at a 16px root for every size (unchanged), re-read on a
+same-width callback, carried over a size change, read through the injected
+document's view (red with the ambient `getComputedStyle`), and the 16px
+fallback for a value that does not parse, a 0px value and a document with no
+view. Member-count,
 overflow, and list labels resolve through `MLV_AVATAR_GROUP_I18N`; specs provide
 `provideMlvI18nTesting()`.
 
