@@ -79,9 +79,9 @@ Block: `mlv-date-range-picker`
 | `.mlv-date-range-picker__footer`        | Clear/Apply action row (anchored dropdown only)                                                           |
 | `.mlv-date-range-picker__done`          | Sheet confirm action, projected into the popup's own header row (sheet only)                              |
 | `--open` modifier                       | When popup is open                                                                                        |
-| `--disabled` modifier                   | Disabled state                                                                                            |
+| `--disabled` modifier                   | Disabled state — no opacity; the trigger field declares the disabled surface (#366)                       |
 | `--selecting` modifier                  | After start date chosen, awaiting end                                                                     |
-| `--state-*` modifiers                   | Validation state border color                                                                             |
+| `--state-*` modifiers                   | Only `--state-error` paints the trigger (SF-R6, #366)                                                     |
 
 ## Panel month coordination
 
@@ -316,3 +316,9 @@ so the real service is pinned to `'sm'` and every open would be the sheet.
 - `hasClearableValue` (public computed, "whether the clear button should be shown") now reads `clearable() && _canWrite() && (start || end)`; it checked `!computedDisabled()` alone and answered `true` for a readonly picker.
 - `clearSelection()` (public) is unchanged and ungated: it is the popup footer's `Clear` handler and an application API. Readonly on the popup — footer `Clear` / `Apply` included — is #402.
 - Spec: `date-range-picker-clear.spec.ts`.
+
+## Disabled surface (2026-09, #366)
+
+- Host `opacity` removed — the trigger is an `mlv-form-control-wrapper` field that declares the disabled surface; `pointer-events: none` and the trigger cursor stay. `--state-warning` / `--state-success` / `--state-info` trigger tints removed (SF-R6); `--state-error` kept.
+- Spec: `date-range-picker-disabled-styles.spec.ts` (no-tint + no-opacity).
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

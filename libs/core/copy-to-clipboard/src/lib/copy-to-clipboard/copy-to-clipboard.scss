@@ -216,8 +216,12 @@
     }
 
     // ── Disabled state ─────────────────────────────────────────────────────────
+    // A declared ink, not an opacity multiply (SF-R4, #366). The content and
+    // the indicator read `--mlv-copy-to-clipboard-content-color`, so both
+    // take it; the host `color` covers text inheriting past them.
     &--disabled {
-      opacity: var(--mlv-disabled-opacity);
+      color: var(--mlv-text-disabled);
+      --mlv-copy-to-clipboard-content-color: var(--mlv-text-disabled);
       cursor: not-allowed;
       pointer-events: none;
     }

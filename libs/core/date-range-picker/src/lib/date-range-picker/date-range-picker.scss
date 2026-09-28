@@ -163,21 +163,11 @@
       // Uses mlv-button styles
     }
 
-    // State modifiers
+    // State modifiers. Only `error` tints the trigger: `success`, `warning`
+    // and `info` deliberately declare nothing — meaning lives in
+    // `mlv-message`, as on `mlv-form-control-wrapper` (SF-R6, #366).
     &--state-default {
       // default appearance — no overrides needed
-    }
-
-    &--state-success {
-      .#{$block}__trigger {
-        color: var(--mlv-text-positive);
-      }
-    }
-
-    &--state-warning {
-      .#{$block}__trigger {
-        color: var(--mlv-text-warning);
-      }
     }
 
     &--state-error {
@@ -186,15 +176,10 @@
       }
     }
 
-    &--state-info {
-      .#{$block}__trigger {
-        color: var(--mlv-text-info);
-      }
-    }
-
-    // Disabled state
+    // Disabled state. The picker renders inside `mlv-form-control-wrapper`,
+    // which declares the disabled surface and ink (SF-R4, #366), so the host
+    // no longer multiplies the whole field by the opacity token.
     &--disabled {
-      opacity: var(--mlv-disabled-opacity);
       pointer-events: none;
 
       .#{$block}__trigger {

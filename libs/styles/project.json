@@ -51,8 +51,21 @@
         "cwd": "{workspaceRoot}"
       }
     },
+    "check-disabled-surface": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{workspaceRoot}/scripts/check-disabled-surface.mjs",
+        "{workspaceRoot}/libs/**/*.scss",
+        "{workspaceRoot}/libs/**/*.css"
+      ],
+      "options": {
+        "command": "node scripts/check-disabled-surface.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "lint": {
-      "dependsOn": ["check-padding-tokens"]
+      "dependsOn": ["check-padding-tokens", "check-disabled-surface"]
     },
     "test": {
       "executor": "nx:run-commands",
@@ -60,6 +73,8 @@
       "inputs": [
         "{workspaceRoot}/scripts/check-padding-tokens.mjs",
         "{workspaceRoot}/scripts/check-padding-tokens.spec.mjs",
+        "{workspaceRoot}/scripts/check-disabled-surface.mjs",
+        "{workspaceRoot}/scripts/check-disabled-surface.spec.mjs",
         "{projectRoot}/src/lib/theme.scss",
         "{projectRoot}/src/lib/theme-contrast.mjs",
         "{projectRoot}/src/lib/theme-contrast.spec.mjs",
@@ -82,7 +97,7 @@
         "{workspaceRoot}/libs/**/*.{css,scss}"
       ],
       "options": {
-        "command": "node --test scripts/check-padding-tokens.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/tone-contrast.spec.mjs libs/styles/src/lib/theme-scopes.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/fluid-type.spec.mjs libs/styles/src/lib/layers.spec.mjs libs/styles/src/lib/sticky-inline-inset.spec.mjs libs/styles/src/lib/theme-attribute-selectors.spec.mjs",
+        "command": "node --test scripts/check-padding-tokens.spec.mjs scripts/check-disabled-surface.spec.mjs libs/styles/src/lib/theme-contrast.spec.mjs libs/styles/src/lib/tone-contrast.spec.mjs libs/styles/src/lib/theme-scopes.spec.mjs libs/styles/src/lib/mixins.spec.mjs libs/styles/src/lib/fluid-type.spec.mjs libs/styles/src/lib/layers.spec.mjs libs/styles/src/lib/sticky-inline-inset.spec.mjs libs/styles/src/lib/theme-attribute-selectors.spec.mjs",
         "cwd": "{workspaceRoot}"
       }
     }

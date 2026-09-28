@@ -447,10 +447,12 @@ host: {
   never also triggers the surrounding zone and opens the native file picker.
   Same-element handlers are unaffected, so the consumer's own `(click)` still
   fires.
-- **Disabled state is the consumer's job.** `mlv-file-upload` dims the zone and
-  sets `pointer-events: none` on the host while the control is disabled, but it
-  never writes `disabled` onto projected content. The disabled styling only
-  dims the extra actions — it does not hide or remove them.
+- **Disabled state is the consumer's job.** `mlv-file-upload` paints the zone
+  with the disabled surface and sets `pointer-events: none` on the host while the
+  control is disabled, but it never writes `disabled` onto projected content.
+  Since #366 the host no longer multiplies everything by an opacity, so a
+  projected action renders at full strength unless the consumer binds its own
+  `[disabled]` (an `mlvButton` then shows its disabled surface).
 - Give icon-only actions an `aria-label`; the directive adds no accessible name.
 
 ---
@@ -581,3 +583,9 @@ readonly image = signal<MlvUploadedFile[]>([
 - `@malva-ui/core/form-utils` — `MlvSignalFormControlBase<T>` signal-control base class
 - `@malva-ui/core/button` — `MlvButton` for the browse button
 - `@malva-ui/core/loader` — `MlvLoader` for upload progress bar
+
+## Disabled surface (2026-09, #366)
+
+- Host opacity removed. `--disabled`: zone `--mlv-background-disabled` + `cursor: not-allowed`, zone icon / title / subtitle `--mlv-text-disabled`; `__cover-image` keeps `opacity: var(--mlv-disabled-opacity)` (picture data, allow-listed). Error border and rejection list kept. Projected actions are no longer dimmed by the host (see _Disabled state is the consumer's job_).
+- Spec: `file-upload-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

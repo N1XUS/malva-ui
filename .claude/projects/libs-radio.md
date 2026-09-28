@@ -91,7 +91,7 @@ roving tabindex (`tabIndex` signal) managed by `MlvRadioGroup`.
 - `onSelect()` — Native selection (click, Space, arrow keys); calls `group.selectRadio(this)` if not disabled
 - `_onNativeClick(event)` (`protected`) — cancels the native click while `group.canSelect()` is `false` (readonly or disabled group). A cancelled click on a radio makes the browser restore the previously checked radio and fire no `change` (HTML legacy-canceled-activation steps; verified in headless Chrome 153 for a pointer click, a label click and Space).
 - `_restoreNativeChecked()` (`@internal`) — writes `checked()` back onto the native input; the group calls it on every radio when it refuses a selection.
-- `_nativeDisabled` (`protected` computed) — `disabled() || group.computedDisabled()`, bound to the native `[disabled]`. A disabled group therefore takes every radio out of the tab order and makes Space inert; before #298 only CSS (`pointer-events: none`) blocked the mouse, and Tab / Space still reached and flipped the radios. The host `mlv-radio--disabled` class still follows the radio's own `disabled()` only, so the group's dimming is not compounded.
+- `_nativeDisabled` (`protected` computed) — `disabled() || group.computedDisabled()`, bound to the native `[disabled]`. A disabled group therefore takes every radio out of the tab order and makes Space inert; before #298 only CSS (`pointer-events: none`) blocked the mouse, and Tab / Space still reached and flipped the radios. The host `mlv-radio--disabled` class still follows the radio's own `disabled()` only; a disabled group reaches its radios in CSS through `.mlv-radio-group--disabled .mlv-radio` (#366).
 
 #### Keyboard & Focus
 
@@ -297,3 +297,10 @@ label text rather than a string that may differ from it.
 
 Full contract, the `'native'` vs `'aria'` split and the dev-mode warning:
 `.claude/projects/libs-form-utils.md` → _`MlvFormField` → Accessible name_.
+
+## Disabled surface (2026-09, #366)
+
+- `.mlv-radio--disabled` **and** `.mlv-radio-group--disabled .mlv-radio` (the host class follows only the radio's own input) declare `--mlv-radio-border: --mlv-border-normal`, the dot `--mlv-text-disabled`, the visual `--mlv-background-disabled`, and remap the label's `--mlv-text-primary` → `--mlv-text-disabled`. No opacity on the radio or the group `__content` (they used to compound).
+- `mlv-radio-group`: `--state-warning` / `--state-success` / `--state-info` rules deleted (FC-18, SF-R6); only `--state-error` paints.
+- Spec: `radio-disabled-styles.spec.ts` (radio + group, no-tint).
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

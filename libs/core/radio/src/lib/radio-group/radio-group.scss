@@ -1,51 +1,39 @@
 @layer mlv.components {
-$block: 'mlv-radio-group';
+  $block: 'mlv-radio-group';
 
-.#{$block} {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mlv-spacing-2);
-
-  &__content {
+  .#{$block} {
     display: flex;
     flex-direction: column;
     gap: var(--mlv-spacing-2);
-  }
 
-  &--disabled {
-    .#{$block} {
-      &__content {
-        opacity: var(--mlv-disabled-opacity);
-        cursor: not-allowed;
-        pointer-events: none;
+    &__content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mlv-spacing-2);
+    }
+
+    // Each radio declares its own disabled surface when the group is disabled
+    // (radio.scss, SF-R4), so the group no longer dims its content on top.
+    &--disabled {
+      .#{$block} {
+        &__content {
+          cursor: not-allowed;
+          pointer-events: none;
+        }
       }
     }
-  }
 
-  // Read-only: selection is locked but the group stays legible and focusable.
-  &--readonly &__content {
-    cursor: default;
-  }
+    // Read-only: selection is locked but the group stays legible and focusable.
+    &--readonly &__content {
+      cursor: default;
+    }
 
-  // Validation state: a subtle inline-start accent echoing the form field state.
-  &--state-error &__content {
-    border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-error);
-    padding-inline-start: var(--mlv-spacing-3);
+    // Validation state: an inline-start accent for `error` only. `success`,
+    // `warning` and `info` deliberately declare nothing — meaning lives in
+    // `mlv-message`, as on `mlv-form-control-wrapper` (SF-R6, #366).
+    &--state-error &__content {
+      border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-error);
+      padding-inline-start: var(--mlv-spacing-3);
+    }
   }
-
-  &--state-warning &__content {
-    border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-warning);
-    padding-inline-start: var(--mlv-spacing-3);
-  }
-
-  &--state-success &__content {
-    border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-success);
-    padding-inline-start: var(--mlv-spacing-3);
-  }
-
-  &--state-info &__content {
-    border-inline-start: var(--mlv-stroke-width) solid var(--mlv-border-info);
-    padding-inline-start: var(--mlv-spacing-3);
-  }
-}
 }

@@ -118,17 +118,17 @@ The indicator icon stack is decorated with `[mlvTooltip]` from `@malva-ui/core/t
 
 ## CSS Classes
 
-| Class                                   | Description                                                                      |
-| --------------------------------------- | -------------------------------------------------------------------------------- |
-| `.mlv-copy-to-clipboard`                | Root block — inline-flex wrapper with zero-inset hover tint                      |
-| `.mlv-copy-to-clipboard__content`       | Span wrapping the projected default slot                                         |
-| `.mlv-copy-to-clipboard__indicator`     | Relatively-positioned ~0.875rem square holding the two icons                     |
-| `.mlv-copy-to-clipboard__icon`          | Absolutely-positioned icon inside the indicator                                  |
-| `.mlv-copy-to-clipboard__icon--idle`    | Copy icon layer (visible in idle state)                                          |
-| `.mlv-copy-to-clipboard__icon--success` | Check icon layer (visible in copied state), colored with `--mlv-text-positive`   |
-| `.mlv-copy-to-clipboard__live`          | Visually hidden `aria-live="polite"` announcement region                         |
-| `.mlv-copy-to-clipboard--copied`        | Success state modifier — crossfades the two icons with a blur bridge             |
-| `.mlv-copy-to-clipboard--disabled`      | Disabled modifier — applies `--mlv-disabled-opacity` and disables pointer events |
+| Class                                   | Description                                                                                     |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `.mlv-copy-to-clipboard`                | Root block — inline-flex wrapper with zero-inset hover tint                                     |
+| `.mlv-copy-to-clipboard__content`       | Span wrapping the projected default slot                                                        |
+| `.mlv-copy-to-clipboard__indicator`     | Relatively-positioned ~0.875rem square holding the two icons                                    |
+| `.mlv-copy-to-clipboard__icon`          | Absolutely-positioned icon inside the indicator                                                 |
+| `.mlv-copy-to-clipboard__icon--idle`    | Copy icon layer (visible in idle state)                                                         |
+| `.mlv-copy-to-clipboard__icon--success` | Check icon layer (visible in copied state), colored with `--mlv-text-positive`                  |
+| `.mlv-copy-to-clipboard__live`          | Visually hidden `aria-live="polite"` announcement region                                        |
+| `.mlv-copy-to-clipboard--copied`        | Success state modifier — crossfades the two icons with a blur bridge                            |
+| `.mlv-copy-to-clipboard--disabled`      | Disabled modifier — `--mlv-text-disabled` ink on host + content (#366), disables pointer events |
 
 ---
 
@@ -201,3 +201,9 @@ libs/core/copy-to-clipboard/src/
       copy-to-clipboard.spec.ts                — unit tests
       copy-to-clipboard-styles.spec.ts         — compiled-CSS mask geometry, LTR + RTL
 ```
+
+## Disabled surface (2026-09, #366)
+
+- `--disabled`: host `color` and `--mlv-copy-to-clipboard-content-color` → `--mlv-text-disabled` (content and indicator read it), no opacity.
+- Spec: `copy-to-clipboard-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

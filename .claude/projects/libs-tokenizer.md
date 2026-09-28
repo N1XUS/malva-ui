@@ -365,3 +365,9 @@ tab stop and no name is due.
 - The inner `mlv-input`'s public `clearValue()` (called after a token is committed) stays an ungated application API — which is why `mlv-input`'s own clear button got a separate gated handler rather than a gate inside `clearValue()`.
 - Scope: the clear button only. Readonly on typing / Backspace / token removal is #402.
 - Spec: `tokenizer-clear.spec.ts`.
+
+## Disabled surface (2026-09, #366)
+
+- `.mlv-token--disabled` multiplied an already muted chip by 0.4; now `.mlv-token.mlv-token--disabled .mlv-chip` (0,3,0, above the chip's `--muted.--tone-*`) sets `--mlv-chip-bg: --mlv-background-disabled`, `--mlv-chip-color: --mlv-text-disabled`, `--mlv-chip-border: transparent`. The field surface comes from `mlv-form-control-wrapper`.
+- Spec: `token-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

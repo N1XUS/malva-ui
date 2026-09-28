@@ -102,10 +102,29 @@
       --mlv-radio-transform: scale(1);
     }
 
-    &--disabled {
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366).
+    // The host class is stamped for the radio's own `disabled` only, so a
+    // disabled group reaches its radios through the second selector — the
+    // group used to dim its whole content instead. The checked dot keeps its
+    // opacity, so the selection still reads.
+    &--disabled,
+    .mlv-radio-group--disabled & {
+      --mlv-radio-border: var(--mlv-border-normal);
+      --mlv-radio-bg: var(--mlv-text-disabled);
       cursor: not-allowed;
       pointer-events: none;
-      opacity: var(--mlv-disabled-opacity);
+    }
+
+    &--disabled &__visual,
+    .mlv-radio-group--disabled &__visual {
+      background-color: var(--mlv-background-disabled);
+    }
+
+    // The label text carries an `mlv` class and reads `--mlv-text-primary`
+    // directly (the global `[class*='mlv']` rule), so remap the token.
+    &--disabled &__label,
+    .mlv-radio-group--disabled &__label {
+      --mlv-text-primary: var(--mlv-text-disabled);
     }
 
     &:not(:focus) {

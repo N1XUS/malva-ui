@@ -233,7 +233,9 @@ box, and never disappears while the box has already snapped shut.
 ```
 
 `.mlv-expand--disabled` sets `pointer-events: none` and
-`opacity: var(--mlv-disabled-opacity)`.
+`opacity: var(--mlv-disabled-opacity)` — kept on purpose: a headless container
+has no surface or ink of its own, only consumer content. Listed on
+`OPACITY_ALLOWED` in `scripts/check-disabled-surface.mjs` (#366).
 
 ---
 

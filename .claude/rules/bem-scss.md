@@ -144,9 +144,11 @@ Always reference design tokens from `libs/styles`. Never hard-code raw color val
   transition-duration: var(--mlv-duration-fast);
   transition-timing-function: var(--mlv-ease-default);
 
-  // Disabled state
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
+  // Disabled state — a declared surface, never an opacity multiply
+  // (see "Disabled is a declared surface" below)
+  &#{&}--disabled {
+    background-color: var(--mlv-background-disabled);
+    color: var(--mlv-text-disabled);
   }
 
   // Focus ring — Form A, see "Focus Ring — Forms A/B" below
@@ -197,6 +199,51 @@ right now** — nothing else. No persistent state (selected, checked, pressed
 toggle, active nav item) may resolve an `-active` token. Persistent selection
 uses its own token pair instead: `--mlv-background-selected` /
 `--mlv-background-selected-hover` + `--mlv-text-on-selected`.
+
+### Disabled is a declared surface (SF-R4) — and only error tints (SF-R6)
+
+Settled by #366. Enforced by `yarn nx run styles:check-disabled-surface`
+(`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency like
+`check-padding-tokens`, so CI fails on it).
+
+- **Disabled = `--mlv-background-disabled` surface + `--mlv-text-disabled` ink.**
+  Never `opacity` on a disabled selector. An opacity multiply composites over
+  whatever is behind it (tone fills bleed the row through, a disabled group
+  dims its items a second time, 0.4 × 0.4 = 16 % labels) and follows no theme.
+  The `mlvButton` family is the reference.
+- **Surfaces**: fills (box, track, field, chip, action block) take
+  `--mlv-background-disabled`; borders fall back to `--mlv-border-normal` (a
+  checked accent border must be reset); shadows go. A raised piece that must
+  stay distinguishable (a segmented pill) keeps a neutral elevation surface.
+- **Ink reaches inner BEM elements only through the token.** The global
+  `[class*='mlv'] { color: var(--mlv-text-primary) }` base rule makes every
+  `mlv`-classed element read the token directly, so `color` on the host does
+  not cascade to a `__label`. Remap on the disabled scope:
+  `--mlv-text-primary: var(--mlv-text-disabled)` (plus `-secondary` where the
+  element uses it). Elements with `color: inherit` inherit normally.
+- **Order / specificity**: the disabled rule must beat checked / active /
+  selected / tone rules. Emit it after them at equal specificity, or double the
+  class (`&#{&}--disabled` → `.mlv-x.mlv-x--disabled`, the button precedent).
+- **Allowed opacity** — colour or picture data with no disabled token, or a
+  chromeless control with no surface. Write `var(--mlv-disabled-opacity)`
+  (never a literal, never a fallback) and add the selector to
+  `OPACITY_ALLOWED` in the guard with its reason. That array is the live list;
+  when #366 landed it held `mlv-icon-toggle`
+  `:disabled`, `.mlv-expand--disabled`, the colour picker's
+  `__canvas-container` / `__sliders`, the popup `__swatch`, file-upload's
+  `__cover-image`. An allow entry that stops matching fails as `stale-allow`.
+- **Validation tint: error only.** `--state-error` may paint (border, ring,
+  track); `--state-success` / `--state-warning` / `--state-info` declare
+  **nothing** — no colour, border, fill or shadow. A class may still be
+  stamped. `STATE_TINT_ALLOWED` is empty.
+- Guard findings: `opacity-under-disabled`, `literal-opacity`,
+  `opacity-fallback`, `state-tint`, `stale-allow`, `compile-error`,
+  `no-sources`. It compiles every `libs/**` `.scss` / reads every `.css`
+  (partials, mixin libraries, the global entry, the Tailwind adapter and the
+  token library excepted) and reads the emitted selectors, so a `&--disabled`
+  nested three levels deep is still seen. `opacity: 0` (a hide) and
+  `opacity: 1` (a reset) under a disabled selector are not dims and pass; a
+  marker inside `:not(…)` is ignored.
 
 ### Component-scoped custom properties
 
@@ -348,7 +395,7 @@ Exception: pixel-perfect values where the design token already encodes the rem v
 | Easing                                         | `--mlv-ease-{default,in,out,in-out,linear,spring,spring-soft,spring-strong,out-strong,in-out-strong,drawer,bounce}`                                            | `--mlv-ease-default`, `--mlv-ease-spring`                                                           |
 | Transitions — prebuilt                         | `--mlv-transition-{colors,opacity,...}`                                                                                                                        | `--mlv-transition-colors`                                                                           |
 | Stroke                                         | `--mlv-stroke-width`                                                                                                                                           | —                                                                                                   |
-| Disabled                                       | `--mlv-disabled-opacity`                                                                                                                                       | —                                                                                                   |
+| Disabled                                       | `--mlv-background-disabled` + `--mlv-text-disabled`; `--mlv-disabled-opacity` only on the guard's allow-list                                                   | see "Disabled is a declared surface"                                                                |
 | Direction                                      | `--mlv-inline-direction` (`1` LTR / `-1` RTL, re-signed under any `[dir]`)                                                                                     | consume via `mixins.inline-distance()` / `translate-inline()` — see `.claude/rules/rtl.md`          |
 
 ### Do NOT use (these tokens do not exist)
@@ -486,8 +533,9 @@ $variants: (
     }
   }
 
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
+  &#{&}--disabled {
+    --mlv-tag-bg: var(--mlv-background-disabled);
+    --mlv-tag-color: var(--mlv-text-disabled);
     pointer-events: none;
   }
 

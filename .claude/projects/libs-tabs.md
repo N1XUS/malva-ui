@@ -595,7 +595,7 @@ File: `libs/core/tabs/src/lib/tab-item/tab-item.scss`
 - `.mlv-tab-item` — `inline-flex; gap:0.5rem; padding:0.75rem 1rem` (comfortable). No hover colour shift.
 - Density mixins (`density.density-*`) scale padding/font-size by the item's **own** `mlv-tab-item--<density>` modifier — `MlvDensityDirective` host directive, `MLV_DENSITY_ELEMENT: 'tab-item'`, no input; resolved from the group's scope, so an ancestor `mlv--<density>` class no longer reaches it (#364): tight `0.375rem 0.625rem`, compact `0.5rem 0.75rem`, spacious `1rem 1.25rem`, airy `1.25rem 1.5rem`.
 - `--active` — `color: var(--mlv-text-action)` (boxed overrides to `text-primary`).
-- `--disabled` — `opacity:0.5; cursor:not-allowed`.
+- `--disabled` — `color: var(--mlv-text-disabled); cursor:not-allowed` (after `--active`; was a literal `opacity:0.5`, #366).
 
 Boxed overrides for `.mlv-tab-item` (radius, `z-index:1`, hover tint, active colour) live in `tabs.scss` under `--appearance-boxed` via child combinators.
 
@@ -834,3 +834,8 @@ export class MyComponent {}
 | `@angular/aria/tabs`    | `Tabs` / `TabList` / `Tab` / `TabPanel` / `TabContent` (`ngTabs`/`ngTabList`/`ngTab`/`ngTabPanel`/`ngTabContent`) — headless roving focus, selection and ARIA wiring for the tablist |
 | `@malva-ui/core/popup`  | `MlvPopup`, `MlvPopupContent`, `MlvPopupTrigger` — used for the overflow "More" popup                                                                                                |
 | `@malva-ui/core/list`   | `MlvList`, `MlvListItem` — used to render items in the overflow popup                                                                                                                |
+
+## Disabled surface (2026-09, #366)
+
+- Spec: `tab-item-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

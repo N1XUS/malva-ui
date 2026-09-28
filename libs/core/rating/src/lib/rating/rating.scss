@@ -75,22 +75,12 @@
     }
 
     // ── Validation state ──────────────────────────────────────────────────────
-    // Tints the empty-star outline to echo the surrounding form field's state.
+    // Tints the empty-star outline for `error` only. `success`, `warning` and
+    // `info` deliberately declare nothing — meaning lives in `mlv-message`, as
+    // on `mlv-form-control-wrapper` (SF-R6, #366).
 
     &--state-error &__icon--empty {
       color: var(--mlv-border-error);
-    }
-
-    &--state-warning &__icon--empty {
-      color: var(--mlv-border-warning);
-    }
-
-    &--state-success &__icon--empty {
-      color: var(--mlv-border-success);
-    }
-
-    &--state-info &__icon--empty {
-      color: var(--mlv-border-info);
     }
 
     // ── Read-only ─────────────────────────────────────────────────────────────
@@ -106,13 +96,19 @@
 
     // ── Disabled ──────────────────────────────────────────────────────────────
 
+    // Disabled is a declared ink, not an opacity multiply (SF-R4, #366): the
+    // filled stars take `--mlv-text-disabled`; the empty outline already sits
+    // at the resting border token.
     &--disabled {
-      opacity: var(--mlv-disabled-opacity);
       pointer-events: none;
     }
 
     &--disabled &__star {
       cursor: not-allowed;
+    }
+
+    &--disabled &__icon--filled {
+      color: var(--mlv-text-disabled);
     }
 
     // ── Reduced motion ────────────────────────────────────────────────────────

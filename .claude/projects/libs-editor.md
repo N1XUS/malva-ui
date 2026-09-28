@@ -1929,3 +1929,10 @@ its two intended tab stops — the content textbox and the roving toolbar widget
 - The announced node type is the raw ProseMirror type name (`paragraph`,
   `heading`) and is not translated; localising it would need a key per node type
   in every locale pack.
+
+## Disabled surface (2026-09, #366)
+
+- Host `opacity` removed. A disabled editor takes the field treatment: `.mlv-editor--disabled` paints the wrapper container, `__surface` and the docked `__toolbar` (each sets its own `background`, so the wrapper's disabled surface never showed) with `--mlv-background-disabled`, and `__content` remaps `--mlv-text-primary` / `-secondary` / `-heading` / `-action` / `-action-hover` → `--mlv-text-disabled`. Authored colours (text colour, highlight, images) are content and keep their values.
+- `mlv-editor-toolbar--disabled` no longer dims (its controls are disabled `mlvButton`s); a disabled table-size cell is `--mlv-background-disabled` + `--mlv-border-normal`.
+- Spec: `editor-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

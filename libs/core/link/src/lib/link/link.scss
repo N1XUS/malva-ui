@@ -2,69 +2,73 @@
 @use '../../../../../styles/src/lib/density' as density;
 
 @layer mlv.components {
-$block: mlv-link;
+  $block: mlv-link;
 
-.#{$block} {
-  color: var(--mlv-text-action);
-  text-decoration: none;
-  cursor: pointer;
-  transition: color var(--mlv-duration-normal) var(--mlv-ease-default);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mlv-spacing-1);
-  border-radius: var(--mlv-radius-xs);
-
-  * {
-    color: inherit;
-  }
-
-  &__side {
-    display: flex;
-    svg {
-      width: 1.25em;
-      height: 1.25em;
-    }
-  }
-
-  &__text {
+  .#{$block} {
+    color: var(--mlv-text-action);
     text-decoration: none;
-  }
+    cursor: pointer;
+    transition: color var(--mlv-duration-normal) var(--mlv-ease-default);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-1);
+    border-radius: var(--mlv-radius-xs);
 
-  &:hover {
-    color: var(--mlv-text-action-hover);
-    .#{$block}__text {
-      text-decoration: underline;
+    * {
+      color: inherit;
     }
-  }
 
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: var(--mlv-focus-ring-offset);
-    color: var(--mlv-text-action-hover);
-    .#{$block}__text {
-      text-decoration: underline;
+    &__side {
+      display: flex;
+      svg {
+        width: 1.25em;
+        height: 1.25em;
+      }
     }
-  }
 
-  &--subtle {
-    color: var(--mlv-text-secondary);
+    &__text {
+      text-decoration: none;
+    }
 
     &:hover {
       color: var(--mlv-text-action-hover);
+      .#{$block}__text {
+        text-decoration: underline;
+      }
+    }
+
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+      color: var(--mlv-text-action-hover);
+      .#{$block}__text {
+        text-decoration: underline;
+      }
+    }
+
+    &--subtle {
+      color: var(--mlv-text-secondary);
+
+      &:hover {
+        color: var(--mlv-text-action-hover);
+      }
+    }
+
+    &--emphasized {
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    // Disabled is a declared ink, not an opacity multiply (SF-R4, #366). The
+    // doubled class (0,2,0) ties `:hover` / `:focus-visible` / `--subtle:hover`
+    // and wins on order, so it stays last; children inherit through `* { color:
+    // inherit }`.
+    &#{&}--disabled {
+      color: var(--mlv-text-disabled);
+      cursor: not-allowed;
+      pointer-events: none;
     }
   }
 
-  &--emphasized {
-    font-weight: 600;
-    text-decoration: underline;
-  }
-
-  &--disabled {
-    cursor: not-allowed;
-    pointer-events: none;
-    opacity: var(--mlv-disabled-opacity);
-  }
-}
-
-@include mixins.reduced-motion($block);
+  @include mixins.reduced-motion($block);
 }

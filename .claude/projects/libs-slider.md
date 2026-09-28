@@ -259,3 +259,9 @@ libs/core/slider/src/
 
 - The single-thumb slider's accessible name is now `ariaLabel() || label() || i18n.value` — the inherited `ariaLabel` input takes precedence over `label`. Range mode is unchanged: the two thumbs keep the i18n `minValue` / `maxValue` names, which stay unambiguous.
 - No `aria-required`: ARIA does not allow `aria-required` on `role="slider"`, so the inherited `required` input has no ARIA effect here.
+
+## Disabled surface (2026-09, #366)
+
+- Disabled no longer multiplies the host by `var(--mlv-disabled-opacity, 0.56)` (a dead fallback beside the 0.4 token): fill and thumbs take `--mlv-text-disabled`, thumbs lose their shadow and get `cursor: not-allowed`; the unfilled rail keeps its neutral track; the tooltip is still hidden.
+- Spec: `slider-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

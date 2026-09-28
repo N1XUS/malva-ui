@@ -1,206 +1,211 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-calendar;
+  $block: mlv-calendar;
 
-.#{$block} {
-  @include mixins.base();
+  .#{$block} {
+    @include mixins.base();
 
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--mlv-spacing-3);
-  width: min(100%, 19rem);
-  padding: var(--mlv-spacing-4);
-  border: 0.0625rem solid var(--mlv-border-subtle);
-  border-radius: var(--mlv-radius-2xl);
-  background: var(--mlv-elevation-bg-2);
-  color: var(--mlv-text-primary);
-  box-shadow: var(--mlv-shadow-raised);
-  user-select: none;
-
-  &--embedded {
-    width: 100%;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  // SF-R3 Form A. An `outline` never touches `box-shadow`, so each variant's
-  // own resting shadow (raised for the bordered form, none for `--embedded`)
-  // survives focus unchanged — no second layer restating it is needed.
-  &:focus-visible {
-    outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-    outline-offset: var(--mlv-focus-ring-offset);
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--mlv-spacing-2);
-    padding: var(--mlv-spacing-1);
-  }
-
-  &__nav-button,
-  &__header-button {
-    flex-shrink: 0;
-  }
-
-  &__selection-button,
-  &__cell-button {
-    width: auto;
-  }
-
-  &__header-button {
-    justify-self: stretch;
-  }
-
-  &__weekdays,
-  &__days {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-
-  &__weekdays {
-    gap: var(--mlv-spacing-2);
-    margin-bottom: var(--mlv-spacing-1);
-  }
-
-  // Range cells meet edge-to-edge horizontally. Rows keep their breathing room
-  // and receive their own rounded segment ends through the row modifiers below.
-  &__days {
-    column-gap: 0;
-    row-gap: var(--mlv-spacing-2);
-  }
-
-  // Week wrapper carries role="row" for the grid a11y structure but must not
-  // create a box: display:contents lets its day cells participate directly in
-  // the parent 7-column grid.
-  &__week {
-    display: contents;
-  }
-
-  &__weekday {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.75rem;
-    color: var(--mlv-text-secondary);
-    font-size: var(--mlv-font-size-s);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  &__day-cell,
-  &__day-placeholder {
-    display: flex;
-    justify-content: center;
-  }
-
-  &__day {
-    aspect-ratio: 1;
-
-    &.mlv-calendar__day--outside {
-      opacity: 0.58;
-    }
-
-    &.mlv-calendar__day--disabled {
-      --mlv-btn-text-color: var(--mlv-text-disabled);
-      box-shadow: none;
-      opacity: 0.4;
-    }
-
-    &.mlv-calendar__day--in-range {
-      width: 100%;
-      min-width: 0;
-      padding-inline: 0;
-      border-radius: 0;
-      box-shadow: none;
-    }
-
-    // SF-R1: selection is its own token — a persistent range-preview cell
-    // resolves the shared `selected` pair, matching every other
-    // persistent-selection surface (list-item, sidebar, filter option).
-    &.mlv-calendar__day--range-preview:not(.mlv-calendar__day--range-start):not(
-        .mlv-calendar__day--range-end
-      ) {
-      --mlv-btn-bg: var(--mlv-background-selected);
-      --mlv-btn-bg-hover: var(--mlv-background-selected-hover);
-      --mlv-btn-bg-active: var(--mlv-background-selected-hover);
-      --mlv-btn-text-color: var(--mlv-text-on-selected);
-    }
-
-    // Once both dates are committed, every cell uses the same primary fill so
-    // the range reads as one continuous selection rather than separate pills.
-    &.mlv-calendar__day--range-complete {
-      --mlv-btn-bg: var(--mlv-background-accent-1);
-      --mlv-btn-bg-hover: var(--mlv-background-accent-1);
-      --mlv-btn-bg-active: var(--mlv-background-accent-1);
-      --mlv-btn-text-color: var(--mlv-text-primary-on-accent-1);
-    }
-
-    // Chronological endpoints lose the radius facing into the range. Because
-    // preview endpoints are normalized, the originally clicked date flips from
-    // the inline-start cap to the inline-end cap when hovering before it.
-    &.mlv-calendar__day--range-start,
-    &.mlv-calendar__day--range-row-start {
-      border-start-start-radius: var(--mlv-radius-full);
-      border-end-start-radius: var(--mlv-radius-full);
-    }
-
-    &.mlv-calendar__day--range-end,
-    &.mlv-calendar__day--range-row-end {
-      border-start-end-radius: var(--mlv-radius-full);
-      border-end-end-radius: var(--mlv-radius-full);
-    }
-  }
-
-  &__selection-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--mlv-spacing-2);
-  }
-
-  &__selection-button {
-    min-height: var(--mlv-height-m);
-    width: 100%;
+    flex-direction: column;
+    gap: var(--mlv-spacing-3);
+    width: min(100%, 19rem);
+    padding: var(--mlv-spacing-4);
+    border: 0.0625rem solid var(--mlv-border-subtle);
+    border-radius: var(--mlv-radius-2xl);
+    background: var(--mlv-elevation-bg-2);
     color: var(--mlv-text-primary);
+    box-shadow: var(--mlv-shadow-raised);
+    user-select: none;
 
-    &:hover:not([disabled]) {
-      --mlv-btn-bg: var(--mlv-background-neutral-1-hover);
+    &--embedded {
+      width: 100%;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
-    &:active:not([disabled]) {
-      --mlv-btn-bg: var(--mlv-background-neutral-1-active);
+    // SF-R3 Form A. An `outline` never touches `box-shadow`, so each variant's
+    // own resting shadow (raised for the bordered form, none for `--embedded`)
+    // survives focus unchanged — no second layer restating it is needed.
+    &:focus-visible {
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
     }
 
-    &.mlv-calendar__selection-button--current {
-      box-shadow: var(--mlv-shadow-raised);
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--mlv-spacing-2);
+      padding: var(--mlv-spacing-1);
     }
 
-    &[disabled] {
-      opacity: 0.45;
+    &__nav-button,
+    &__header-button {
+      flex-shrink: 0;
+    }
+
+    &__selection-button,
+    &__cell-button {
+      width: auto;
+    }
+
+    &__header-button {
+      justify-self: stretch;
+    }
+
+    &__weekdays,
+    &__days {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    &__weekdays {
+      gap: var(--mlv-spacing-2);
+      margin-bottom: var(--mlv-spacing-1);
+    }
+
+    // Range cells meet edge-to-edge horizontally. Rows keep their breathing room
+    // and receive their own rounded segment ends through the row modifiers below.
+    &__days {
+      column-gap: 0;
+      row-gap: var(--mlv-spacing-2);
+    }
+
+    // Week wrapper carries role="row" for the grid a11y structure but must not
+    // create a box: display:contents lets its day cells participate directly in
+    // the parent 7-column grid.
+    &__week {
+      display: contents;
+    }
+
+    &__weekday {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 1.75rem;
+      color: var(--mlv-text-secondary);
+      font-size: var(--mlv-font-size-s);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    &__day-cell,
+    &__day-placeholder {
+      display: flex;
+      justify-content: center;
+    }
+
+    &__day {
+      aspect-ratio: 1;
+
+      &.mlv-calendar__day--outside {
+        opacity: 0.58;
+      }
+
+      // The day is a natively disabled `mlvButton`, which already declares the
+      // disabled surface (SF-R4, #366); this keeps the disabled ink and stops
+      // multiplying it by a literal 0.4 on top.
+      &.mlv-calendar__day--disabled {
+        --mlv-btn-text-color: var(--mlv-text-disabled);
+        box-shadow: none;
+      }
+
+      &.mlv-calendar__day--in-range {
+        width: 100%;
+        min-width: 0;
+        padding-inline: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      // SF-R1: selection is its own token — a persistent range-preview cell
+      // resolves the shared `selected` pair, matching every other
+      // persistent-selection surface (list-item, sidebar, filter option).
+      &.mlv-calendar__day--range-preview:not(
+          .mlv-calendar__day--range-start
+        ):not(.mlv-calendar__day--range-end) {
+        --mlv-btn-bg: var(--mlv-background-selected);
+        --mlv-btn-bg-hover: var(--mlv-background-selected-hover);
+        --mlv-btn-bg-active: var(--mlv-background-selected-hover);
+        --mlv-btn-text-color: var(--mlv-text-on-selected);
+      }
+
+      // Once both dates are committed, every cell uses the same primary fill so
+      // the range reads as one continuous selection rather than separate pills.
+      &.mlv-calendar__day--range-complete {
+        --mlv-btn-bg: var(--mlv-background-accent-1);
+        --mlv-btn-bg-hover: var(--mlv-background-accent-1);
+        --mlv-btn-bg-active: var(--mlv-background-accent-1);
+        --mlv-btn-text-color: var(--mlv-text-primary-on-accent-1);
+      }
+
+      // Chronological endpoints lose the radius facing into the range. Because
+      // preview endpoints are normalized, the originally clicked date flips from
+      // the inline-start cap to the inline-end cap when hovering before it.
+      &.mlv-calendar__day--range-start,
+      &.mlv-calendar__day--range-row-start {
+        border-start-start-radius: var(--mlv-radius-full);
+        border-end-start-radius: var(--mlv-radius-full);
+      }
+
+      &.mlv-calendar__day--range-end,
+      &.mlv-calendar__day--range-row-end {
+        border-start-end-radius: var(--mlv-radius-full);
+        border-end-end-radius: var(--mlv-radius-full);
+      }
+    }
+
+    &__selection-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--mlv-spacing-2);
+    }
+
+    &__selection-button {
+      min-height: var(--mlv-height-m);
+      width: 100%;
+      color: var(--mlv-text-primary);
+
+      &:hover:not([disabled]) {
+        --mlv-btn-bg: var(--mlv-background-neutral-1-hover);
+      }
+
+      &:active:not([disabled]) {
+        --mlv-btn-bg: var(--mlv-background-neutral-1-active);
+      }
+
+      &.mlv-calendar__selection-button--current {
+        box-shadow: var(--mlv-shadow-raised);
+      }
+
+      // Disabled month / year: the disabled ink (SF-R4, #366) instead of a
+      // literal 0.45 multiply. (0,2,0), so it outranks the `color` above; the
+      // `mlvButton` underneath declares the surface.
+      &[disabled] {
+        color: var(--mlv-text-disabled);
+      }
+    }
+
+    &__month-button {
+      width: 3rem;
+      min-width: 3rem;
+      min-height: 3rem;
+      padding: 0;
+    }
+
+    &__month-button-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1.5rem;
+      overflow: hidden;
+      white-space: nowrap;
     }
   }
-
-  &__month-button {
-    width: 3rem;
-    min-width: 3rem;
-    min-height: 3rem;
-    padding: 0;
-  }
-
-  &__month-button-label {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    max-width: 1.5rem;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-}
 }

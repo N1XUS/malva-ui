@@ -69,8 +69,11 @@
         }
       }
 
+      // Disabled is a declared ink, not an opacity multiply (SF-R4, #366);
+      // the icon and label inherit it. After `--active` at equal specificity,
+      // so it wins by order; `pointer-events: none` keeps hover from applying.
       &--disabled {
-        opacity: var(--mlv-disabled-opacity);
+        color: var(--mlv-text-disabled);
         pointer-events: none;
         cursor: default;
       }

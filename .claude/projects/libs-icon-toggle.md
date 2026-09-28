@@ -100,7 +100,7 @@ var(--mlv-stroke-width-medium) solid var(--mlv-border-focus)` with
   - pressed + `tone`: `color` overridden to the matching semantic text token; fill stays `currentColor`, so the glyph itself carries the tone
   - the hover rule is scoped `:not(.mlv-icon-toggle--pressed):hover` so it can never fight the tone-pressed color rule for the same element
   - focus-visible: Form A (SF-R3)
-  - disabled: native `:disabled` — `opacity: var(--mlv-disabled-opacity)`, `cursor: not-allowed`, `pointer-events: none` (no dedicated `--disabled` class needed; the host is always a real `<button>`)
+  - disabled: native `:disabled` — `opacity: var(--mlv-disabled-opacity)`, `cursor: not-allowed`, `pointer-events: none` (no dedicated `--disabled` class needed; the host is always a real `<button>`). The one control allowed a disabled opacity: chromeless, no surface to declare, pressed state is a `fill` of the consumer's tone — listed on `OPACITY_ALLOWED` in `scripts/check-disabled-surface.mjs` (#366)
 - **Sizing** — `min-inline-size`/`min-block-size: 1.5rem` unconditionally
   (WCAG 2.5.8 floor), plus density-aware `padding` from `--mlv-spacing-*`:
   tight `-1` (4px), compact `-1-5` (6px), comfortable `-2` (8px, default),

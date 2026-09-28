@@ -515,3 +515,9 @@ Provide `provideMlvI18nTesting()` in specs.
 - `@malva-ui/core/scrubber` — `mlv-scrubber` as `MlvCalendarSheet`'s horizontal year strip (#130 is the scrubber's first horizontal consumer)
 - `@malva-ui/cdk/utils` — `MlvRtlService` for mirroring the sheet's horizontal arrow keys
 - `@malva-ui/i18n` — `MLV_CALENDAR_I18N`
+
+## Disabled surface (2026-09, #366)
+
+- Disabled day: the natively disabled `mlvButton` declares the surface; the literal `opacity: 0.4` on top is gone (ink `--mlv-btn-text-color: --mlv-text-disabled` kept). Disabled month / year `__selection-button[disabled]`: `color: --mlv-text-disabled` instead of a literal `opacity: 0.45`. `--outside` keeps its 0.58 de-emphasis (not a disabled state).
+- Spec: `calendar-disabled-styles.spec.ts`.
+- Guard: `styles:check-disabled-surface` (`scripts/check-disabled-surface.mjs`, a `styles:lint` dependency) fails any other disabled `opacity` and any `--state-success/warning/info` rule.

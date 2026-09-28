@@ -189,12 +189,28 @@
       }
     }
 
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366).
+    // The drop zone takes the disabled surface and ink; its buttons are
+    // `mlvButton`s that declare their own. Only the cover image — picture
+    // data no token can stand in for — keeps the shared opacity token
+    // (allow-listed in `scripts/check-disabled-surface.mjs`). The error border
+    // and the rejection list are kept.
     &--disabled {
       pointer-events: none;
-      opacity: var(--mlv-disabled-opacity);
 
       .#{$block}__zone {
         cursor: not-allowed;
+        background-color: var(--mlv-background-disabled);
+      }
+
+      .#{$block}__zone-icon,
+      .#{$block}__zone-title,
+      .#{$block}__zone-subtitle {
+        color: var(--mlv-text-disabled);
+      }
+
+      .#{$block}__cover-image {
+        opacity: var(--mlv-disabled-opacity);
       }
     }
 

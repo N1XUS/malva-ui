@@ -423,8 +423,30 @@
       }
     }
 
+    // Disabled is a declared surface, not an opacity multiply (SF-R4, #366).
+    // A disabled editor is a form control, so it takes the field treatment:
+    // every box it paints over the wrapper's own disabled surface (the
+    // container, the surface and the docked toolbar each set a `background`
+    // above) declares `--mlv-background-disabled`, and the document text is
+    // drawn in the disabled ink — remapped as tokens, because ProseMirror's
+    // nodes read `--mlv-text-*` directly. Authored colours (text colour,
+    // highlight, images) are content and keep their values, as an emoji
+    // keeps its colour in a disabled `mlv-input`. The toolbar's controls are
+    // disabled `mlvButton`s with their own disabled surface.
     &--disabled {
-      opacity: var(--mlv-disabled-opacity);
+      .mlv-form-control-wrapper__control-container,
+      .#{$block}__surface,
+      .#{$block}__toolbar {
+        background-color: var(--mlv-background-disabled);
+      }
+
+      .#{$block}__content {
+        --mlv-text-primary: var(--mlv-text-disabled);
+        --mlv-text-secondary: var(--mlv-text-disabled);
+        --mlv-text-heading: var(--mlv-text-disabled);
+        --mlv-text-action: var(--mlv-text-disabled);
+        --mlv-text-action-hover: var(--mlv-text-disabled);
+      }
 
       .#{$block}__surface,
       .#{$block}__status {

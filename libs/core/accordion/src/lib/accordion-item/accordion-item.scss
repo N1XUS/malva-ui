@@ -1,99 +1,109 @@
 @use '../../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-accordion-item;
+  $block: mlv-accordion-item;
 
-.#{$block} {
-  @include mixins.base(
-    var(--mlv-typography-family-text),
-    var(--mlv-typography-body-m-size),
-    0,
-    0
-  );
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size),
+      0,
+      0
+    );
 
-  display: block;
+    display: block;
 
-  // Divider between consecutive items.
-  & + & {
-    border-top: var(--mlv-stroke-width) solid var(--mlv-border-normal);
-  }
-
-  &__heading {
-    margin: 0;
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
-  }
-
-  &__trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--mlv-spacing-3);
-    width: 100%;
-    padding: var(--mlv-padding-l);
-    border: none;
-    background: transparent;
-    color: var(--mlv-text-primary);
-    font-family: inherit;
-    font-size: var(--mlv-typography-heading-h6-size);
-    font-weight: var(--mlv-typography-heading-h6-weight);
-    line-height: var(--mlv-typography-heading-h6-line-height);
-    text-align: start;
-    cursor: pointer;
-    transition: background-color var(--mlv-duration-fast)
-      var(--mlv-ease-default);
-
-    &:hover,
-    &[aria-expanded='true'] {
-      --mlv-accordion-icon-opacity: 1;
+    // Divider between consecutive items.
+    & + & {
+      border-top: var(--mlv-stroke-width) solid var(--mlv-border-normal);
     }
 
-    &:focus-visible {
-      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
-      outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+    &__heading {
+      margin: 0;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
     }
 
-    &[aria-disabled='true'] {
-      cursor: not-allowed;
+    &__trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--mlv-spacing-3);
+      width: 100%;
+      padding: var(--mlv-padding-l);
+      border: none;
+      background: transparent;
+      color: var(--mlv-text-primary);
+      font-family: inherit;
+      font-size: var(--mlv-typography-heading-h6-size);
+      font-weight: var(--mlv-typography-heading-h6-weight);
+      line-height: var(--mlv-typography-heading-h6-line-height);
+      text-align: start;
+      cursor: pointer;
+      transition: background-color var(--mlv-duration-fast)
+        var(--mlv-ease-default);
+
+      &:hover,
+      &[aria-expanded='true'] {
+        --mlv-accordion-icon-opacity: 1;
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: calc(var(--mlv-focus-ring-offset) * -1);
+      }
+
+      // Disabled is a declared ink, not an opacity multiply (SF-R4, #366). The
+      // title reads `--mlv-text-primary` through the global `[class*='mlv']`
+      // rule, so `color` alone never reached it: remap the token as well. The
+      // chevron is drawn at full opacity in the same ink.
+      &[aria-disabled='true'] {
+        cursor: not-allowed;
+        color: var(--mlv-text-disabled);
+        --mlv-text-primary: var(--mlv-text-disabled);
+        --mlv-accordion-icon-opacity: 1;
+      }
+    }
+
+    &__trigger[aria-disabled='true'] &__icon {
       color: var(--mlv-text-disabled);
     }
-  }
 
-  &__title {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--mlv-spacing-3);
-    min-width: 0;
-  }
-
-  &__icon {
-    flex: none;
-    color: var(--mlv-text-secondary);
-    transition:
-      transform var(--mlv-duration-normal) var(--mlv-ease-default),
-      opacity var(--mlv-duration-normal) var(--mlv-ease-default);
-    opacity: var(--mlv-accordion-icon-opacity, 0.5);
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
+    &__title {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--mlv-spacing-3);
+      min-width: 0;
     }
-  }
 
-  &__content {
-    padding: var(--mlv-padding-l);
-    color: var(--mlv-text-secondary);
-  }
+    &__icon {
+      flex: none;
+      color: var(--mlv-text-secondary);
+      transition:
+        transform var(--mlv-duration-normal) var(--mlv-ease-default),
+        opacity var(--mlv-duration-normal) var(--mlv-ease-default);
+      opacity: var(--mlv-accordion-icon-opacity, 0.5);
 
-  // Open state — rotate the chevron.
-  &--open {
-    .#{$block}__icon {
-      transform: rotate(180deg);
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
     }
-  }
 
-  &--disabled {
-    opacity: var(--mlv-disabled-opacity);
+    &__content {
+      padding: var(--mlv-padding-l);
+      color: var(--mlv-text-secondary);
+    }
+
+    // Open state — rotate the chevron.
+    &--open {
+      .#{$block}__icon {
+        transform: rotate(180deg);
+      }
+    }
+
+    // No `--disabled` rule: the header declares its own disabled ink above. The
+    // item used to multiply that header (≈1.6:1) and any open content by the
+    // opacity token a second time.
   }
-}
 }
