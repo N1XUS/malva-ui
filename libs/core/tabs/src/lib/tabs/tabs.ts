@@ -46,9 +46,23 @@ import {
 import {
   MlvResizeObserverFactory,
   MlvRtlService,
+  mlvComputeHiddenFlags,
+  mlvCssPx,
+  mlvInlineContentSize,
   mlvNextId,
+  mlvOverflowRevealGuard,
   provideMlvScopedDirectionality,
 } from '@malva-ui/cdk/utils';
+
+/**
+ * @private One overflow split, as {@link MlvTabGroup} commits it: how many tabs
+ * go to the "More" menu, and the width that was computed against (which the
+ * oscillation guard needs to tell a wider row from the one that failed).
+ */
+interface MlvTabSplit {
+  readonly hiddenCount: number;
+  readonly available: number;
+}
 
 /**
  * Visual style of the tab header. Orthogonal to `orientation` — a boxed group can
@@ -118,12 +132,19 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
   private readonly _rtlService = inject(MlvRtlService);
 
   /**
+   * @private The host element: the scope the direction resolves against, and
+   * the box whose content width is the room the tab row has (see
+   * {@link _computeSplit}).
+   */
+  private readonly _hostRef = inject(ElementRef<HTMLElement>);
+
+  /**
    * @private Effective direction of this tab group, tracking both the global
    * direction and any `[dir]` scope above the host. Drives indicator
    * re-measurement.
    */
   private readonly _direction = this._rtlService.elementDirection(
-    inject(ElementRef<HTMLElement>),
+    this._hostRef,
   );
   /** @private Destroy reference used to tear down the resize observer. */
   private readonly _destroyRef = inject(DestroyRef);
@@ -147,7 +168,8 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
 
   /**
    * @private Native ResizeObserver watching every box the overflow split reads:
-   * the tab-list header, each rendered tab item and the "More" trigger.
+   * the host (the room available), the tab-list header (its padding and gap),
+   * each rendered tab item and the "More" trigger (the width consumed).
    */
   private _resizeObserver: ResizeObserver | null = null;
 
@@ -161,33 +183,78 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
    */
   private readonly _observedTargets = new Set<Element>();
 
-  /**
-   * @private Trailing debounce timer for the ResizeObserver. Coalesces the burst
-   * of resize callbacks fired during a drag into a single recalculation so tabs
-   * do not flip between the row and the overflow menu on every frame.
-   */
-  private _resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** @private Trailing debounce (ms) applied to a resize-driven reveal. */
+  private static readonly _REVEAL_DEBOUNCE_MS = 64;
 
   /**
-   * @private Cache of each tab's natural (fully-rendered) header width, keyed by
-   * tab value. Populated the first time all tabs are rendered and reused on every
-   * subsequent recalculation so we never have to briefly expand the DOM to all
-   * tabs to re-measure — which is what caused the "dizzy" flicker feedback loop.
+   * @private How soon (ms) after a reveal a hide must follow for the pair to
+   * count as the reveal undoing itself. The same window `mlv-items-more` uses.
+   * Declared before {@link _revealGuard}, whose initializer reads it (TS2729).
    */
-  private readonly _tabWidths = new Map<string, number>();
-
-  /** @private Measured width of the "More (N)" overflow trigger (falls back to 100). */
-  private _moreButtonWidth = 0;
-
-  /** @private Trailing debounce (ms) applied to ResizeObserver-driven recalculation. */
-  private static readonly _RESIZE_DEBOUNCE_MS = 64;
+  private static readonly _OSCILLATION_WINDOW_MS = 100;
 
   /**
-   * @private Extra px of clearance an overflowed tab must gain before it is
-   * allowed back into the visible row. Provides hysteresis so a tab does not
-   * oscillate in/out at boundary widths.
+   * @private Trailing debounce timer, used for revealing only. A resize that
+   * withholds more tabs commits in the notification that reported it; one
+   * that would return tabs waits for {@link _REVEAL_DEBOUNCE_MS} of quiet, so
+   * a drag does not re-render the row on every frame on its way wider.
    */
-  private static readonly _HYSTERESIS_PX = 24;
+  private _revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * @private Natural header width of each tab, keyed by the tab instance, as
+   * read from `getBoundingClientRect()` with any flex growth switched off
+   * ({@link _naturalWidths}) — fractional, because `offsetWidth` rounds and
+   * five rounded widths can be off by two pixels together.
+   *
+   * Read from whatever is rendered, so a withheld tab keeps the width it had
+   * when it was last on screen; the only time the DOM is expanded to every
+   * tab is when a width is missing ({@link _commit}). Entries for tabs that
+   * have unregistered are dropped on every capture, and the whole cache is
+   * dropped while the group is vertical, where a tab is as wide as the column.
+   */
+  private readonly _tabWidths = new Map<MlvTab, number>();
+
+  /**
+   * @private The tabs the previous capture measured, or `null` before the
+   * first one. A width change only says something about the withheld tabs
+   * when the same tabs are rendered as last time: across a repartition the
+   * difference is the repartition's own doing (see
+   * {@link _captureRenderedWidths}).
+   */
+  private _lastRenderedTabs: ReadonlySet<MlvTab> | null = null;
+
+  /**
+   * @private Set when a capture drops the withheld tabs' widths, and cleared
+   * once the current task's microtasks run. Backstop against a render loop:
+   * however the widths behave, at most one invalidation — and so at most one
+   * expanded render — happens per task, which is the scope of the render loop
+   * Angular runs after an after-render effect writes a signal.
+   */
+  private _invalidatedThisTask = false;
+
+  /**
+   * @private Measured width of the "More (N)" trigger, or `null` while it has
+   * never rendered. Kept across overflow episodes: the trigger renders only
+   * while something is withheld, so the first split that hides anything is
+   * computed with nothing reserved for it — which can only keep a tab visible,
+   * never withhold one that fits — and the trigger's own render re-runs the
+   * split in the same tick, before the browser paints, now with the measured
+   * width. There is no default width: a guess that runs high withholds a tab
+   * that fits, which is the defect #358 fixed.
+   */
+  private _moreTriggerWidth: number | null = null;
+
+  /**
+   * @private Refuses a reveal that has already undone itself — the answer to
+   * a feedback loop outside the row (a reveal adds a page scrollbar that
+   * narrows the row), in place of the fixed 24px hysteresis band this group
+   * used to hold a fitting tab back with. Shared with `mlv-items-more`; the
+   * reasoning lives on `mlvOverflowRevealGuard` (`@malva-ui/cdk/utils`).
+   */
+  private readonly _revealGuard = mlvOverflowRevealGuard(
+    MlvTabGroup._OSCILLATION_WINDOW_MS,
+  );
 
   /** @private True when popup closed because an item was selected (skip focus restoration). */
   private _popupClosedBySelection = false;
@@ -373,8 +440,13 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
       // Mirroring the header moves every tab without resizing it, so neither
       // the ResizeObserver nor the item queries fire. The direction is its own
       // dependency, scoped to this host so a `[dir]` on any ancestor counts —
-      // not just a document-level flip.
+      // not just a document-level flip. The same holds for the orientation
+      // (the indicator switches between its left/width and top/height pair)
+      // and the appearance (the boxed track's padding and gap move every tab
+      // inside a header that need not change size).
       this._direction();
+      this.orientation();
+      this.appearance();
       this._updateIndicator();
     });
 
@@ -394,6 +466,30 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
       const moreTrigger = this._moreTriggerRef();
       const header = this.tabListRef();
       untracked(() => this._syncResizeTargets(header, items, moreTrigger));
+    });
+
+    // Re-derive the split whenever what it is computed from changes without
+    // necessarily resizing an observed box: the rendered tab set, the trigger
+    // appearing or leaving, the pinned (active) tab, the orientation and the
+    // appearance. An orientation flip in particular used to recalculate only
+    // if its relayout happened to deliver a resize notification (#269).
+    //
+    // The `read` phase is where layout reads belong: writes have already
+    // flushed. A split committed here re-renders the header within the same
+    // `ApplicationRef.tick()`, before the browser paints, which is what lets
+    // the first hide be computed before the trigger has ever been measured
+    // (see `_moreTriggerWidth`).
+    afterRenderEffect({
+      read: () => {
+        this.tabItems();
+        this._moreTriggerRef();
+        this.tabListRef();
+        this.orientation();
+        this.appearance();
+        this._tabsService.tabs();
+        this._tabsService.forcedVisibleValue();
+        untracked(() => this._recalculateOverflow());
+      },
     });
 
     this._destroyRef.onDestroy(() => this._teardownResizeObserver());
@@ -613,40 +709,84 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
   }
 
   /**
-   * @private Creates the debounced ResizeObserver on first use, or returns the
-   * existing one. `null` where the factory has no `ResizeObserver` to give —
-   * server rendering, so the overflow split simply never engages there.
+   * @private Creates the ResizeObserver on first use, or returns the existing
+   * one. `null` where the factory has no `ResizeObserver` to give — server
+   * rendering, so the overflow split simply never engages there.
    */
   private _ensureResizeObserver(): ResizeObserver | null {
     if (this._resizeObserver) return this._resizeObserver;
-
-    // Debounce (trailing): a drag fires the observer many times per second.
-    // Coalescing them into one recalculation after the width settles is the
-    // first line of defence against the flickering "dizzy" repartition.
-    this._resizeObserver = this._resizeObserverFactory.create(() => {
-      if (this._resizeDebounceTimer !== null) {
-        clearTimeout(this._resizeDebounceTimer);
-      }
-      this._resizeDebounceTimer = setTimeout(() => {
-        this._resizeDebounceTimer = null;
-        this._recalculateOverflow();
-      }, MlvTabGroup._RESIZE_DEBOUNCE_MS);
-    });
+    this._resizeObserver = this._resizeObserverFactory.create(() =>
+      this._onResizeBatch(),
+    );
     return this._resizeObserver;
   }
 
   /**
-   * @private Points the ResizeObserver at every box the overflow split is
-   * derived from: the header (the width available) **and** each rendered tab
-   * plus the "More" trigger (the width consumed).
+   * @private Handles one batch of resize notifications.
    *
-   * Observing only the header was the defect behind #232. The split is a
+   * The indicator is re-measured first, in both orientations: a relabel, a
+   * webfont swap or a density change moves or resizes the active tab without
+   * changing any signal the indicator effect reads, so a vertical group's
+   * `--mlv-tab-indicator-top` used to stay where the tab had been (#269).
+   *
+   * The split is asymmetric on purpose. Withholding more is applied in the
+   * notification that reported the shrink: a tab that no longer fits is
+   * clipped by the header until it goes, so waiting only prolongs a visibly
+   * broken row. Returning tabs waits for {@link _REVEAL_DEBOUNCE_MS} of quiet,
+   * so a drag does not re-render the row on every frame on its way wider; the
+   * timer recomputes from fresh widths rather than committing this batch's.
+   */
+  private _onResizeBatch(): void {
+    this._updateIndicator();
+
+    if (this.orientation() === 'vertical') {
+      this._recalculateOverflow();
+      return;
+    }
+
+    this._captureRenderedWidths();
+    const split = this._computeSplit();
+    if (split === null) return;
+
+    this._cancelReveal();
+    if (
+      split === 'unmeasured' ||
+      split.hiddenCount >= this.overflowTabs().length
+    ) {
+      this._commit(split);
+      return;
+    }
+
+    this._revealTimer = setTimeout(() => {
+      this._revealTimer = null;
+      this._recalculateOverflow();
+    }, MlvTabGroup._REVEAL_DEBOUNCE_MS);
+  }
+
+  /** @private Clears a pending reveal. */
+  private _cancelReveal(): void {
+    if (this._revealTimer === null) return;
+    clearTimeout(this._revealTimer);
+    this._revealTimer = null;
+  }
+
+  /**
+   * @private Points the ResizeObserver at every box the overflow split is
+   * derived from: the host (the room available), the header (its padding and
+   * gap) **and** each rendered tab plus the "More" trigger (the width
+   * consumed).
+   *
+   * The host is observed because a boxed header is `width: fit-content`: once
+   * a tab is withheld the header shrinks to the tabs that remain and never
+   * grows with its container again, so a group observing only the header
+   * never saw the room to return the tab into (#358).
+   *
+   * Observing only the header was also the defect behind #232. The split is a
    * function of the tabs' widths, but the only thing that re-ran it was a
    * change in the header's own size — and a header whose width comes from its
    * parent never resizes when its children finally get theirs. So a measuring
-   * pass that landed before the tabs had a laid-out box (every `offsetWidth`
-   * reading `0`, leaving the width cache empty and the total at `0`, which
-   * satisfies `total <= containerWidth`) committed "no overflow" for the
+   * pass that landed before the tabs had a laid-out box (every width reading
+   * `0`, leaving the width cache empty) committed "no overflow" for the
    * lifetime of the component. The same held for widths that changed without
    * moving the header: a webfont swap, a density change, a label retranslation.
    *
@@ -655,24 +795,17 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
    * `observe()` on a not-currently-observed target always delivers an initial
    * notification (a `0x0` and a `display: none` box included) while `observe()`
    * on a live target is a no-op. Disconnecting therefore re-arms every target
-   * and re-notifies every already-settled box on each repartition. The trailing
-   * debounce absorbs those into the same *number* of recalculations, so the
-   * cost is the redundant deliveries themselves — and the detached tab elements
-   * a repartition destroys, which unobserving what left stops the observer from
-   * retaining. Measured, not assumed: `tabs.spec.ts` asserts the header — a box
-   * that never moves and never leaves the set — is notified exactly once.
+   * and re-notifies every already-settled box on each repartition — each one a
+   * batch that re-reads every width — and retains the detached tab elements a
+   * repartition destroys until the next callback. Measured, not assumed:
+   * `tabs.spec.ts` asserts the header — a box that never moves and never
+   * leaves the set — is notified exactly once.
    *
-   * A vertical group is observed too, even though it never overflows:
-   * {@link _recalculateOverflow} owns that case and resets the split to "all
-   * visible" itself. That is deliberate but narrower than it looks — it
-   * guarantees only that a group which *started* vertical still holds a live
-   * observer, so the first resize notification arriving after a switch to
-   * horizontal repartitions it. (Before, the observer was created once from
-   * `ngAfterViewInit` behind a `vertical` early return, so such a group had no
-   * observer at all and overflow was dead for its lifetime.) `orientation()` is
-   * a dependency of nothing that recalculates, so recovery still rides on the
-   * notifications the orientation change's own relayout produces, not on the
-   * input write.
+   * A vertical group is observed too, even though it never overflows: its
+   * batches still re-measure the indicator (see {@link _onResizeBatch}), and
+   * {@link _recalculateOverflow} resets its split to "all visible". The
+   * switch back to horizontal needs no notification of its own: the
+   * orientation is a dependency of the read-phase effect that recalculates.
    */
   private _syncResizeTargets(
     header: ElementRef<HTMLElement> | undefined,
@@ -682,7 +815,7 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
     const observer = this._ensureResizeObserver();
     if (!observer) return;
 
-    const targets = new Set<Element>();
+    const targets = new Set<Element>([this._hostRef.nativeElement]);
     if (header) targets.add(header.nativeElement);
     for (const item of items) {
       targets.add(item.elementRef.nativeElement);
@@ -706,144 +839,294 @@ export class MlvTabGroup implements MlvTabGroupAccessor {
     }
   }
 
-  /** @private Disconnects and clears the ResizeObserver and its debounce timer. */
+  /** @private Disconnects and clears the ResizeObserver and its reveal timer. */
   private _teardownResizeObserver(): void {
-    if (this._resizeDebounceTimer !== null) {
-      clearTimeout(this._resizeDebounceTimer);
-      this._resizeDebounceTimer = null;
-    }
+    this._cancelReveal();
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
     this._observedTargets.clear();
   }
 
   /**
-   * @private Updates the visible/overflow split for the current header width.
+   * @private Re-reads the rendered widths and commits the split they give,
+   * in either direction. The render-driven path and the end of a reveal's
+   * debounce; a resize batch goes through {@link _onResizeBatch} instead.
    *
-   * Unlike the previous implementation it does NOT reset the rendered set to
-   * "show all" on every call. Tab widths are cached (keyed by value) the first
-   * time every tab is rendered; afterwards the split is computed purely from the
-   * cache and the container width. That removes the measure→mutate→re-measure
-   * feedback loop (moving a tab to overflow no longer changes what we measure),
-   * which — together with the ResizeObserver debounce and the hysteresis in
-   * {@link _computeFittingCount} — kills the flickering repartition.
+   * A vertical group never overflows: its split is "all visible", and its
+   * width cache is dropped, because a vertical tab is as wide as the column
+   * rather than its label. Switching back to horizontal renders every tab,
+   * so the next capture re-measures them all at their natural width.
    */
   private _recalculateOverflow(): void {
+    this._cancelReveal();
+
     if (this.orientation() === 'vertical') {
+      this._tabWidths.clear();
+      this._lastRenderedTabs = null;
+      this._revealGuard.reset();
       this._tabsService.maxVisibleCount.set(-1);
       return;
     }
 
-    const headerEl = this.tabListRef()?.nativeElement;
-    if (!headerEl) return;
-
-    // Refresh the cache from whatever is currently rendered (no DOM mutation).
     this._captureRenderedWidths();
-
-    const allTabs = this._tabsService.tabs();
-    const missingWidth = allTabs.some((t) => !this._tabWidths.has(t.value()));
-
-    if (missingWidth) {
-      // Cold cache (first run) or new tabs added: render every tab once so we
-      // can capture the missing widths, then apply. This is the ONLY branch
-      // that expands the DOM, and only runs until the cache is warm — so
-      // steady-state resizes never flash the full tab set.
-      this._tabsService.maxVisibleCount.set(-1);
-      requestAnimationFrame(() => {
-        this._captureRenderedWidths();
-        this._applyOverflowFit();
-      });
-      return;
-    }
-
-    this._applyOverflowFit();
+    this._commit(this._computeSplit());
   }
 
   /**
-   * @private Captures the natural widths of the currently-rendered tab items
-   * (and the "More" trigger) into the width cache, keyed by tab value. Zero
-   * widths (detached / not laid out) are ignored so a transient render never
-   * poisons the cache.
+   * @private Reads the natural width of every rendered tab item, and of the
+   * "More" trigger, into the cache.
+   *
+   * **Natural**, not laid out: a tab that grows into free room (`flex: 1` on
+   * the tab items, the full-width pattern `mlv-color-picker` uses) is wider
+   * the fewer tabs are rendered, so its box says how much room the row had
+   * left, not how much the tab needs — and a split computed from it would
+   * hide tabs to make room that the remaining ones then filled. See
+   * {@link _naturalWidths}.
+   *
+   * `getBoundingClientRect().width` rather than `offsetWidth`: the latter
+   * rounds to an integer, and five rounded widths can be two pixels off
+   * together — enough to keep a tab that does not fit, or withhold one that
+   * does. A zero width (a detached or not-laid-out box: a `display: none`
+   * ancestor) is skipped, so a transient render never poisons the cache.
+   *
+   * A withheld tab cannot be measured, so its entry is the width it had when
+   * it was last rendered. That is only still true while the widths it
+   * depends on are: when **every** rendered tab, or two or more of them,
+   * change width in one pass, the cause is almost certainly one that reaches
+   * the withheld tabs too — a webfont swap, a density change, a
+   * retranslation — so their entries are dropped, and {@link _commit} renders
+   * every tab once to re-read them. A single rendered tab changing among
+   * others that did not is its own label, and says nothing about the rest.
+   *
+   * Two conditions keep that invalidation from feeding itself (#358 review):
+   *
+   * - It only counts a change against a capture of the **same** rendered
+   *   tabs. Across a repartition any difference is the repartition's own
+   *   doing — a stretch the natural read cannot undo (a grid track, a
+   *   percentage width) — and invalidating on it would expand the row, whose
+   *   capture would differ again, without end.
+   * - At most once per task ({@link _invalidatedThisTask}), whatever the
+   *   widths do, so no layout can turn it into Angular's render loop.
    */
   private _captureRenderedWidths(): void {
+    const registered = new Set(this._tabsService.tabs());
+    for (const tab of this._tabWidths.keys()) {
+      if (!registered.has(tab)) this._tabWidths.delete(tab);
+    }
+
     const items = this.tabItems();
     const visible = this._tabsService.visibleTabs();
-    items.forEach((item, i) => {
-      const value = visible[i]?.value();
-      const width = item.elementRef.nativeElement.offsetWidth;
-      if (value && width > 0) {
-        this._tabWidths.set(value, width);
-      }
-    });
+    const trigger = this._moreTriggerRef()?.nativeElement ?? null;
+    // The item query and the visible list describe the same render once it
+    // has flushed, which is every place this runs from. Should they ever
+    // disagree, pairing them by index would file one tab's width under
+    // another, so no tab is read.
+    const paired = items.length === visible.length;
+    const elements: HTMLElement[] = paired
+      ? items.map((item) => item.elementRef.nativeElement)
+      : [];
+    if (trigger) elements.push(trigger);
+    const widths = this._naturalWidths(elements);
 
-    const moreEl = this._moreTriggerRef()?.nativeElement;
-    if (moreEl && moreEl.offsetWidth > 0) {
-      this._moreButtonWidth = moreEl.offsetWidth;
-    }
-  }
+    if (paired) {
+      const rendered = new Set<MlvTab>();
+      let measured = 0;
+      let changed = 0;
+      visible.forEach((tab, i) => {
+        const width = widths[i];
+        if (width <= 0) return;
+        const previous = this._tabWidths.get(tab);
+        measured++;
+        if (previous !== undefined && previous !== width) changed++;
+        rendered.add(tab);
+        this._tabWidths.set(tab, width);
+      });
 
-  /**
-   * @private Applies the cached-width overflow computation to the service and
-   * repositions the indicator.
-   */
-  private _applyOverflowFit(): void {
-    const headerEl = this.tabListRef()?.nativeElement;
-    if (!headerEl) return;
+      const previousRender = this._lastRenderedTabs;
+      this._lastRenderedTabs = rendered;
+      const sameRender =
+        previousRender !== null &&
+        previousRender.size === rendered.size &&
+        [...rendered].every((tab) => previousRender.has(tab));
 
-    const allTabs = this._tabsService.tabs();
-    const widths = allTabs.map((t) => this._tabWidths.get(t.value()) ?? 0);
-    const fittingCount = this._computeFittingCount(
-      widths,
-      headerEl.clientWidth,
-      this._moreButtonWidth || 100,
-      this._tabsService.maxVisibleCount(),
-    );
-
-    this._tabsService.maxVisibleCount.set(fittingCount);
-    this._updateIndicator();
-  }
-
-  /**
-   * @private Pure overflow fit calculation. Returns how many leading tabs fit in
-   * `containerWidth`, or `-1` when every tab fits with no "More" button.
-   *
-   * Hysteresis: a tab that is currently in the overflow region
-   * (`i >= currentMax`) must clear the boundary by an extra
-   * {@link _HYSTERESIS_PX} before it is allowed back into the visible row. A
-   * currently-visible tab leaves as soon as it no longer fits. This asymmetric
-   * threshold means the two states around a boundary width can never both be
-   * satisfied, so the split cannot oscillate between adjacent widths.
-   *
-   * @param widths Natural width of each tab, in DOM order.
-   * @param containerWidth Available header content width.
-   * @param moreButtonWidth Width reserved for the "More (N)" trigger.
-   * @param currentMax The current `maxVisibleCount` (`-1` = all visible).
-   */
-  private _computeFittingCount(
-    widths: number[],
-    containerWidth: number,
-    moreButtonWidth: number,
-    currentMax: number,
-  ): number {
-    const total = widths.reduce((sum, w) => sum + w, 0);
-    // Everything fits without needing a "More" button.
-    if (total <= containerWidth) return -1;
-
-    let accumulated = 0;
-    let count = 0;
-    for (let i = 0; i < widths.length; i++) {
-      const wasOverflowed = currentMax >= 0 && i >= currentMax;
-      const margin = wasOverflowed ? MlvTabGroup._HYSTERESIS_PX : 0;
       if (
-        accumulated + widths[i] + moreButtonWidth + margin <=
-        containerWidth
+        sameRender &&
+        !this._invalidatedThisTask &&
+        (changed >= 2 || (changed > 0 && changed === measured))
       ) {
-        accumulated += widths[i];
-        count++;
-      } else {
-        break;
+        for (const tab of this._tabWidths.keys()) {
+          if (!rendered.has(tab)) this._tabWidths.delete(tab);
+        }
+        this._invalidatedThisTask = true;
+        queueMicrotask(() => (this._invalidatedThisTask = false));
       }
     }
-    return count;
+
+    const triggerWidth = trigger ? widths[widths.length - 1] : 0;
+    if (triggerWidth > 0) this._moreTriggerWidth = triggerWidth;
+  }
+
+  /**
+   * @private The border-box inline size of each element with any flex
+   * growth switched off — the width it takes when the row has no room to
+   * give it.
+   *
+   * An element whose computed `flex-grow` is positive gets an inline
+   * `flex-grow: 0 !important` for the duration of the reads, and its own
+   * inline value and priority back afterwards; the whole batch is read under
+   * one forced layout. Every computed value is read before the first write,
+   * so the batch costs one style recalculation, not one per growing element.
+   * Nothing is written when nothing grows, which is the default: a tab item's
+   * `flex-grow` is `0`. The write is undone in a `finally` before this
+   * returns, so no frame is painted with it and a `ResizeObserver` sees no
+   * change.
+   *
+   * Inline `!important` outranks every consumer declaration of `flex-grow`,
+   * in any cascade layer, and a keyframe animation of it — but not a
+   * transition. A consumer `transition` covering `flex-grow`
+   * (`transition: all` on the items) starts one on the write, the read
+   * returns its start value — the laid-out width — and the row takes the
+   * non-flex path below.
+   *
+   * Only growth is undone. A stretch that is not flex growth — a grid track,
+   * a percentage width — is read as laid out; the same-render rule in
+   * {@link _captureRenderedWidths} keeps it from invalidating the cache on
+   * its own.
+   */
+  private _naturalWidths(elements: readonly HTMLElement[]): number[] {
+    const growing = elements.filter(
+      (el) => Number.parseFloat(getComputedStyle(el).flexGrow) > 0,
+    );
+    const restore: (() => void)[] = [];
+    try {
+      for (const el of growing) {
+        const value = el.style.getPropertyValue('flex-grow');
+        const priority = el.style.getPropertyPriority('flex-grow');
+        const hadStyle = el.hasAttribute('style');
+        el.style.setProperty('flex-grow', '0', 'important');
+        restore.push(() => {
+          if (value) {
+            el.style.setProperty('flex-grow', value, priority);
+          } else {
+            el.style.removeProperty('flex-grow');
+            if (!hadStyle && !el.getAttribute('style')) {
+              el.removeAttribute('style');
+            }
+          }
+        });
+      }
+      return elements.map((el) => el.getBoundingClientRect().width);
+    } finally {
+      for (const undo of restore) undo();
+    }
+  }
+
+  /**
+   * @private The split the cached widths give for the room the header has
+   * now, or `'unmeasured'` while a registered tab has no width on record, or
+   * `null` when there is nothing to measure against.
+   *
+   * The room is the **host's** content box less the header's own inline
+   * padding and border — not the header's `clientWidth`, which is what #358
+   * was about. `clientWidth` includes the padding the tabs cannot use (the
+   * boxed track's 0.1875rem either side) and is rounded, and a boxed header
+   * is `width: fit-content`, so once it had shrunk around fewer tabs it no
+   * longer reported how much room its container had. The header is
+   * `border-box` under the shipped base layer, which is what makes the host's
+   * content width its maximum border-box width. The header's `column-gap`
+   * between every pair of boxes is part of the arithmetic too; the underline
+   * appearance has neither padding nor gap, so for it this is the old
+   * comparison without the rounding.
+   *
+   * The active tab is pinned: it is kept whatever its position, with its own
+   * width reserved first — the same slot `MlvTabsService` swaps it into. So
+   * the split can never demote a narrow tab to make room for a wide active
+   * one that then overflows anyway.
+   *
+   * `null` when the host has no layout box at all (a `display: none`
+   * ancestor, a detached view, a test environment without layout): a split
+   * computed against zero room would withhold every tab.
+   */
+  private _computeSplit(): MlvTabSplit | 'unmeasured' | null {
+    const header = this.tabListRef()?.nativeElement;
+    if (!header) return null;
+
+    const host = this._hostRef.nativeElement;
+    const hostRect = host.getBoundingClientRect();
+    if (hostRect.width <= 0 && hostRect.height <= 0) return null;
+
+    const pinned = this._tabsService.forcedVisibleValue();
+    const candidates: { width: number; collapsible: boolean }[] = [];
+    for (const tab of this._tabsService.tabs()) {
+      const width = this._tabWidths.get(tab);
+      if (width === undefined) return 'unmeasured';
+      candidates.push({ width, collapsible: tab.value() !== pinned });
+    }
+
+    const headerStyles = getComputedStyle(header);
+    const available = mlvInlineContentSize(
+      mlvInlineContentSize(hostRect.width, getComputedStyle(host)),
+      headerStyles,
+    );
+    const flags = mlvComputeHiddenFlags({
+      candidates,
+      available,
+      gap: mlvCssPx(headerStyles.columnGap),
+      triggerWidth: this._moreTriggerWidth ?? 0,
+    });
+    return {
+      hiddenCount: flags.filter((hidden) => hidden).length,
+      available,
+    };
+  }
+
+  /**
+   * @private Commits a split through the oscillation guard.
+   *
+   * `'unmeasured'` renders every tab so the missing widths can be read — the
+   * only path that expands the DOM, taken on first render, when a tab
+   * registers, and when a width change invalidated the withheld tabs'
+   * entries. The render it causes re-runs the split in the same tick, so the
+   * expanded row is never painted. It resets the guard and expands only from
+   * a row that withholds tabs, so it happens once per render, however many
+   * notifications in a batch find a width missing; with the once-per-task
+   * invalidation in {@link _captureRenderedWidths}, no layout can make it the
+   * step of a loop.
+   *
+   * A split withholding `n` tabs becomes `maxVisibleCount = tabs − n`, which
+   * `MlvTabsService` turns back into the same set: the leading tabs, with the
+   * pinned one swapped into the last slot when it would otherwise be
+   * withheld. A hide always commits; a reveal commits unless the guard has
+   * already seen that same reveal, at this width or narrower, undo itself.
+   */
+  private _commit(split: MlvTabSplit | 'unmeasured' | null): void {
+    if (split === null) return;
+
+    if (split === 'unmeasured') {
+      // Nothing withheld: every tab is rendered, or is on the render already
+      // asked for (a second notification in the same batch reads the old DOM
+      // against the new split), so the missing widths are read there and the
+      // guard keeps what it learned.
+      if (this.overflowTabs().length === 0) return;
+      // What the guard learned was about widths that are no longer on record.
+      this._revealGuard.reset();
+      this._tabsService.maxVisibleCount.set(-1);
+      return;
+    }
+
+    const { hiddenCount, available } = split;
+    if (
+      !this._revealGuard.admit(
+        hiddenCount,
+        this.overflowTabs().length,
+        available,
+      )
+    ) {
+      return;
+    }
+
+    this._tabsService.maxVisibleCount.set(
+      hiddenCount > 0 ? this._tabsService.tabs().length - hiddenCount : -1,
+    );
   }
 }

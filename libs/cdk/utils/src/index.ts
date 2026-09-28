@@ -22,3 +22,5 @@ export * from './lib/rtl/mirror-inline-offsets';
 export * from './lib/rtl/scoped-directionality';
 export * from './lib/chrome/chrome-color';
 export * from './lib/pointer/pointer-gesture-end';
+export * from './lib/overflow/overflow-fit';
+export * from './lib/overflow/overflow-reveal-guard';

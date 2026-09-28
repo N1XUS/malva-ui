@@ -1,5 +1,10 @@
-import type { MlvOverflowCandidate, MlvOverflowFit } from './overflow-fit';
-import { MLV_FIT_EPSILON_PX, computeHiddenFlags } from './overflow-fit';
+import type { MlvOverflowCandidate, MlvOverflowFit } from './overflow-types';
+import {
+  MLV_FIT_EPSILON_PX,
+  mlvComputeHiddenFlags,
+  mlvCssPx,
+  mlvInlineContentSize,
+} from './overflow-fit';
 
 /** Collapsible candidates of the given widths. */
 function items(...widths: number[]): MlvOverflowCandidate[] {
@@ -7,7 +12,7 @@ function items(...widths: number[]): MlvOverflowCandidate[] {
 }
 
 function fit(overrides: Partial<MlvOverflowFit>): boolean[] {
-  return computeHiddenFlags({
+  return mlvComputeHiddenFlags({
     candidates: items(100, 100, 100),
     available: 1000,
     gap: 8,
@@ -16,7 +21,7 @@ function fit(overrides: Partial<MlvOverflowFit>): boolean[] {
   });
 }
 
-describe('computeHiddenFlags', () => {
+describe('mlvComputeHiddenFlags', () => {
   it('returns no flags for no candidates', () => {
     expect(fit({ candidates: [] })).toEqual([]);
   });
@@ -58,6 +63,21 @@ describe('computeHiddenFlags', () => {
     ]);
   });
 
+  // Fractional rect widths do not sum exactly: 10.1 + 16.1 is
+  // 26.200000000000003 in binary floating point, over a row measured at
+  // exactly 26.2. The tolerance is what keeps the second item.
+  it('absorbs floating-point error in a row that fits exactly', () => {
+    expect(10.1 + 16.1).toBeGreaterThan(26.2);
+    expect(
+      mlvComputeHiddenFlags({
+        candidates: items(10.1, 16.1),
+        available: 26.2,
+        gap: 0,
+        triggerWidth: 10,
+      }),
+    ).toEqual([false, false]);
+  });
+
   it('reserves the trigger and its gap once something has to go', () => {
     // Budget 250 − (40 + 8) = 202: the first item fits (100), two do not (208).
     expect(fit({ available: 250 })).toEqual([false, true, true]);
@@ -78,8 +98,29 @@ describe('computeHiddenFlags', () => {
     expect(fit({ available: 255 })).toEqual([false, true, true]);
   });
 
+  // #358's table: a boxed tab track of 5 × 100px tabs with 3px of padding
+  // either side and 2px gaps. At border-box width W the content box is
+  // W − 6 and the row needs 5 × 100 + 4 × 2 = 508, so all five need W ≥ 514.
+  describe('boxed tab track, 5 × 100px (#358)', () => {
+    const track = (borderBox: number): boolean[] =>
+      mlvComputeHiddenFlags({
+        candidates: items(100, 100, 100, 100, 100),
+        available: borderBox - 6,
+        gap: 2,
+        triggerWidth: 60,
+      });
+
+    it.each([505, 510, 513])('withholds the last tab at W = %ipx', (width) => {
+      expect(track(width)).toEqual([false, false, false, false, true]);
+    });
+
+    it('keeps all five at W = 514px, the exact boundary', () => {
+      expect(track(514)).toEqual([false, false, false, false, false]);
+    });
+  });
+
   it('withholds a suffix: a later narrow item never skips ahead of an earlier wide one', () => {
-    const flags = computeHiddenFlags({
+    const flags = mlvComputeHiddenFlags({
       candidates: items(100, 200, 20),
       available: 200,
       gap: 0,
@@ -90,7 +131,7 @@ describe('computeHiddenFlags', () => {
   });
 
   it('reserves pinned widths first, wherever the pinned item sits', () => {
-    const flags = computeHiddenFlags({
+    const flags = mlvComputeHiddenFlags({
       candidates: [
         { width: 100, collapsible: true },
         { width: 100, collapsible: true },
@@ -105,7 +146,7 @@ describe('computeHiddenFlags', () => {
   });
 
   it('never withholds a pinned item, even when it alone overflows', () => {
-    const flags = computeHiddenFlags({
+    const flags = mlvComputeHiddenFlags({
       candidates: [
         { width: 100, collapsible: true },
         { width: 500, collapsible: false },
@@ -128,9 +169,49 @@ describe('computeHiddenFlags', () => {
       gap: 6,
       triggerWidth: 32,
     };
-    const first = computeHiddenFlags(input);
+    const first = mlvComputeHiddenFlags(input);
     for (let i = 0; i < 5; i++) {
-      expect(computeHiddenFlags(input)).toEqual(first);
+      expect(mlvComputeHiddenFlags(input)).toEqual(first);
     }
+  });
+});
+
+describe('mlvCssPx', () => {
+  it('parses a px length', () => {
+    expect(mlvCssPx('3px')).toBe(3);
+    expect(mlvCssPx('0.5px')).toBe(0.5);
+  });
+
+  it('reads `normal` and an empty value as zero', () => {
+    expect(mlvCssPx('normal')).toBe(0);
+    expect(mlvCssPx('')).toBe(0);
+  });
+});
+
+describe('mlvInlineContentSize', () => {
+  const styles = (
+    paddingStart: string,
+    paddingEnd: string,
+    borderStart: string,
+    borderEnd: string,
+  ) =>
+    ({
+      paddingInlineStart: paddingStart,
+      paddingInlineEnd: paddingEnd,
+      borderInlineStartWidth: borderStart,
+      borderInlineEndWidth: borderEnd,
+    }) as CSSStyleDeclaration;
+
+  it('subtracts the inline padding and border from the border box', () => {
+    expect(mlvInlineContentSize(505, styles('3px', '3px', '0px', '0px'))).toBe(
+      499,
+    );
+    expect(mlvInlineContentSize(200, styles('4px', '6px', '1px', '2px'))).toBe(
+      187,
+    );
+  });
+
+  it('treats unresolved values as zero', () => {
+    expect(mlvInlineContentSize(120.5, styles('', '', '', ''))).toBe(120.5);
   });
 });

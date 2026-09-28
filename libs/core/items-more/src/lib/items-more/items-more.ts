@@ -23,7 +23,11 @@ import { MlvTabbableElementService } from '@malva-ui/cdk/accessibility';
 import {
   MlvAutofocus,
   MlvResizeObserverFactory,
+  mlvComputeHiddenFlags,
+  mlvCssPx,
+  mlvInlineContentSize,
   mlvNextId,
+  mlvOverflowRevealGuard,
 } from '@malva-ui/cdk/utils';
 import {
   MlvPopup,
@@ -36,26 +40,11 @@ import { MlvItemsMoreSlot } from '../items-more-slot';
 import type { MlvItemsMoreAccessor } from '../items-more-token';
 import { MLV_ITEMS_MORE } from '../items-more-token';
 import { MlvItemsMoreService } from '../items-more.service';
-import type { MlvOverflowCandidate } from '../overflow-fit';
-import { MLV_FIT_EPSILON_PX, computeHiddenFlags } from '../overflow-fit';
 
 /** @private A computed split and the row width it was computed against. */
 interface MlvItemsMoreSplit {
   readonly hidden: ReadonlySet<MlvItemsMoreItem>;
   readonly available: number;
-}
-
-/**
- * @private A reveal, remembered long enough to notice that its own render
- * undid it.
- */
-interface MlvItemsMoreReveal {
-  /** `Date.now()` when the reveal was committed. */
-  readonly at: number;
-  /** Row width the reveal was computed against. */
-  readonly available: number;
-  /** How many items were still withheld after it. */
-  readonly hiddenCount: number;
 }
 
 /**
@@ -278,29 +267,16 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
    */
   private _focusLoss: MlvItemsMoreFocusLoss | null = null;
 
-  /** @private The most recent reveal, while it may still undo itself. */
-  private _lastReveal: MlvItemsMoreReveal | null = null;
-
   /**
-   * @private A reveal that undid itself, and so may not be repeated.
-   *
-   * The failure it answers is a feedback loop outside the row: returning an
-   * item makes the row taller, a page scrollbar appears, the row narrows, the
-   * item no longer fits, the scrollbar goes, and round again — forever, a
-   * flicker per frame. Arithmetic alone cannot see it, because at the width it
-   * is computed against the item really does fit; it is the reveal's own
-   * render that changes the width.
-   *
-   * So the guard records what was learned — "revealing down to
-   * `hiddenCount` at `available` px or less makes it not fit" — and refuses to
-   * commit that reveal again until the row is wider than it was. It is not a
-   * band: nothing is held back that has not already been shown, by an actual
-   * render, not to fit.
+   * @private Refuses a reveal that has already undone itself — the answer to
+   * a feedback loop outside the row (a reveal adds a page scrollbar that
+   * narrows the row), in place of a hysteresis band. Shared with
+   * `mlv-tab-group`; the reasoning lives on `mlvOverflowRevealGuard`
+   * (`@malva-ui/cdk/utils`).
    */
-  private _revealGuard: Pick<
-    MlvItemsMoreReveal,
-    'available' | 'hiddenCount'
-  > | null = null;
+  private readonly _revealGuard = mlvOverflowRevealGuard(
+    MlvItemsMore._OSCILLATION_WINDOW_MS,
+  );
 
   /** Items rendered in the row, in declaration order. */
   readonly visibleItems = this._service.visibleItems;
@@ -557,7 +533,7 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
 
     const widths = this._widths();
     const measured: MlvItemsMoreItem[] = [];
-    const candidates: MlvOverflowCandidate[] = [];
+    const candidates: { width: number; collapsible: boolean }[] = [];
     for (const item of items) {
       const width = widths.get(item);
       if (width === undefined) return null;
@@ -578,17 +554,12 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     }
 
     const styles = getComputedStyle(row);
-    const available =
-      rowRect.width -
-      MlvItemsMore._px(styles.paddingInlineStart) -
-      MlvItemsMore._px(styles.paddingInlineEnd) -
-      MlvItemsMore._px(styles.borderInlineStartWidth) -
-      MlvItemsMore._px(styles.borderInlineEndWidth);
+    const available = mlvInlineContentSize(rowRect.width, styles);
 
-    const flags = computeHiddenFlags({
+    const flags = mlvComputeHiddenFlags({
       candidates,
       available,
-      gap: MlvItemsMore._px(styles.columnGap),
+      gap: mlvCssPx(styles.columnGap),
       triggerWidth,
     });
 
@@ -597,15 +568,6 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
       if (isHidden) hidden.add(measured[index]);
     });
     return { hidden, available };
-  }
-
-  /**
-   * @private `column-gap: normal` and an unresolved length both parse to
-   * `NaN`; the used value of both is zero.
-   */
-  private static _px(value: string): number {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   // ─── Committing ──────────────────────────────────────────────────────────
@@ -621,34 +583,7 @@ export class MlvItemsMore implements MlvItemsMoreAccessor {
     if (!split) return;
     const { hidden, available } = split;
     const currentCount = this._service.hidden().size;
-
-    // The row has grown past the width that failed: whatever was learned
-    // there says nothing about this width.
-    if (
-      this._revealGuard &&
-      available > this._revealGuard.available + MLV_FIT_EPSILON_PX
-    ) {
-      this._revealGuard = null;
-    }
-
-    if (hidden.size < currentCount) {
-      const guard = this._revealGuard;
-      if (guard && hidden.size <= guard.hiddenCount) return;
-      this._lastReveal = {
-        at: Date.now(),
-        available,
-        hiddenCount: hidden.size,
-      };
-    } else if (hidden.size > currentCount) {
-      const last = this._lastReveal;
-      if (last && Date.now() - last.at <= MlvItemsMore._OSCILLATION_WINDOW_MS) {
-        this._revealGuard = {
-          available: last.available,
-          hiddenCount: last.hiddenCount,
-        };
-      }
-      this._lastReveal = null;
-    }
+    if (!this._revealGuard.admit(hidden.size, currentCount, available)) return;
 
     // Read before committing: afterwards the split no longer says which boxes
     // the coming render removes.

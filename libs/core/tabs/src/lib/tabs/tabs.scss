@@ -7,15 +7,15 @@
     display: flex;
     flex-direction: column;
 
-    // The overflow logic only engages when the header can actually be narrower
-    // than its tab row: `_applyOverflowFit()` compares the cached tab widths
-    // against `headerEl.clientWidth`. A flex or grid item defaults to
+    // The overflow logic only engages when the group can actually be narrower
+    // than its tab row: `_computeSplit()` fits the cached tab widths into the
+    // group's own content box. A flex or grid item defaults to
     // `min-width: auto`, whose content-based minimum here is the full width of
     // the tab row — `overflow: hidden` on the header suppresses the *automatic
     // minimum size* of a flex item, not the min-content contribution a parent
     // grid/flex track sizes against. Without this the group refuses to shrink,
-    // clientWidth never drops, "More (N)" never appears, and the header simply
-    // clips its trailing tabs.
+    // the room it measures never drops, "More (N)" never appears, and the
+    // header simply clips its trailing tabs.
     min-width: 0;
 
     &--vertical {
