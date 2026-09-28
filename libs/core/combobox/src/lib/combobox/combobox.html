@@ -234,7 +234,7 @@
               (valueChange)="selectValues($event)"
             >
               <div class="mlv-combobox__empty">
-                @if (allowCreate() && searchQuery().trim()) {
+                @if (_createsOnEnter()) {
                   {{ _pressEnterToAdd() }}
                 } @else {
                   {{ _i18n().noResults }}

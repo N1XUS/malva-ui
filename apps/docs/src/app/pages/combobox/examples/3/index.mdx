@@ -2,4 +2,6 @@
 title: Allow Creating New Values
 ---
 
-With `[allowCreate]="true"`, typing a value that is not in `[options]` and pressing Enter adds it as a new entry. The `(valueCreated)` output fires with the new string so you can persist it — here it is appended to the tags signal.
+With `[allowCreate]="true"`, typing a value that is not in `[options]` and pressing Enter adds it as a new entry. The `(valueCreated)` output fires with the new string, exactly as typed, so you can persist it — here it is appended to the tags signal.
+
+Enter matches the way the list filters, ignoring case and every diacritic: typing `Frontënd` selects the listed `frontend`, and a tag that is already selected is not added a second time.
