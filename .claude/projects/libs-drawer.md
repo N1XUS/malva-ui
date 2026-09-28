@@ -690,7 +690,7 @@ Pinned by `drawer-resize.spec.ts` § _viewport from the injected DOCUMENT_.
 
 **Purpose:** Programmatically opens any Angular component inside a drawer overlay without needing a host template.
 
-**Extends:** `MlvOverlayServiceBase<MlvDrawerConfig, MlvDrawerRef>` from `@malva-ui/cdk/overlay` — the shared `open()` flow (overlay creation, child injector, `role="dialog"`/`aria-modal`/`tabindex`, focus trap, enter animation, backdrop/Escape close) is inherited. `MlvDrawerService` supplies the edge position strategy, backdrop class, `MlvDrawerRef` construction, `MlvDrawerRef`/`DRAWER_DATA` providers, the `aria-label` fallback (`_decoratePanel`), and overrides `_attachContent`: it attaches `MlvDrawerPanel` to the pane, sets its inputs from the config (unset fields keep the panel's defaults), runs its first render synchronously, creates the opened component inside it and returns the panel — which the base then makes the dialog surface, so the enter / leave classes, the guarded `animationend` and the focus trap all sit on the panel, not the pane.
+**Extends:** `MlvOverlayServiceBase<MlvDrawerConfig, MlvDrawerRef>` from `@malva-ui/cdk/overlay` — the shared `open()` flow (overlay creation, child injector, `role="dialog"`/`aria-modal`/`tabindex`, focus trap, enter animation, backdrop / Escape / opt-in history-navigation close) is inherited. `MlvDrawerService` supplies the edge position strategy, backdrop class, `MlvDrawerRef` construction, `MlvDrawerRef`/`DRAWER_DATA` providers, the `aria-label` fallback (`_decoratePanel`), and overrides `_attachContent`: it attaches `MlvDrawerPanel` to the pane, sets its inputs from the config (unset fields keep the panel's defaults), runs its first render synchronously, creates the opened component inside it and returns the panel — which the base then makes the dialog surface, so the enter / leave classes, the guarded `animationend` and the focus trap all sit on the panel, not the pane.
 
 **Methods:**
 
@@ -702,7 +702,7 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 - Creates a child `Injector` providing `MlvDrawerRef` and `DRAWER_DATA`.
 - Attaches `MlvDrawerPanel` via `ComponentPortal` and creates the component inside it (host class `mlv-drawer__content`).
 - Animates the backdrop on open.
-- Wires up backdrop-click and Escape key to `drawerRef.close()` (unless disabled by config).
+- Wires up backdrop-click and Escape key to `drawerRef.close()` (unless disabled by config), and — with `closeOnNavigation: true` — browser Back / Forward / `hashchange` too (#361), a plain `<a href="#…">` included, one inside the drawer too. At the pop the page is handed back: scroll unblocked and restored, focus to the opener if it is still in the document, the leaving drawer and backdrop `inert`; then the leave plays and `afterClosed()` emits once. A router navigation (`router.navigate()`, `routerLink`) closes nothing. Mechanism: `libs-overlay.md` § _`MlvOverlayServiceBase`_.
 - Returns the `MlvDrawerRef` to the caller.
 
 **`MlvDrawerConfig` interface:**
@@ -716,6 +716,7 @@ open<T>(component: Type<T>, config?: MlvDrawerConfig): MlvDrawerRef
 | `data`              | `unknown`                | —         | Arbitrary data injected as `DRAWER_DATA`                                                                                                                                                |
 | `closeOnBackdrop`   | `boolean`                | `true`    | Clicking backdrop closes the drawer                                                                                                                                                     |
 | `closeOnEscape`     | `boolean`                | `true`    | Pressing Escape closes the drawer                                                                                                                                                       |
+| `closeOnNavigation` | `boolean`                | `false`   | Inherited (#361). Back / Forward / `hashchange` (a `#` link too) close it via the ref; focus to the opener if still in the document. Next major: `true`. Routable: off                  |
 | `animationDuration` | `number`                 | `300`     | **Inert** (#277) — stored, read by nothing. Leave length is CSS `--mlv-drawer-leave-duration`; disposal waits for the panel's own `animationend` or the fixed 350 ms `_leaveFallbackMs` |
 | `resizable`         | `boolean`                | `false`   | Renders a drag handle for resize / keyboard resize / swipe-to-dismiss and opens at `defaultSnap`. Inert before #305 — no handle, `size` used                                            |
 | `snapPoints`        | `number[]`               | `[]`      | Viewport-percentage snap points (0–100), handed to the handle                                                                                                                           |
@@ -950,6 +951,16 @@ export default [
   },
 ] satisfies Routes;
 ```
+
+**History navigation (#361).** A routable drawer always opens with
+`closeOnNavigation: false`, and the options type omits the field
+(`Omit<MlvDrawerConfig, 'data' | 'injector' | 'closeOnNavigation'>`). The route
+owns the drawer: Back / Forward leaving it destroys the shell, which closes the
+drawer. A navigation close of its own would finish first whenever the Back
+navigation outlasts the leave (a guard, a resolver, a lazy chunk); the shell's
+`afterClosed` handler would then see the unchanged URL and navigate to the
+parent route, cancelling the Back in flight. Pinned by `routable-drawer.spec.ts`
+(ablation `routable-forwards`: URL ends on `/page` instead of the Back target).
 
 The opened component can inject `MlvDrawerRef` to close itself and `ActivatedRoute` for route params:
 

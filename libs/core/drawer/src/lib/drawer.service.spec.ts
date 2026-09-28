@@ -7,6 +7,15 @@ import {
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { OverlayContainer } from '@angular/cdk/overlay';
+import { Location } from '@angular/common';
+import type { SpyLocation } from '@angular/common/testing';
+import { provideLocationMocks } from '@angular/common/testing';
+import {
+  NavigationEnd,
+  NavigationStart,
+  provideRouter,
+  Router,
+} from '@angular/router';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { expectNoAxeViolations } from '@malva-ui/internal-testing/axe';
 
@@ -468,4 +477,169 @@ describe('MlvDrawerService', () => {
       });
     });
   });
+});
+
+/**
+ * #361 — a service drawer used to survive Back / Forward, so the next page
+ * rendered under it. `SpyLocation.back()` / `forward()` emit the pop event a
+ * real `popstate` delivers through `Location`.
+ */
+describe('MlvDrawerService — closeOnNavigation (#361)', () => {
+  let service: MlvDrawerService;
+  let location: SpyLocation;
+  let opener: HTMLButtonElement;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18nTesting(), provideLocationMocks()],
+    });
+    service = TestBed.inject(MlvDrawerService);
+    location = TestBed.inject(Location) as SpyLocation;
+    location.go('/orders');
+    location.go('/orders?filters=open');
+    opener = document.createElement('button');
+    opener.textContent = 'Filters';
+    document.body.appendChild(opener);
+    opener.focus();
+  });
+
+  afterEach(() => {
+    opener.remove();
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((element) => element.remove());
+  });
+
+  function panel(): HTMLElement | null {
+    return document.querySelector('.mlv-drawer');
+  }
+
+  it('closes on Back with closeOnNavigation: true, once, and returns focus to the opener', async () => {
+    const ref = service.open(SheetContentComponent, {
+      closeOnNavigation: true,
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(panel()?.contains(document.activeElement)).toBe(true);
+    let closed = 0;
+    ref.afterClosed().subscribe(() => closed++);
+
+    location.back();
+
+    // The drawer's own leave, on the panel, as for any other close.
+    expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(true);
+    expect(closed).toBe(0);
+    // The page is handed back at the pop; the leave is only visual.
+    expect(document.activeElement).toBe(opener);
+
+    panel()?.dispatchEvent(new Event('animationend'));
+
+    expect(closed).toBe(1);
+    expect(panel()).toBeNull();
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('stays open through Back and Forward without the flag', async () => {
+    const ref = service.open(SheetContentComponent);
+    await TestBed.inject(ApplicationRef).whenStable();
+    let closing = false;
+    ref.beforeClose().subscribe(() => (closing = true));
+
+    location.back();
+    location.forward();
+
+    expect(closing).toBe(false);
+    expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(false);
+    expect(panel()?.contains(document.activeElement)).toBe(true);
+
+    ref.close();
+    panel()?.dispatchEvent(new Event('animationend'));
+  });
+});
+
+describe('MlvDrawerService — closeOnNavigation under the router (#361)', () => {
+  let opener: HTMLButtonElement;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideMlvI18nTesting(),
+        provideLocationMocks(),
+        provideRouter([
+          { path: 'orders', children: [] },
+          { path: 'orders/:id', children: [] },
+        ]),
+      ],
+    });
+    opener = document.createElement('button');
+    opener.textContent = 'Filters';
+    document.body.appendChild(opener);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    opener.remove();
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((element) => element.remove());
+    document.documentElement.classList.remove('cdk-global-scrollblock');
+    document.documentElement.style.top = '';
+    document.documentElement.style.left = '';
+  });
+
+  it('restores page scroll before the router starts the Back navigation, and once', async () => {
+    const router = TestBed.inject(Router);
+    router.setUpLocationChangeListener();
+    await router.navigateByUrl('/orders');
+    await router.navigateByUrl('/orders/42');
+    opener.focus();
+
+    const root = document.documentElement;
+    vi.spyOn(root, 'scrollHeight', 'get').mockReturnValue(5000);
+    vi.spyOn(root, 'scrollTop', 'get').mockReturnValue(1200);
+    const log: string[] = [];
+    vi.spyOn(window, 'scroll').mockImplementation(((x: number, y: number) =>
+      log.push(`scroll ${x},${y}`)) as typeof window.scroll);
+    router.events.subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        log.push(`NavigationStart ${event.navigationTrigger}`);
+      } else if (event instanceof NavigationEnd) {
+        log.push(`NavigationEnd ${event.urlAfterRedirects}`);
+      }
+    });
+
+    service().open(SheetContentComponent, { closeOnNavigation: true });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(root.classList.contains('cdk-global-scrollblock')).toBe(true);
+
+    TestBed.inject(Location).back();
+    // The router takes the pop up on a timer.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    // TestBed never runs `RouterScroller` (an `APP_BOOTSTRAP_LISTENER`), so
+    // the order stands in for it: the offset `RouterScroller` would store for
+    // the page being left, at `NavigationStart`, is already restored — the
+    // block is gone before the navigation starts.
+    expect(log).toEqual([
+      'scroll 0,1200',
+      'NavigationStart popstate',
+      'NavigationEnd /orders',
+    ]);
+    expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(true);
+
+    panel()?.dispatchEvent(new Event('animationend'));
+
+    // Not restored a second time, over the page navigated to.
+    expect(panel()).toBeNull();
+    expect(log).toHaveLength(3);
+  });
+
+  function service(): MlvDrawerService {
+    return TestBed.inject(MlvDrawerService);
+  }
+
+  function panel(): HTMLElement | null {
+    return document.querySelector('.mlv-drawer');
+  }
 });

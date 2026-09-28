@@ -21,9 +21,13 @@ import type {
   PositionStrategy,
 } from '@angular/cdk/overlay';
 import { Overlay, OverlayContainer, OverlayModule } from '@angular/cdk/overlay';
-import { A11yModule } from '@angular/cdk/a11y';
+import { A11yModule, InteractivityChecker } from '@angular/cdk/a11y';
 import { ComponentPortal } from '@angular/cdk/portal';
+import { Location } from '@angular/common';
+import type { SpyLocation } from '@angular/common/testing';
+import { provideLocationMocks } from '@angular/common/testing';
 import { firstValueFrom } from 'rxjs';
+import type { MockInstance } from 'vitest';
 import { expectNoAxeViolations, runAxe } from '@malva-ui/internal-testing/axe';
 
 import type { MlvBaseOverlayConfig } from './overlay-config';
@@ -832,6 +836,333 @@ describe('MlvOverlayServiceBase — content surface', () => {
     ref.close();
     expect(closed).toBe(true);
     expect(ref._surfaceElement === null).toBe(true);
+  });
+});
+
+/**
+ * #361 — history navigation. `SpyLocation.back()` / `forward()` emit the pop
+ * event `Location.subscribe()` delivers for a real `popstate` / `hashchange`;
+ * `go()` / `replaceState()` are what the router's own navigations write, and
+ * emit none.
+ */
+describe('MlvOverlayServiceBase — closeOnNavigation (#361)', () => {
+  let service: TestOverlayService;
+  let location: SpyLocation;
+  let trigger: HTMLButtonElement;
+
+  /**
+   * jsdom has no layout, so CDK's own checker finds nothing visible and the
+   * focus trap has nowhere to pull focus back to — it would look released
+   * whether it is or not. Tab order by `tabIndex` stands in for layout.
+   */
+  const tabIndexChecker: Pick<
+    InteractivityChecker,
+    'isDisabled' | 'isVisible' | 'isFocusable' | 'isTabbable'
+  > = {
+    isDisabled: () => false,
+    isVisible: () => true,
+    isFocusable: (element) => element.tabIndex >= 0,
+    isTabbable: (element) => element.tabIndex >= 0,
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        TestOverlayService,
+        provideLocationMocks(),
+        { provide: InteractivityChecker, useValue: tabIndexChecker },
+      ],
+    });
+    service = TestBed.inject(TestOverlayService);
+    location = TestBed.inject(Location) as SpyLocation;
+    // Two entries behind the current one, so Back can be pressed twice.
+    location.go('/list');
+    location.go('/list/filters');
+    trigger = document.createElement('button');
+    trigger.textContent = 'Open';
+    document.body.appendChild(trigger);
+    trigger.focus();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    trigger.remove();
+    document
+      .querySelectorAll('.cdk-overlay-container')
+      .forEach((el) => el.remove());
+    document.documentElement.classList.remove('cdk-global-scrollblock');
+    document.documentElement.style.top = '';
+    document.documentElement.style.left = '';
+  });
+
+  /** The live pane, which `TestOverlayService` makes the dialog surface. */
+  function panel(): HTMLElement | null {
+    return document.querySelector('.test-svc-panel');
+  }
+
+  /**
+   * Records every `Location` subscription the service takes, with a spy on
+   * its `unsubscribe`, so a spec can see whether the history listener outlives
+   * the overlay.
+   */
+  function historySubscriptions(): Array<{
+    unsubscribe: MockInstance<() => void>;
+  }> {
+    const taken: Array<{ unsubscribe: MockInstance<() => void> }> = [];
+    const subscribe = location.subscribe.bind(location);
+    vi.spyOn(location, 'subscribe').mockImplementation((...args) => {
+      const subscription = subscribe(...args);
+      taken.push({ unsubscribe: vi.spyOn(subscription, 'unsubscribe') });
+      return subscription;
+    });
+    return taken;
+  }
+
+  it('closes through the ref on Back: the leave plays, afterClosed emits once and focus returns to the opener', async () => {
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(document.activeElement).toBe(document.querySelector('.svc-inside'));
+    const events: string[] = [];
+    ref.beforeClose().subscribe(() => events.push('beforeClose'));
+    ref
+      .afterClosed()
+      .subscribe((result) => events.push(`afterClosed:${String(result)}`));
+
+    location.back();
+
+    expect(events).toEqual(['beforeClose']);
+    expect(panel()?.classList.contains('test-panel--leave')).toBe(true);
+    expect(panel()?.isConnected).toBe(true);
+    // Handed back at the pop, while the page being left is still current.
+    expect(document.activeElement).toBe(trigger);
+
+    // Another history step inside the leave window starts no second close.
+    location.back();
+    panel()?.dispatchEvent(animationEnd());
+
+    expect(events).toEqual(['beforeClose', 'afterClosed:undefined']);
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('unblocks and restores page scroll at the pop, not when the leave ends', () => {
+    const root = document.documentElement;
+    vi.spyOn(root, 'scrollHeight', 'get').mockReturnValue(5000);
+    vi.spyOn(root, 'scrollTop', 'get').mockReturnValue(1200);
+    const scroll = vi.spyOn(window, 'scroll').mockImplementation(() => {
+      /* jsdom implements no scrolling */
+    });
+    service.open(TestContentComponent, { closeOnNavigation: true });
+    expect(root.classList.contains('cdk-global-scrollblock')).toBe(true);
+
+    location.back();
+
+    // The router navigates on a timer after the pop and stores the offset of
+    // the page it leaves: that page's own offset, not the blocked 0.
+    expect(panel()?.classList.contains('test-panel--leave')).toBe(true);
+    expect(root.classList.contains('cdk-global-scrollblock')).toBe(false);
+    expect(scroll.mock.calls).toEqual([[0, 1200]]);
+
+    panel()?.dispatchEvent(animationEnd());
+
+    // Restored once: not again, over the next page, when the leave ends.
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    expect(scroll.mock.calls).toEqual([[0, 1200]]);
+  });
+
+  it('takes the leaving overlay out of focus and hit-testing at the pop, backdrop included', () => {
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    const host = panel()?.parentElement ?? null;
+    const backdrop = document.querySelector('.test-svc-backdrop');
+    expect(host?.classList.contains('cdk-global-overlay-wrapper')).toBe(true);
+    expect(host?.hasAttribute('inert')).toBe(false);
+    expect(backdrop?.hasAttribute('inert')).toBe(false);
+
+    location.back();
+
+    expect(host?.hasAttribute('inert')).toBe(true);
+    expect(backdrop?.hasAttribute('inert')).toBe(true);
+
+    ref.close();
+    panel()?.dispatchEvent(animationEnd());
+  });
+
+  it('keeps a focus moved elsewhere during the leave: not pulled into the panel, not moved when the leave ends', async () => {
+    service.open(TestContentComponent, { closeOnNavigation: true });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(panel()?.contains(document.activeElement)).toBe(true);
+
+    location.back();
+    expect(document.activeElement).toBe(trigger);
+
+    // What arrival focus on the page navigated to does, inside the leave.
+    const arrival = document.createElement('main');
+    arrival.tabIndex = -1;
+    document.body.appendChild(arrival);
+    arrival.focus();
+    // A live focus trap pulls focus back on a timer.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(arrival);
+
+    panel()?.dispatchEvent(animationEnd());
+
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    expect(document.activeElement).toBe(arrival);
+    arrival.remove();
+  });
+
+  it('does not move focus into an overlay a pop closed before its first render', async () => {
+    service.open(TestContentComponent, { closeOnNavigation: true });
+
+    location.back();
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(document.activeElement).toBe(trigger);
+    panel()?.dispatchEvent(animationEnd());
+  });
+
+  it('closes on an in-page hash link, which pops twice, once', () => {
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    const events: string[] = [];
+    ref.beforeClose().subscribe(() => events.push('beforeClose'));
+    ref.afterClosed().subscribe(() => events.push('afterClosed'));
+
+    // Emits popstate, then hashchange, as a browser does for a `#` link.
+    location.simulateHashChange('/list/filters#totals');
+
+    expect(events).toEqual(['beforeClose']);
+    panel()?.dispatchEvent(animationEnd());
+    expect(events).toEqual(['beforeClose', 'afterClosed']);
+  });
+
+  it('closes on Forward too', () => {
+    location.back();
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    let closing = false;
+    ref.beforeClose().subscribe(() => (closing = true));
+
+    location.forward();
+
+    expect(closing).toBe(true);
+    panel()?.dispatchEvent(animationEnd());
+    expect(panel()).toBeNull();
+  });
+
+  it.each([
+    ['unset', {}],
+    ['false', { closeOnNavigation: false }],
+  ] as const)(
+    'stays open through Back and Forward when closeOnNavigation is %s',
+    (_, config) => {
+      const ref = service.open(TestContentComponent, config);
+      let closing = false;
+      ref.beforeClose().subscribe(() => (closing = true));
+
+      location.back();
+      location.forward();
+
+      expect(closing).toBe(false);
+      expect(panel()?.classList.contains('test-panel--leave')).toBe(false);
+      expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(1);
+
+      ref.close();
+      panel()?.dispatchEvent(animationEnd());
+    },
+  );
+
+  it('closes nothing on a router navigation, which writes history without a pop event', () => {
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    let closing = false;
+    ref.beforeClose().subscribe(() => (closing = true));
+
+    location.go('/list/filters/advanced');
+    location.replaceState('/list/filters/advanced?page=2');
+
+    expect(closing).toBe(false);
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(1);
+
+    ref.close();
+    panel()?.dispatchEvent(animationEnd());
+  });
+
+  it('takes no history listener without the flag', () => {
+    const taken = historySubscriptions();
+    const ref = service.open(TestContentComponent);
+
+    expect(taken).toHaveLength(0);
+
+    ref.close();
+    panel()?.dispatchEvent(animationEnd());
+  });
+
+  it.each([
+    [
+      'a navigation close',
+      () => {
+        location.back();
+        panel()?.dispatchEvent(animationEnd());
+      },
+    ],
+    [
+      'a close() through the ref',
+      (ref: TestOverlayRef) => {
+        ref.close();
+        panel()?.dispatchEvent(animationEnd());
+      },
+    ],
+  ] as const)(
+    'releases its history listener once the overlay is gone after %s',
+    (_, close) => {
+      const taken = historySubscriptions();
+      const ref = service.open(TestContentComponent, {
+        closeOnNavigation: true,
+      });
+      expect(taken).toHaveLength(1);
+      expect(taken[0].unsubscribe).not.toHaveBeenCalled();
+
+      close(ref);
+
+      expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+      expect(taken[0].unsubscribe).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('releases its history listener when the application is torn down under an open overlay', async () => {
+    const taken = historySubscriptions();
+    service.open(TestContentComponent, { closeOnNavigation: true });
+    expect(taken).toHaveLength(1);
+
+    // Destroys the content's view; CDK detaches the overlay a microtask later.
+    TestBed.resetTestingModule();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(taken[0].unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('tears down cleanly after a navigation close', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {
+      /* asserted below */
+    });
+    const ref = service.open(TestContentComponent, { closeOnNavigation: true });
+    let closed = 0;
+    ref.afterClosed().subscribe(() => closed++);
+
+    location.back();
+    panel()?.dispatchEvent(animationEnd());
+    expect(closed).toBe(1);
+
+    // What a destroy hook holding the ref does, then the application goes.
+    ref.close();
+    TestBed.resetTestingModule();
+    await Promise.resolve();
+    // A later history step reaches nothing.
+    location.back();
+
+    expect(closed).toBe(1);
+    expect(document.querySelectorAll('.cdk-overlay-pane')).toHaveLength(0);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 });
 

@@ -1,6 +1,9 @@
 import { ApplicationRef, Component, getDebugNode } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, RouterOutlet } from '@angular/router';
+import { Location } from '@angular/common';
+import type { SpyLocation } from '@angular/common/testing';
+import { provideLocationMocks } from '@angular/common/testing';
+import { provideRouter, Router, RouterOutlet } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { config as rxjsConfig } from 'rxjs';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -49,6 +52,21 @@ class RoutedSectionsComponent {}
 })
 class ParentPageComponent {}
 
+@Component({
+  selector: 'test-other-page',
+  template: '<p>Other</p>',
+})
+class OtherPageComponent {}
+
+/**
+ * The options `mlvGenerateRoutableDrawerRoute()` takes. `closeOnNavigation` is
+ * not among them; a cast through this type stands in for an untyped caller —
+ * and for the next major, where the service default becomes `true`.
+ */
+type RoutableDrawerOptions = Parameters<
+  typeof mlvGenerateRoutableDrawerRoute
+>[1];
+
 /**
  * `MlvDrawerSectionsService` builds an `IntersectionObserver` from a render
  * hook; jsdom ships none. Nothing here reads what it observes.
@@ -73,6 +91,11 @@ describe('mlvGenerateRoutableDrawerRoute', () => {
    */
   let unhandled: string[];
   let previousOnUnhandledError: typeof rxjsConfig.onUnhandledError;
+  /**
+   * While set, `/other`'s guard waits on it: a navigation there stays in
+   * flight until the spec resolves it.
+   */
+  let holdOther: Promise<boolean> | null;
 
   beforeEach(() => {
     unhandled = [];
@@ -80,11 +103,18 @@ describe('mlvGenerateRoutableDrawerRoute', () => {
     rxjsConfig.onUnhandledError = (error: unknown) =>
       unhandled.push(error instanceof Error ? error.message : String(error));
     vi.stubGlobal('IntersectionObserver', NoopIntersectionObserver);
+    holdOther = null;
 
     TestBed.configureTestingModule({
       providers: [
         provideMlvI18nTesting(),
+        provideLocationMocks(),
         provideRouter([
+          {
+            path: 'other',
+            component: OtherPageComponent,
+            canActivate: [() => holdOther ?? true],
+          },
           {
             path: 'page',
             component: ParentPageComponent,
@@ -99,6 +129,10 @@ describe('mlvGenerateRoutableDrawerRoute', () => {
               mlvGenerateRoutableDrawerRoute(RoutedSectionsComponent, {
                 path: 'sections',
               }),
+              mlvGenerateRoutableDrawerRoute(RoutedSheetComponent, {
+                path: 'history',
+                closeOnNavigation: true,
+              } as RoutableDrawerOptions),
             ],
           },
         ]),
@@ -119,7 +153,14 @@ describe('mlvGenerateRoutableDrawerRoute', () => {
    * and the timer RxJS reports an error thrown there on — and the render.
    */
   async function openRoute(url: string): Promise<void> {
-    const harness = await RouterTestingHarness.create();
+    await openRouteIn(await RouterTestingHarness.create(), url);
+  }
+
+  /** {@link openRoute} on a harness the spec already holds. */
+  async function openRouteIn(
+    harness: RouterTestingHarness,
+    url: string,
+  ): Promise<void> {
     await harness.navigateByUrl(url);
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -156,6 +197,43 @@ describe('mlvGenerateRoutableDrawerRoute', () => {
     expect(panel()?.parentElement?.classList.contains('cdk-overlay-pane')).toBe(
       true,
     );
+  });
+
+  it('lets Back reach its own target, closing the drawer through the route, even when the route asks for closeOnNavigation (#361)', async () => {
+    const router = TestBed.inject(Router);
+    const location = TestBed.inject(Location) as SpyLocation;
+    // What bootstrapping does: the router takes Back / Forward from here on.
+    router.setUpLocationChangeListener();
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/other');
+    await openRouteIn(harness, '/page/history');
+    expect(panel()).not.toBeNull();
+
+    // Back lands on a route whose guard is still deciding, so the navigation
+    // outlasts the drawer's leave animation.
+    let release: (allowed: boolean) => void = () => undefined;
+    holdOther = new Promise((resolve) => (release = resolve));
+    const historyWrites = location.urlChanges.length;
+    location.back();
+    // The router picks the pop event up on a timer.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Ends a leave, had the pop event started one of its own.
+    panel()?.dispatchEvent(new Event('animationend'));
+    release(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(unhandled).toEqual([]);
+    expect(router.url).toBe('/other');
+    expect(location.path()).toBe('/other');
+    // No history written after Back: no parent-route push, which would drop
+    // the drawer's entry from Forward.
+    expect(location.urlChanges.slice(historyWrites)).toEqual([]);
+    // Leaving the route destroyed the shell, which closed the drawer.
+    expect(panel()?.classList.contains('mlv-drawer--leave')).toBe(true);
+
+    panel()?.dispatchEvent(new Event('animationend'));
+    expect(panel()).toBeNull();
   });
 
   it('opens [mlvDrawerSection] and mlv-drawer-sections content without a provider error', async () => {
