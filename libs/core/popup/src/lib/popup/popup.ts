@@ -709,6 +709,31 @@ export class MlvPopup {
    */
   private _leaveFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /**
+   * @private Set by this popup's own `DestroyRef` callback — see
+   * {@link _isDestroyed}.
+   */
+  private _destroyed = false;
+
+  /**
+   * @internal Whether this popup has been torn down, so its `opened` model and
+   * `afterOpened` / `afterClosed` outputs are destroyed and a write would only
+   * print NG0953 (#360). Overlay owners — `MlvPopupContainer`, a standalone
+   * `MlvPopupTrigger`, the menu's overlay controller — read it in the
+   * `onClose` of an overlay they close while being destroyed.
+   *
+   * It turns `true` in the same pass that destroys the outputs: the flag is
+   * set from a `DestroyRef` callback registered in the constructor, after the
+   * field initializers registered the outputs' own. It is deliberately **not**
+   * the view's `DestroyRef.destroyed`, which is already `true` while Angular
+   * runs the `ngOnDestroy` hooks of the popup's view — when an owner in the
+   * same view closes, the outputs and the consumer's listeners are still live,
+   * and `[(opened)]` / `(afterClosed)` must still hear the close.
+   */
+  _isDestroyed(): boolean {
+    return this._destroyed;
+  }
+
   constructor() {
     // Arm the fallback whenever a leave starts; disarm on any state change
     // (the real `animationend` path resets the state to 'idle' on dispose).
@@ -727,6 +752,7 @@ export class MlvPopup {
     });
 
     inject(DestroyRef).onDestroy(() => {
+      this._destroyed = true;
       if (this._leaveFallbackTimer !== null) {
         clearTimeout(this._leaveFallbackTimer);
         this._leaveFallbackTimer = null;

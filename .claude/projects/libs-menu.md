@@ -244,6 +244,8 @@ use the localized pending loader.
 | `menuOpened` | Emits when the menu panel opens  |
 | `menuClosed` | Emits when the menu panel closes |
 
+**Destroyed while open or mid-leave (#360).** The trigger's `DestroyRef` runs `MlvMenuOverlayController.destroy()`, which disposes the pane and does **not** emit `menuClosed` — the trigger's outputs are already destroyed by then (it printed NG0953 before). `destroy()` sets `_destroyed` _before_ the close, and `onClose` skips the config's `onClosed` on it (ablated: moving the flag after the close turns 6 `menu-destroy.spec.ts` specs red). The popup's `opened` is still written for a menu that outlives its trigger (`@if` around the trigger only), skipped for one torn down with it — see `libs-popup.md` § _Owner destroyed while the overlay is attached_. Same for `[mlvContextMenuTrigger]` and data-generated submenus; `menubar.notifyItemClosed` still runs. Every close with the trigger alive — `close()`, Escape, click outside, an item activation — emits as before.
+
 #### Host bindings
 
 - `aria-haspopup="menu"`

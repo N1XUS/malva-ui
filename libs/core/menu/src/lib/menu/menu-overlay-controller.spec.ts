@@ -52,6 +52,7 @@ interface PopupLike {
   beginEnterAnimation(): void;
   lockFullscreenForOpen(): boolean;
   releaseFullscreenLock(): void;
+  _isDestroyed(): boolean;
   popupTemplate(): TemplateRef<unknown>;
   updateArrowFromPosition(
     position: ConnectedPosition,
@@ -121,6 +122,9 @@ function createPopup(): PopupLike {
     releaseFullscreenLock: vi.fn(function (this: PopupLike) {
       this.lockedFullscreen.set(null);
     }),
+    // A live popup: the controller skips its `opened` write only for one
+    // Angular already tore down (#360), covered in `menu-destroy.spec.ts`.
+    _isDestroyed: vi.fn(() => false),
     popupTemplate: vi.fn(() => null as unknown as TemplateRef<unknown>),
     updateArrowFromPosition: vi.fn(),
   };

@@ -210,8 +210,16 @@ export class MlvPopupContainer implements OnDestroy, MlvPopupContainerRef {
         this._handle = null;
         this._closing = false;
         popup.animationState.set('idle');
-        popup.opened.set(false);
-        popup.afterClosed.emit();
+        // A popup Angular tore down before this container — one inside an
+        // `@if` / `@for` of the container's content, whose view is destroyed
+        // first — has no live outputs left, and writing them only prints
+        // NG0953 (#360). In the usual arrangement, popup and container in one
+        // view, this `ngOnDestroy`-driven close runs before the popup's
+        // outputs die and still reaches `[(opened)]` / `(afterClosed)`.
+        if (!popup._isDestroyed()) {
+          popup.opened.set(false);
+          popup.afterClosed.emit();
+        }
         // Released last, after `afterClosed`: through the leave animation the
         // panel is still on screen and keeps the chrome it opened with, and
         // `afterClosed` still belongs to that open — a consumer handler that

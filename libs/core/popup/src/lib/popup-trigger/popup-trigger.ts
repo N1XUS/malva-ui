@@ -268,8 +268,14 @@ export class MlvPopupTrigger implements OnDestroy {
         this._handle = null;
         this._closing = false;
         popup.animationState.set('idle');
-        popup.opened.set(false);
-        popup.afterClosed.emit();
+        // Skipped for a popup Angular tore down first — one in a child
+        // component's view — whose outputs are already destroyed (#360). A
+        // popup in this trigger's view, or one outliving it, still hears the
+        // close; see `MlvPopupContainer`'s `onClose`.
+        if (!popup._isDestroyed()) {
+          popup.opened.set(false);
+          popup.afterClosed.emit();
+        }
         // Released last, after `afterClosed` — see `MlvPopupContainer`'s
         // `onClose` for why that handler still belongs to the finished open.
         popup.releaseFullscreenLock();
