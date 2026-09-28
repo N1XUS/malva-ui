@@ -97,17 +97,17 @@ The component wraps the native `<textarea>` inside `mlv-form-control-wrapper`, g
 
 #### Signals & Computed Properties
 
-| Name               | Kind              | Description                                                                                                         |
-| ------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `focused`          | `signal(boolean)` | Whether the textarea currently has focus.                                                                           |
-| `charCount`        | `computed`        | Current character count (`(value() ?? '').length`).                                                                 |
-| `isCountWarning`   | `computed`        | `true` when char count is ≥ 90 % of `maxLength`.                                                                    |
-| `isCountError`     | `computed`        | `true` when char count has reached `maxLength`.                                                                     |
-| `hasValue`         | `computed`        | `(value() ?? '').length > 0` — drives the wrapper's clear-button visibility.                                        |
-| `minHeightStyle`   | `computed`        | CSS string for `min-height` of the scrollbar wrapper (derived from `rows`/`minRows`).                               |
-| `maxHeightStyle`   | `computed`        | CSS string for `max-height` of the scrollbar wrapper (derived from `maxRows`), or `undefined`.                      |
-| `computedDisabled` | `computed`        | `disabled()` — effective disabled state (no CVA `setDisabledState` side channel in the signal base).                |
-| `resolvedState`    | `computed`        | Explicit non-default `state()`; otherwise `'error'` when the bound field has errors and is touched, or `'default'`. |
+| Name               | Kind              | Description                                                                                                                  |
+| ------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `focused`          | `signal(boolean)` | Whether the textarea currently has focus.                                                                                    |
+| `charCount`        | `computed`        | Current character count (`(value() ?? '').length`).                                                                          |
+| `isCountWarning`   | `computed`        | `true` when char count is ≥ 90 % of `maxLength`.                                                                             |
+| `isCountError`     | `computed`        | `true` when char count has reached `maxLength`.                                                                              |
+| `hasValue`         | `computed`        | `(value() ?? '').length > 0` — drives the wrapper's clear-button visibility.                                                 |
+| `minHeightStyle`   | `computed`        | CSS `calc()` for `min-height` of the scrollbar wrapper (derived from `rows`/`minRows`), density-ramped — see _Height_ below. |
+| `maxHeightStyle`   | `computed`        | CSS `calc()` for `max-height` of the scrollbar wrapper (derived from `maxRows`), or `undefined`; same formula.               |
+| `computedDisabled` | `computed`        | `disabled()` — effective disabled state (no CVA `setDisabledState` side channel in the signal base).                         |
+| `resolvedState`    | `computed`        | Explicit non-default `state()`; otherwise `'error'` when the bound field has errors and is touched, or `'default'`.          |
 
 #### View Children
 
@@ -163,7 +163,15 @@ BEM block: `.mlv-textarea`
 
 Key style decisions:
 
-- Overrides `.mlv-form-control-wrapper__control-container` to `height: auto` so the textarea can grow.
+- Overrides `.mlv-form-control-wrapper__control-container` to `height: auto` so the textarea can grow, with zero padding and `min-height: var(--form-ctrl-height)` as the floor (border-box, the combobox / editor pattern).
+- **Height** (#365) — `minHeightStyle` / `maxHeightStyle` (inline on `mlv-scrollbar`) read the wrapper's density-ramped variables, never a fixed token:
+  - first row = `var(--form-ctrl-height) - 0.125rem` — `mlv-input`'s control height minus the container's `0.0625rem` block border;
+  - each further row = one field line box, `1.5 * var(--form-ctrl-font-size, var(--mlv-font-size-m))` — spelled out, not `1.5em`, because the scrollbar's own font size is a fixed `--mlv-font-size-m`, not the field's ramped one;
+  - so the `maxRows` box is never shorter than the `_clampToRows()` cap (both sides are rem, so at any root), and an auto-resized field never overflows its box (it did at spacious / airy before #365).
+  - One row vs `mlv-input` (Chrome, all five densities): equal at 16px (28 / 36 / 44 / 52 / 60px, tight → airy), 20px and 24px roots; +0.375px at a 13px root. Chrome floors each `0.0625rem` border to a whole pixel, so the inline expression alone is exact only at 16px (−0.5px at 20, −1px at 24); the container `min-height` floor closes that from 16px up. Multi-row heights keep the rounding (rows = 2: +0.375 / 0 / −0.5 / −1px at 13 / 16 / 20 / 24).
+  - Before #365 both were `var(--mlv-height-m)` + `1.5em` per row: 46px at every density, 2px taller than `mlv-input` even at comfortable.
+  - Drift guard: `textarea-density.spec.ts` compiles `form-control-wrapper.scss` and `textarea.scss` and fails when the wrapper container's border, the textarea's container override (zero block padding, no border of its own, the `min-height` floor) or the field's `line-height` / block padding stop matching the constants. It models a 16px root only; the root-size rounding is covered by the Chrome measurements in the PR.
+  - Residual: a `clearable` textarea at tight is 30px, not 28 — the clear button (24px target + `margin-top: --mlv-spacing-1`) is taller than the 26px first row.
 - The clear button is repositioned with `margin-top`/`margin-inline-end` to align with the first text row.
 - `.mlv-textarea__field` keeps `overflow: auto` + `scrollbar-width: none` + `-ms-overflow-style: none` + `::-webkit-scrollbar { display: none }`. That is only truthful because the field is decorated by `[scroller]`; removing the binding without also removing these declarations is what left the control with **no** visible scrollbar (issue #90).
 - The overlay tracks' containing block is `.mlv-textarea__scrollbar` itself — `.mlv-scrollbar` is already `position: relative`, so nothing extra is declared here, and nothing may clip it either.

@@ -115,6 +115,35 @@ interface TextareaMetrics {
 const JOINING_SCRIPT_PATTERN =
   /[\p{Script_Extensions=Arabic}\p{Script_Extensions=Syriac}\p{Script_Extensions=Thaana}\p{Script_Extensions=Nko}\p{Script_Extensions=Mongolian}\p{Script_Extensions=Adlam}\p{Script_Extensions=Mandaic}\p{Script_Extensions=Hanifi_Rohingya}\p{Script_Extensions=Manichaean}\p{Script_Extensions=Psalter_Pahlavi}\p{Script_Extensions=Sogdian}\p{Script_Extensions=Chorasmian}\p{Script_Extensions=Old_Uyghur}]/u;
 
+/**
+ * Block-axis border of the wrapper's `__control-container` — `0.0625rem` top
+ * and bottom in `form-control-wrapper.scss`. The textarea sets that container
+ * to `height: auto`, so its border lands on top of the scrollbar's
+ * `min-height`, whereas `mlv-input`'s container is border-box at exactly
+ * `--form-ctrl-height`. Subtracting it makes the two containers equal at a
+ * 16px root. Chrome floors each `0.0625rem` border to a whole pixel, so at
+ * other roots the rendered border differs from this constant by up to 1px:
+ * the container's `min-height: var(--form-ctrl-height)` in `textarea.scss`
+ * keeps the one-row case equal from a 16px root up, and multi-row heights
+ * carry that rounding.
+ */
+const CONTROL_CONTAINER_BORDER_BLOCK = '0.125rem';
+
+/**
+ * One line box of `.mlv-textarea__field`: its unitless `line-height: 1.5`
+ * (`textarea.scss`) over its ramped font size. Spelled out rather than as
+ * `1.5em` because the inline style sits on `mlv-scrollbar`, whose own font size
+ * is a fixed `--mlv-font-size-m` — an `em` there never follows the density.
+ *
+ * Both constants mirror stylesheet values. `textarea-density.spec.ts` compiles
+ * the stylesheets and fails when these stop matching: the wrapper
+ * container's border, the textarea's container override (zero block padding,
+ * no border of its own, the `min-height` floor) and the field's `line-height`
+ * and block padding.
+ */
+const FIELD_LINE_BOX =
+  '1.5 * var(--form-ctrl-font-size, var(--mlv-font-size-m))';
+
 @Component({
   selector: 'mlv-textarea',
   imports: [
@@ -244,31 +273,47 @@ export class MlvTextarea
   });
 
   /**
-   * Computed minimum height style for the scrollbar wrapper.
-   * When rows = 1, matches `--mlv-height-m` (same as mlv-input).
-   * For multi-row, grows proportionally: each additional row adds 1.5em.
+   * Computed minimum height style for the scrollbar wrapper, from `minRows`
+   * (else `rows`). One row gives the control container `mlv-input`'s height at
+   * the current density (backed by the container's `min-height` floor in
+   * `textarea.scss`); each further row adds one line box of the field. See
+   * {@link _heightForRows}.
    */
-  readonly minHeightStyle = computed(() => {
-    const rows = this.minRows() ?? this.rows();
-    if (rows === 1) {
-      return 'var(--mlv-height-m)';
-    }
-    // Base height for a single row equals --mlv-height-m (2.75rem).
-    // Each extra row adds one line (1.5em at font-size ~0.875rem ≈ 1.3125rem).
-    return `calc(var(--mlv-height-m) + ${rows - 1} * 1.5em)`;
-  });
+  readonly minHeightStyle = computed(() =>
+    this._heightForRows(this.minRows() ?? this.rows()),
+  );
 
   /**
-   * Computed maximum height style for the scrollbar wrapper based on maxRows input.
+   * Computed maximum height style for the scrollbar wrapper from `maxRows`, on
+   * the same geometry as {@link minHeightStyle}; `undefined` without `maxRows`.
    */
   readonly maxHeightStyle = computed(() => {
     const maxRows = this.maxRows();
-    if (!maxRows) return undefined;
-    if (maxRows === 1) {
-      return 'var(--mlv-height-m)';
-    }
-    return `calc(var(--mlv-height-m) + ${maxRows - 1} * 1.5em)`;
+    return maxRows ? this._heightForRows(maxRows) : undefined;
   });
+
+  /**
+   * @private The scrollbar height, as a CSS expression, that gives the control
+   * container `rows` rows: `mlv-input`'s control height for the first row, one
+   * field line box for each further row.
+   *
+   * Both terms read the variables `.mlv-form-control-wrapper` ramps per density
+   * (`--form-ctrl-height`, `--form-ctrl-font-size`), which resolve here because
+   * the scrollbar renders inside the wrapper — so every density path that sets
+   * the wrapper's ramp sizes the textarea too, however the wrapper resolves it
+   * (#365). The old fixed `--mlv-height-m` + `1.5em` gave a one-row textarea
+   * the same 46px container at every density.
+   *
+   * With `maxRows`, the box this allows is always at least the height
+   * `_clampToRows()` caps the auto-resized field at (`maxRows` line boxes plus
+   * the field's block padding), so the field never spills out of it.
+   */
+  private _heightForRows(rows: number): string {
+    const firstRow = `var(--form-ctrl-height) - ${CONTROL_CONTAINER_BORDER_BLOCK}`;
+    return rows === 1
+      ? `calc(${firstRow})`
+      : `calc(${firstRow} + ${rows - 1} * ${FIELD_LINE_BOX})`;
+  }
 
   /**
    * @private Whether the component is running in a browser. Auto-resize
