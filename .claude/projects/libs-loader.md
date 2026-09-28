@@ -45,31 +45,39 @@ Exported from `libs/core/loader/src/index.ts`:
 | `showHint`      | `boolean`             | `false`     | Show percentage hint (bar: above track; circle: centred inside ring). Only visible in determinate mode. |
 | `color`         | `string \| undefined` | `undefined` | Custom color override for `--mlv-l-color`; takes precedence over `tone`.                                |
 | `trackColor`    | `string \| undefined` | `undefined` | Track color override for `--mlv-l-track-color`, both variants (bar `background`, circle `stroke`).      |
+| `glow`          | `boolean`             | `false`     | Shimmer sweep over the filled bar. Determinate `'bar'` only; ignored when `indeterminate`.              |
 
 #### Host Bindings
 
 ```ts
 host: {
-  'role': 'progressbar',
-  'class': 'mlv-loader',
-  '[class]': 'hostClasses()',
-  '[attr.aria-valuenow]': 'determinate() ? value() : null',
-  '[attr.aria-valuemin]': 'determinate() ? 0 : null',
-  '[attr.aria-valuemax]': 'determinate() ? max() : null',
-  '[attr.aria-label]': 'ariaLabel()',
+  class: 'mlv-loader',
+  '[class]': '_hostClasses()',
+  role: 'progressbar',
+  '[style.--mlv-l-progress]': '_determinate() && _progressVisible() ? _percentage() / 100 : null',
+  '[style.--mlv-l-diameter]': '_normalizedSize() + "px"',
+  '[style.--mlv-l-stroke-width]': 'strokeWidth() + "px"',
+  '[style.--mlv-l-color]': 'color() || null',
+  '[style.--mlv-l-track-color]': 'trackColor() || null',
+  '[attr.aria-valuenow]': '_determinate() ? value() : null',
+  '[attr.aria-valuemin]': '_determinate() ? 0 : null',
+  '[attr.aria-valuemax]': '_determinate() ? max() : null',
+  '[attr.aria-label]': '_resolvedAriaLabel()',
 }
 ```
 
-#### Computed Signals
+#### Computed Signals (protected)
 
-| Signal        | Description                                 |
-| ------------- | ------------------------------------------- |
-| `determinate` | `!indeterminate()`                          |
-| `percentage`  | `(value / max) * 100`, clamped 0–100        |
-| `center`      | `size / 2` — SVG circle center              |
-| `radius`      | `(size - strokeWidth) / 2`                  |
-| `viewBox`     | `'0 0 {size} {size}'`                       |
-| `dashArray`   | `'{percentage} 100'` — SVG stroke-dasharray |
+| Signal               | Description                                                                  |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `_determinate`       | `!indeterminate()`                                                           |
+| `_percentage`        | `(value / max) * 100`, clamped 0–100                                         |
+| `_normalizedSize`    | `size` or the variant default (bar `4`, circle `48`)                         |
+| `_resolvedAriaLabel` | `ariaLabel` or the i18n `loading` string                                     |
+| `_hintText`          | Rounded percentage, `'NN%'`                                                  |
+| `_showHint`          | `showHint() && _determinate()`                                               |
+| `_hostClasses`       | `mlv-loader--{variant}`, `--{tone}`, plus `--indeterminate` / `--glow` flags |
+| `_progressVisible`   | Truthy one tick after construction, gating the fill transition's first frame |
 
 #### Template Summary
 
@@ -93,13 +101,33 @@ host: {
 
 #### Bar Animations
 
-- **Indeterminate only:** `loader-bar-indeterminate` (left→right sweep, 2s loop)
-- No shimmer on determinate bar mode.
+- **Determinate:** `width` transition on `.mlv-loader__bar` (`--mlv-duration-normal`).
+- **Glow** (`glow`, determinate only): `.mlv-loader__bar::after` sheen, `mlv-loader-bar-shimmer` (1.8s loop).
+- **Indeterminate:** Material MDC two-segment sweep on `.mlv-loader__track::before` / `::after` — `mlv-loader-bar-{primary,secondary}-{translate,scale}` (3s loop, secondary delayed 1.725s); `.mlv-loader__bar` hidden.
 
 #### Circle Animations
 
-- **Determinate:** smooth `stroke-dasharray` transition (enabled via `_progressVisible` signal after one tick)
-- **Indeterminate:** `loader-circle-rotate` (full rotation 2s) + `loader-circle-dash`/`loader-circle-spin` (alternating, 3s)
+- **Determinate:** `stroke-dashoffset` transition on `.mlv-loader__circle-fill--filled` (enabled via `_progressVisible` after one tick).
+- **Indeterminate:** `mlv-loader-circle-rotate` on the SVG + `mlv-loader-circle-dash` on the fill (both 4s loops).
+
+#### RTL (#367)
+
+- Bar sweep and glow sheen run toward **inline-end**: right → left under any `[dir="rtl"]` ancestor, a scoped one inside an LTR document included.
+  - Segments anchored with `inset-inline-start: 0`; `transform-origin: calc(50% - 50% * var(--mlv-inline-direction)) center`.
+  - Every `translate` keyframe goes through `mixins.inline-distance()`; the sign resolves on the pseudo-element (inherited from its element), so a scoped `[dir]` mirrors. LTR keyframe values unchanged.
+  - Before #367: physical `left: 0` / `transform-origin: left center` / bare `translate` — RTL swept left → right, against the fill.
+- Circle does **not** mirror: rotation reads like a clock face (`.claude/rules/rtl.md`, time glyphs), and the determinate arc starts at 12 o'clock and fills clockwise in both directions.
+- No physical inline value left in `loader.scss`; the glow's symmetric `90deg` gradient carries a `// physical:` comment.
+
+#### Reduced motion (#367)
+
+- `mixins.reduced-motion($block)` selects elements only (`.mlv-loader *`, `[class^='mlv-loader__']`), never a descendant's `::before` / `::after` — so the bar sweep and glow kept running. What it does reach it only shortens, ending on the un-animated frame (the circle collapsed to an empty ring).
+- Local `@media (prefers-reduced-motion: reduce)` block, same selectors as the animating rules (equal specificity, later order), gives each part a static state:
+  - Indeterminate bar: `::before` held at a centred segment — `inset-inline-start: 30%`, `width: 40%` (30–70% of the track). Detached from inline-start, so not readable as a determinate value; centred, so identical in LTR / RTL. `::after` hidden.
+  - Indeterminate circle: SVG and fill `animation: none`; fill a static quarter arc centred on 12 o'clock (`stroke-dashoffset: 0.75 × circumference`, `rotate(-135deg)`).
+  - Glow: sheen hidden (`display: none`); the determinate fill carries the value.
+- ARIA unchanged: indeterminate stays `role="progressbar"` with no `aria-valuenow`.
+- Pinned by `loader-styles.spec.ts` (compiled CSS through `stripCssLayersFromText()`): every animated selector owes a same-selector reduced-motion override; static geometry; no physical inline value; keyframes mirror at `-1` and match the pre-#367 values at `1`.
 
 ---
 

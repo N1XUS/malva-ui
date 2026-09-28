@@ -92,6 +92,8 @@
           // Translucent-white sheen highlight for the moving shimmer. No --mlv-*
           // token expresses an alpha-white overlay (the theme exposes overlay
           // *alpha* numbers, not white-tinted colors), so the raw rgba is kept.
+          // physical: `90deg` draws a symmetric sheen, the same picture in
+          // either direction; the sweep mirrors (`mlv-loader-bar-shimmer`).
           background: linear-gradient(
             90deg,
             transparent 0%,
@@ -115,11 +117,15 @@
             position: absolute;
             top: 0;
             bottom: 0;
-            left: 0;
+            inset-inline-start: 0;
             width: 100%;
             border-radius: inherit;
             background: var(--mlv-l-color);
-            transform-origin: left center;
+            // Scale from the inline-start edge: 0% in LTR, 100% in RTL. The
+            // translate keyframes flip with the same sign, so the sweep runs
+            // toward inline-end and mirrors under any `[dir]` scope.
+            transform-origin: calc(50% - 50% * var(--mlv-inline-direction))
+              center;
             will-change: translate, scale;
           }
 
@@ -222,6 +228,10 @@
       }
 
       // ---- Circle indeterminate ----
+      // Rotation does not mirror in RTL: a spinner turns clockwise like a
+      // clock face (`.claude/rules/rtl.md`, time glyphs), and the determinate
+      // arc it shares a ring with starts at 12 o'clock and fills clockwise in
+      // both directions.
       &.#{$block}--indeterminate {
         .#{$block}__circle {
           animation: mlv-loader-circle-rotate 4s linear infinite;
@@ -240,15 +250,72 @@
   @include mixins.reduced-motion($block);
 
   // ---------------------------------------------------------------------------
+  // Reduced motion — static states
+  // ---------------------------------------------------------------------------
+  //
+  // The mixin above selects `.mlv-loader *` and `[class^='mlv-loader__']`,
+  // which match elements and never a descendant's `::before` / `::after`, so
+  // the bar sweep and the glow kept running. And what it does reach it only
+  // shortens: a looping animation then ends on its un-animated frame, which is
+  // wrong for every part here — a full-width fill for the indeterminate bar
+  // (reads as "done"), an empty ring for the circle, a frozen stripe for the
+  // glow. Each part gets a static state of its own, on the selector that
+  // animates it: equal specificity, later in the sheet. ARIA is untouched —
+  // an indeterminate `progressbar` still carries no `aria-valuenow`.
+
+  @include mixins.motion-reduced {
+    .#{$block}--bar {
+      // Decoration only; the determinate fill under it carries the value.
+      &.#{$block}--glow:not(.#{$block}--indeterminate) .#{$block}__bar::after {
+        display: none;
+      }
+
+      &.#{$block}--indeterminate .#{$block}__track {
+        // One segment floating in the middle of the track. Detached from
+        // inline-start it cannot be read as a determinate value, and centred
+        // it is the same picture in either direction.
+        &::before {
+          animation: none;
+          inset-inline-start: 30%;
+          width: 40%;
+          will-change: auto;
+        }
+
+        &::after {
+          display: none;
+        }
+      }
+    }
+
+    .#{$block}--circle.#{$block}--indeterminate .#{$block}__circle {
+      animation: none;
+
+      // A quarter arc centred on 12 o'clock: visible, unlike the empty ring,
+      // and not anchored where a determinate arc starts, so it does not read
+      // as 25%. Symmetric, so it needs no mirroring either.
+      &-fill {
+        animation: none;
+        stroke-dashoffset: calc(0.75 * $circumference);
+        transform: rotate(-135deg);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Keyframes — Bar shimmer (glow mode)
   // ---------------------------------------------------------------------------
+  //
+  // Every `translate` below goes through `inline-distance()`, which multiplies
+  // it by `--mlv-inline-direction`. The value resolves on the animated
+  // pseudo-element, which inherits the sign from its element, so a scoped
+  // `[dir="rtl"]` mirrors the sweep and LTR reads exactly as before.
 
   @keyframes mlv-loader-bar-shimmer {
     0% {
-      translate: -200%;
+      translate: mixins.inline-distance(-200%);
     }
     100% {
-      translate: 200%;
+      translate: mixins.inline-distance(200%);
     }
   }
 
@@ -258,11 +325,11 @@
 
   @keyframes mlv-loader-bar-primary-translate {
     0% {
-      translate: -100%;
+      translate: mixins.inline-distance(-100%);
     }
     20% {
       animation-timing-function: cubic-bezier(0.5, 0, 0.701732, 0.495819);
-      translate: -100%;
+      translate: mixins.inline-distance(-100%);
     }
     59.15% {
       animation-timing-function: cubic-bezier(
@@ -271,10 +338,10 @@
         0.55,
         0.956352
       );
-      translate: -16.329%;
+      translate: mixins.inline-distance(-16.329%);
     }
     100% {
-      translate: 100.611%;
+      translate: mixins.inline-distance(100.611%);
     }
   }
 
@@ -298,18 +365,18 @@
   @keyframes mlv-loader-bar-secondary-translate {
     0% {
       animation-timing-function: cubic-bezier(0.15, 0, 0.515058, 0.409685);
-      translate: -100%;
+      translate: mixins.inline-distance(-100%);
     }
     25% {
       animation-timing-function: cubic-bezier(0.31033, 0.284058, 0.8, 0.733712);
-      translate: -62.348%;
+      translate: mixins.inline-distance(-62.348%);
     }
     48.35% {
       animation-timing-function: cubic-bezier(0.4, 0.627035, 0.6, 0.902026);
-      translate: -15.614%;
+      translate: mixins.inline-distance(-15.614%);
     }
     100% {
-      translate: 120%;
+      translate: mixins.inline-distance(120%);
     }
   }
 
