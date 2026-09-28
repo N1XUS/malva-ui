@@ -76,40 +76,91 @@ function isConditionMeaningful(condition: MlvFilterCondition): boolean {
   );
 }
 
-/** Deeply copies a supported structured filter value. */
-function cloneFilterValue<T>(value: T): T {
-  if (typeof structuredClone === 'function') {
-    try {
-      return structuredClone(value);
-    } catch {
-      // Fall through for values outside the structured-clone algorithm.
-    }
-  }
+/**
+ * Copies the plain-data part of a filter operand and shares everything else.
+ *
+ * Plain data is copied at every depth, so a stored field state or an emitted
+ * snapshot never aliases a container the caller still holds: an array, an
+ * object whose prototype is `Object.prototype` or `null` (kept on the copy),
+ * and a `Date`, `Map` or `Set` whose prototype is exactly the built-in one.
+ * An object's own enumerable string keys are copied, each **defined** on the
+ * copy rather than assigned, so an own `__proto__` key stays data instead of
+ * re-pointing the copy's prototype. One copy is made per source object, which
+ * keeps shared references and cycles, as `structuredClone` did. An array copy
+ * holds its indices only — extra own non-index keys are dropped, where
+ * `structuredClone` kept them — and an array whose prototype is `null` is
+ * copied as a null-prototype object of its index keys, with no `length`.
+ *
+ * Every other object is returned **by reference**: a class instance (Dayjs,
+ * Luxon, `Temporal`, a domain type), a built-in subclass, and anything built on
+ * internal slots (`Intl.*`, `URL`, `RegExp`, typed arrays, `Blob`). None of
+ * them can be copied faithfully. `structuredClone` returned a class instance as
+ * a prototype-less plain object, so a custom value editor calling a method on
+ * its value threw, and it rejected an `Intl` member with `DataCloneError`
+ * (#351); a prototype-linked shallow copy (the `mlv-data-table` draft) keeps
+ * the prototype but loses `#private` fields and internal slots, so the
+ * methods throw there instead. Plain data from another realm (an iframe) is
+ * shared as well — an object, an array, a `Date`, a `Map` or a `Set` — because
+ * its prototype is not this realm's.
+ */
+function cloneFilterValue<T>(value: T, copies = new Map<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (copies.has(value)) return copies.get(value) as T;
 
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneFilterValue(item)) as T;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (Array.isArray(value) && prototype === Array.prototype) {
+    const items: unknown[] = new Array(value.length);
+    copies.set(value, items);
+    value.forEach((item: unknown, index) => {
+      items[index] = cloneFilterValue(item, copies);
+    });
+    return items as T;
   }
-  if (value instanceof Date) return new Date(value.getTime()) as T;
-  if (value instanceof Map) {
-    return new Map(
-      [...value].map(([key, item]) => [
-        cloneFilterValue(key),
-        cloneFilterValue(item),
-      ]),
-    ) as T;
+  if (value instanceof Date && prototype === Date.prototype) {
+    const date = new Date(value.getTime());
+    copies.set(value, date);
+    return date as T;
   }
-  if (value instanceof Set) {
-    return new Set([...value].map((item) => cloneFilterValue(item))) as T;
+  if (value instanceof Map && prototype === Map.prototype) {
+    const entries = new Map<unknown, unknown>();
+    copies.set(value, entries);
+    value.forEach((item: unknown, key: unknown) => {
+      entries.set(
+        cloneFilterValue(key, copies),
+        cloneFilterValue(item, copies),
+      );
+    });
+    return entries as T;
   }
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, cloneFilterValue(item)]),
-    ) as T;
+  if (value instanceof Set && prototype === Set.prototype) {
+    const members = new Set<unknown>();
+    copies.set(value, members);
+    value.forEach((item: unknown) => {
+      members.add(cloneFilterValue(item, copies));
+    });
+    return members as T;
+  }
+  if (prototype === Object.prototype || prototype === null) {
+    const source = value as Record<string, unknown>;
+    const record = Object.create(prototype) as Record<string, unknown>;
+    copies.set(value, record);
+    for (const key of Object.keys(source)) {
+      Object.defineProperty(record, key, {
+        value: cloneFilterValue(source[key], copies),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+    return record as T;
   }
   return value;
 }
 
-/** Copies field states and nested operands for immutable public snapshots. */
+/**
+ * Copies field states and the plain-data part of their operands for immutable
+ * public snapshots; a class-instance operand is shared (see `cloneFilterValue`).
+ */
 function cloneFieldStates(
   states: readonly MlvFilterFieldState[],
 ): MlvFilterFieldState[] {

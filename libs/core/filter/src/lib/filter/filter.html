@@ -141,7 +141,11 @@
                           [type]="
                             _resolvedEditor() === 'number' ? 'number' : 'text'
                           "
-                          [value]="$any(_conditionRangeValue(condition, 0))"
+                          [value]="
+                            $any(
+                              _editorValue(_conditionRangeValue(condition, 0))
+                            )
+                          "
                           [placeholder]="_resolvedPlaceholder()"
                           [ariaLabel]="names.rangeFrom"
                           [disabled]="_editorDisabled()"
@@ -162,7 +166,11 @@
                           [type]="
                             _resolvedEditor() === 'number' ? 'number' : 'text'
                           "
-                          [value]="$any(_conditionRangeValue(condition, 1))"
+                          [value]="
+                            $any(
+                              _editorValue(_conditionRangeValue(condition, 1))
+                            )
+                          "
                           [placeholder]="_resolvedPlaceholder()"
                           [ariaLabel]="names.rangeTo"
                           [disabled]="_editorDisabled()"
@@ -180,7 +188,7 @@
                         [type]="
                           _resolvedEditor() === 'number' ? 'number' : 'text'
                         "
-                        [value]="$any(condition.value)"
+                        [value]="$any(_editorValue(condition.value))"
                         [placeholder]="_resolvedPlaceholder()"
                         [ariaLabel]="names.value"
                         [disabled]="_editorDisabled()"

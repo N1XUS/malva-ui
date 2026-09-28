@@ -1,4 +1,5 @@
 import { normalizeForMatch } from '@malva-ui/cdk/utils';
+import { mlvFilterDisplayString } from './filter-display-string';
 import type {
   MlvFilterCondition,
   MlvFilterConditionStrategy,
@@ -255,9 +256,13 @@ function _matchesCondition(
   }
 }
 
-/** @private Normalizes text according to the existing data-source predicate contract. */
+/**
+ * @private Normalizes text according to the existing data-source predicate
+ * contract. A value `String()` cannot convert (a null-prototype object) reads
+ * as its `[object Object]` tag instead of throwing.
+ */
 function _normalizedText(value: unknown): string {
-  return normalizeForMatch(String(value ?? ''));
+  return normalizeForMatch(mlvFilterDisplayString(value ?? ''));
 }
 
 /** @private Converts number-editor compatible values to a finite number. */

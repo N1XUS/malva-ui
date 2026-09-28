@@ -568,4 +568,25 @@ describe('mlvMatchesFilterExpression', () => {
       ),
     ).toBe(false);
   });
+
+  it('matches text against a null-prototype operand or value without throwing', () => {
+    // The smart filter bar keeps a null-prototype operand as it is (#351), so
+    // a payload can carry one; `String()` throws on it.
+    const dictionary = Object.assign(Object.create(null) as object, { k: 1 });
+
+    expect(
+      mlvMatchesFilterExpression(
+        { name: 'Acme' },
+        condition('name', 'contains', dictionary),
+        readValue,
+      ),
+    ).toBe(false);
+    expect(
+      mlvMatchesFilterExpression(
+        { name: dictionary as unknown as string },
+        condition('name', 'contains', 'object'),
+        readValue,
+      ),
+    ).toBe(true);
+  });
 });

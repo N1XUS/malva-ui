@@ -56,6 +56,10 @@ import type {
   MlvFilterOperator,
   MlvFilterOption,
 } from '../filter.types';
+import {
+  mlvFilterDisplayString,
+  mlvFilterTryString,
+} from '../filter-display-string';
 import type { MlvFilterValueEditorContext } from './filter-value-editor';
 import { MlvFilterValueEditorDef } from './filter-value-editor';
 import { MlvToolbar } from '@malva-ui/core/toolbar';
@@ -167,15 +171,22 @@ function isSameSelection(
   });
 }
 
-/** Returns a defensive shallow copy of filter conditions and array operands. */
+/**
+ * Returns a defensive shallow copy of filter conditions and their plain-array
+ * operands. An `Array` subclass operand is kept by reference, like any other
+ * class instance (#351): spreading it would rebuild it as a plain array and
+ * drop its prototype.
+ */
 function cloneConditions(
   conditions: readonly MlvFilterCondition[],
 ): MlvFilterCondition[] {
   return conditions.map((condition) => ({
     ...condition,
-    value: Array.isArray(condition.value)
-      ? [...condition.value]
-      : condition.value,
+    value:
+      Array.isArray(condition.value) &&
+      Object.getPrototypeOf(condition.value) === Array.prototype
+        ? [...condition.value]
+        : condition.value,
   }));
 }
 
@@ -766,6 +777,20 @@ export class MlvFilter {
       : '';
   }
 
+  /**
+   * @protected The operand a built-in editor's `mlv-input` binds. Unchanged,
+   * unless it is an object `String()` cannot convert — a null-prototype object
+   * — which the native input's own string conversion would throw on; that one
+   * binds its summary text instead.
+   */
+  protected _editorValue(value: unknown): unknown {
+    return value !== null &&
+      typeof value === 'object' &&
+      mlvFilterTryString(value) === null
+      ? mlvFilterDisplayString(value)
+      : value;
+  }
+
   /** @protected Updates one side of a between-condition range. */
   protected _setConditionRangeValue(
     conditionIndex: number,
@@ -882,7 +907,7 @@ export class MlvFilter {
         condition.value.length === 2
       ) {
         return [
-          `${String(condition.value[0])} – ${String(condition.value[1])}`,
+          `${mlvFilterDisplayString(condition.value[0])} – ${mlvFilterDisplayString(condition.value[1])}`,
         ];
       }
       const values = Array.isArray(condition.value)
@@ -896,7 +921,7 @@ export class MlvFilter {
           const option = this.options().find((candidate) =>
             Object.is(candidate.value, value),
           );
-          return option?.label ?? String(value);
+          return option?.label ?? mlvFilterDisplayString(value);
         });
     });
   }
