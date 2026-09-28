@@ -15,6 +15,28 @@ export interface MlvBaseOverlayConfig {
   closeOnBackdrop?: boolean;
   /** Whether pressing Escape closes the overlay. Defaults to `true`. */
   closeOnEscape?: boolean;
+  /**
+   * Whether browser history navigation — Back / Forward, or a `hashchange` —
+   * closes the overlay. A `hashchange` includes following a plain in-page
+   * link (`<a href="#section">`), one inside the overlay's own content too.
+   *
+   * It closes through the ref, as a backdrop click or Escape does:
+   * `beforeClose()` emits, the leave animation plays, and `afterClosed()`
+   * emits once, with no result, when it ends. The page is handed back at
+   * once, though, before the navigation runs: page scroll is unblocked and
+   * restored, focus returns to the element that was focused when the overlay
+   * opened, if it is still in the document, and the leaving overlay is made
+   * `inert`.
+   *
+   * A router navigation (`router.navigate()`, a `routerLink`) writes history
+   * without a pop event and closes nothing. These are the events CDK's
+   * `disposeOnNavigation` and `MlvDialogConfig.closeOnNavigation` react to.
+   *
+   * Defaults to `false`; the next major changes the default to `true` for
+   * dialog parity. Routable drawers (`mlvGenerateRoutableDrawerRoute()`)
+   * never take this close: their route closes them when navigation leaves it.
+   */
+  closeOnNavigation?: boolean;
   /** Custom parent injector for the opened component. Used by routable overlays to pass the route's injector. */
   injector?: Injector;
   /**

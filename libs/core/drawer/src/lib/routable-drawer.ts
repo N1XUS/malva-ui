@@ -67,6 +67,14 @@ export default class MlvRoutableDrawer {
           currentRef = this._drawer.open(component, {
             ...drawerOptions,
             injector: this._injector,
+            // The route owns this drawer: navigation leaving it destroys this
+            // shell, which closes the drawer. A history-navigation close of
+            // its own would finish first whenever that navigation outlasts
+            // the leave animation, and `_onDrawerClosing()` would then
+            // navigate to the parent route, cancelling the Back / Forward
+            // navigation still in flight. Pinned here rather than left to the
+            // default, which becomes `true` in the next major.
+            closeOnNavigation: false,
           });
           return currentRef.afterClosed();
         }),

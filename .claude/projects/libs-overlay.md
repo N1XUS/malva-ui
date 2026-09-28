@@ -35,9 +35,9 @@ Exported from `libs/cdk/overlay/src/index.ts`:
 | Export                                    | Kind                          | Description                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MlvOverlayHostBase`                      | Abstract `@Directive()` class | Base for template-based overlay host **components** (drawer). Owns the `opened` model, `hasBackdrop`/`closeOnBackdropClick`/`closeOnEscape`/`restoreFocus` inputs, `afterOpened`/`afterClosed` outputs, `animationState` signal, the open/close `effect()`, optional focus restoration, and overlay create/destroy lifecycle. |
-| `MlvOverlayServiceBase<TConfig, TRef>`    | Abstract class                | Base for imperative overlay **services** (drawer). Owns the component-portal `open()` flow: overlay creation, child injector, modal semantics, focus trap/restore, enter animation, and backdrop/Escape close wiring.                                                                                                         |
+| `MlvOverlayServiceBase<TConfig, TRef>`    | Abstract class                | Base for imperative overlay **services** (drawer). Owns the component-portal `open()` flow: overlay creation, child injector, modal semantics, focus trap/restore, enter animation, and backdrop / Escape / opt-in history-navigation close wiring.                                                                           |
 | `MlvOverlayRef<R>`                        | Abstract class                | Base for imperative overlay **references** (drawer). Owns idempotent `close()`/`afterClosed()`/`beforeClose()`, leave animation, and `animationend`-with-fallback disposal.                                                                                                                                                   |
-| `MlvBaseOverlayConfig`                    | Interface                     | Shared config fields (`data`, `closeOnBackdrop`, `closeOnEscape`, `injector`, `initialFocus`, `direction`), extended by `MlvDrawerConfig`.                                                                                                                                                                                    |
+| `MlvBaseOverlayConfig`                    | Interface                     | Shared config fields (`data`, `closeOnBackdrop`, `closeOnEscape`, `closeOnNavigation`, `injector`, `initialFocus`, `direction`), extended by `MlvDrawerConfig`.                                                                                                                                                               |
 | `MlvOverlayAnimationState`                | Type alias                    | `'enter' \| 'leave' \| 'idle'` — the `animationState` signal's value type.                                                                                                                                                                                                                                                    |
 | `MlvOverlayInitialFocus`                  | Type alias                    | `'auto' \| 'container' \| 'first-tabbable' \| HTMLElement \| string` (any other string is a CSS selector).                                                                                                                                                                                                                    |
 | `MlvOverlayInitialFocusResolver`          | Service (`providedIn: root`)  | Resolves and applies an overlay's initial focus target. Shared by the drawer host, the imperative services, and the dialog's CDK container.                                                                                                                                                                                   |
@@ -229,6 +229,67 @@ auto-capture is deliberately unused), destroys the trap after close, and
 restores focus to that captured element. Concrete services remain responsible
 for any additional accessible naming applied in `_decoratePanel()`.
 
+**History navigation — `closeOnNavigation` (#361, owner ruling D14).**
+Optional, default `false` (additive, VERSIONING row 115); the next major flips
+it to `true` for parity with `MlvDialogConfig.closeOnNavigation`.
+
+- Source: the injected `Location` (`_location`) — `Location.subscribe()`
+  delivers popstate **and** `hashchange` (Back / Forward, an in-page `#anchor`),
+  the same events CDK's `disposeOnNavigation` reacts to. A plain
+  `<a href="#…">` therefore closes a flagged overlay — one inside its own
+  content too. `router.navigate()` / `routerLink` / `Location.go()` write
+  history with no pop event: nothing closes.
+  Server platform's no-op `PlatformLocation` and `provideLocationMocks()` apply
+  unchanged; no ambient `window`.
+- Closes **through the ref** (`ref.close()`), like backdrop / Escape — not CDK
+  `disposeOnNavigation`, which disposes the pane behind the ref's back: no
+  leave, no `afterClosed()`, focus trap never destroyed, focus never restored
+  (ablation `cdk-dispose` turns the close specs red). So: leave plays,
+  `beforeClose()` then `afterClosed()` emit once (result `undefined`).
+- **Page handed back at the pop, not when the leave ends.**
+  The router takes a pop up on a timer, so its navigation, scroll restoration
+  and arrival focus (`[mlvAutofocus]`, a route focus handler) all land inside
+  the ~300 ms leave. The pop handler, before `ref.close()`:
+  1. `overlayRef.updateScrollStrategy(noop)` — the block strategy's
+     `disable()` restores the offset while the page being left is current, so
+     the offset `RouterScroller` stores at `NavigationStart` is that one, not
+     the blocked 0; nothing restores it again over the next page. (The spec
+     pins the order scroll → `NavigationStart`; TestBed runs no
+     `RouterScroller`.)
+  2. `releaseFocus()` — destroys the trap, focuses the element focused at
+     `open()` if still connected. Once-guarded, shared with `afterClosed()`:
+     arrival focus is neither bounced into the panel by the trap nor
+     overwritten when the leave ends. `afterNextRender` initial focus skips a
+     pop before the first render.
+  3. `inert` on `overlayRef.hostElement` and `backdropElement` — the backdrop
+     is a sibling of the host, and `.mlv-drawer-backdrop--leaving` sets no
+     `pointer-events`, so without it a click during the leave hit it.
+
+  Every step is idempotent: a hash change pops twice (popstate + hashchange),
+  Back may repeat during the leave, and it also hands back a close already
+  under way. Measured parity with the dialog (`window.scroll(0, 1200)` at the
+  pop, route focus kept, a persistent opener not refocused at the end).
+  Escape is still delivered to the leaving overlay until dispose
+  (pre-existing, #450). Under the experimental
+  `withExperimentalPlatformNavigation()` the router starts the traversal from
+  the Navigation API `navigate` event, before popstate, so the hand-back lands
+  after `NavigationStart`; the dialog's CDK `disposeOnNavigation` listens to
+  the same popstate and shares that timing.
+
+- Released with the **overlay**, not the service (root-provided — a
+  `takeUntilDestroyed` would keep every overlay ever opened subscribed):
+  `overlayRef.detachments().pipe(take(1))` — every close ends in `dispose()`,
+  which completes it; content torn down under an open overlay (application
+  destroyed) makes CDK detach first. No flag → no `Location` subscription.
+- **Differs from the dialog** (unchanged): `MlvDialogService` passes
+  `closeOnNavigation` (default `true`) to CDK, which disposes abruptly — no
+  leave animation, `beforeClose()` completes without emitting, `afterClosed()`
+  emits `undefined` once, focus restored by the CDK container. Scroll and
+  focus timing now match (step list above); only the leave and
+  `beforeClose()` differ.
+- Routable drawers pin it `false`: the route closes them (see
+  `libs-drawer.md` § _Route-driven drawer_).
+
 The enter-class listener is **target-guarded** for the same reason as the
 host's (see _The panel's `animationend` is target-guarded_): consumer content
 finishing its own animation during the enter would otherwise strip the class
@@ -291,6 +352,7 @@ same way is a possible follow-up; nothing here depends on the dialog.
 | Package                | Usage                                                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `@angular/core`        | `Directive`, signals (`input`/`model`/`output`/`signal`/`effect`), `inject`, `Injector`, `ViewContainerRef` |
+| `@angular/common`      | `Location` (history-navigation close, `closeOnNavigation`)                                                  |
 | `@angular/cdk/overlay` | `Overlay`, `OverlayRef`, `OverlayConfig`, `PositionStrategy`                                                |
 | `@angular/cdk/portal`  | `TemplatePortal`, `ComponentPortal`                                                                         |
 | `@angular/cdk/a11y`    | `ConfigurableFocusTrapFactory`, `InteractivityChecker` (initial-focus resolution)                           |
@@ -315,7 +377,20 @@ class lifecycle, backdrop-click teardown, service-path focus restore,
 `OverlayContainer`), plus _content surface_: the default hook's pane-as-surface
 layout, and a `_attachContent` override whose surface — not the pane — gets the
 dialog semantics, the enter and leave classes, the disposing `animationend` and
-`initialFocus: 'container'`. The `animationend` events are plain bubbling `Event`s —
+`initialFocus: 'container'`; and _closeOnNavigation (#361)_, driven through
+`SpyLocation` (`provideLocationMocks()`): Back / Forward close through the ref
+(leave, one `afterClosed`, focus back on the opener at the pop), unset / `false`
+stay open, `go()` / `replaceState()` close nothing, no listener without the flag,
+the listener released after a navigation close, a `close()` and an application
+teardown, a clean destroy after a navigation close; the page handed back at the
+pop — scroll unblocked and restored once (stubbed `scrollHeight` / `scrollTop`,
+spied `window.scroll`), host and backdrop `inert`, a focus moved outside during
+the leave neither bounced (tab-order `InteractivityChecker` stub — CDK's own
+finds nothing visible in jsdom, so the trap would look released either way) nor
+overwritten, no initial focus after a pre-render pop; and a
+`simulateHashChange()` (popstate + hashchange) closing once. Ablations
+`no-scroll-swap`, `no-early-focus`, `no-focus-once`, `no-inert`,
+`no-render-guard` each turn exactly those specs red. The `animationend` events are plain bubbling `Event`s —
 jsdom implements no `AnimationEvent` — which is exact for handlers that read only
 `target` / `currentTarget`. `overlay-initial-focus.spec.ts` covers the resolver
 itself against the DOM shape a service dialog actually produces. `overlay-config.ts`

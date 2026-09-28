@@ -14,6 +14,8 @@ import type { MlvDrawerConfig } from './drawer.service';
  * @param component - The component to render inside the drawer. Can be an eager class reference
  *   or a lazy import function (e.g., `() => import('./my-drawer.component')`).
  * @param options - Route path, named outlet, and drawer configuration options.
+ *   `closeOnNavigation` is not one of them: the route itself closes the drawer
+ *   when navigation leaves it, so the drawer always opens with it off.
  * @returns A `Route` object to include in your route configuration.
  *
  * @example
@@ -48,7 +50,7 @@ export function mlvGenerateRoutableDrawerRoute(
     ...drawerOptions
   }: { path?: string; outlet?: string } & Omit<
     MlvDrawerConfig,
-    'data' | 'injector'
+    'data' | 'injector' | 'closeOnNavigation'
   > = {},
 ): Route {
   return {
