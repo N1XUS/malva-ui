@@ -5,6 +5,12 @@ const it: MlvLanguage = {
   alert: {
     dismiss: 'Chiudi avviso',
   },
+  autocomplete: {
+    noResults: 'Nessun risultato',
+    loading: 'Caricamento…',
+    resultsAvailable:
+      '{count, plural, one {# risultato disponibile} other {# risultati disponibili}}',
+  },
   avatarGroup: {
     noMembers: 'Nessun membro',
     memberCount: '{total, plural, one {# membro} other {# membri}}',
@@ -136,6 +142,8 @@ const it: MlvLanguage = {
     clearDateRange: 'Cancella intervallo di date',
     applyDateRange: 'Applica intervallo di date',
     placeholder: 'Seleziona intervallo di date...',
+    clear: 'Cancella',
+    apply: 'Applica',
   },
   dayPicker: {
     placeholder: 'Seleziona data...',
@@ -149,6 +157,9 @@ const it: MlvLanguage = {
   drawer: {
     drawer: 'Pannello laterale',
     closeDrawer: 'Chiudi il pannello',
+  },
+  dropdownPanel: {
+    loading: 'Caricamento…',
   },
   editor: {
     editorLabel: 'Editor di testo avanzato',
@@ -413,6 +424,8 @@ const it: MlvLanguage = {
     loading: 'Caricamento…',
     resultsAvailable:
       '{count, plural, one {# risultato disponibile} other {# risultati disponibili}}',
+    itemsSelected:
+      '{count, plural, one {{count} elemento selezionato} other {{count} elementi selezionati}}',
   },
   sidebar: {
     navigation: 'Navigazione laterale',
@@ -486,6 +499,9 @@ const it: MlvLanguage = {
     period: 'Periodo',
     placeholder: 'Seleziona orario...',
     timePicker: 'Selettore orario',
+    hours: 'Ore',
+    minutes: 'Minuti',
+    seconds: 'Secondi',
   },
   toast: {
     dismiss: 'Chiudi',
@@ -493,6 +509,7 @@ const it: MlvLanguage = {
   tokenizer: {
     addToken: 'Aggiungi token',
     selectedItems: 'Elementi selezionati',
+    moreItems: '{count, plural, one {+{count} altro} other {+{count} altri}}',
   },
 };
 

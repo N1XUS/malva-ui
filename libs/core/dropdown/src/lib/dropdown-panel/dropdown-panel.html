@@ -13,7 +13,9 @@
   @if (loading()) {
     <div class="mlv-dropdown-panel__loading" role="status" aria-live="polite">
       <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
-      <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+      <span class="mlv-dropdown-panel__loading-text">{{
+        _resolvedLoadingText()
+      }}</span>
     </div>
   }
 
@@ -144,6 +146,16 @@
     </ng-template>
   </mlv-list>
 
+  <!-- Empty-state row projected with [mlvDropdownPanelEmpty] (used by
+       [mlvAutocomplete]). Rendered AFTER the listbox, not inside it like the
+       default slot above: a listbox may own only options and groups, so a text
+       row inside an option-less one fails axe `aria-required-children`, while
+       an empty listbox is only `incomplete`. Suppressed while loading, like the
+       default slot. -->
+  @if (!loading() && options().length === 0) {
+    <ng-content select="[mlvDropdownPanelEmpty]" />
+  }
+
   <!-- Next-page affordance. Sits after the last option (unlike the top
        `__loading` row) so appended rows are not pushed around, and stays a
        polite status region — the listbox itself keeps its options interactive. -->
@@ -154,7 +166,9 @@
       aria-live="polite"
     >
       <span class="mlv-dropdown-panel__spinner" aria-hidden="true"></span>
-      <span class="mlv-dropdown-panel__loading-text">{{ loadingText() }}</span>
+      <span class="mlv-dropdown-panel__loading-text">{{
+        _resolvedLoadingText()
+      }}</span>
     </div>
   }
 

@@ -5,6 +5,12 @@ const pl: MlvLanguage = {
   alert: {
     dismiss: 'Zamknij alert',
   },
+  autocomplete: {
+    noResults: 'Brak wyników',
+    loading: 'Ładowanie…',
+    resultsAvailable:
+      '{count, plural, one {# wynik dostępny} few {# wyniki dostępne} many {# wyników dostępnych} other {# wyniku dostępnego}}',
+  },
   avatarGroup: {
     noMembers: 'Brak członków',
     memberCount:
@@ -137,6 +143,8 @@ const pl: MlvLanguage = {
     clearDateRange: 'Wyczyść zakres dat',
     applyDateRange: 'Zastosuj zakres dat',
     placeholder: 'Wybierz zakres dat...',
+    clear: 'Wyczyść',
+    apply: 'Zastosuj',
   },
   dayPicker: {
     placeholder: 'Wybierz datę...',
@@ -150,6 +158,9 @@ const pl: MlvLanguage = {
   drawer: {
     drawer: 'Panel boczny',
     closeDrawer: 'Zamknij panel',
+  },
+  dropdownPanel: {
+    loading: 'Ładowanie…',
   },
   editor: {
     editorLabel: 'Edytor tekstu sformatowanego',
@@ -417,6 +428,8 @@ const pl: MlvLanguage = {
     loading: 'Ładowanie…',
     resultsAvailable:
       '{count, plural, one {# wynik dostępny} few {# wyniki dostępne} many {# wyników dostępnych} other {# wyniku dostępnego}}',
+    itemsSelected:
+      '{count, plural, one {Wybrano {count} element} few {Wybrano {count} elementy} many {Wybrano {count} elementów} other {Wybrano {count} elementu}}',
   },
   sidebar: {
     navigation: 'Nawigacja boczna',
@@ -490,6 +503,9 @@ const pl: MlvLanguage = {
     period: 'Okres',
     placeholder: 'Wybierz godzinę...',
     timePicker: 'Selektor czasu',
+    hours: 'Godziny',
+    minutes: 'Minuty',
+    seconds: 'Sekundy',
   },
   toast: {
     dismiss: 'Zamknij',
@@ -497,6 +513,8 @@ const pl: MlvLanguage = {
   tokenizer: {
     addToken: 'Dodaj token',
     selectedItems: 'Wybrane elementy',
+    moreItems:
+      '{count, plural, one {+ jeszcze {count}} few {+ jeszcze {count}} many {+ jeszcze {count}} other {+ jeszcze {count}}}',
   },
 };
 

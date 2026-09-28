@@ -5,6 +5,11 @@ const ja: MlvLanguage = {
   alert: {
     dismiss: 'アラートを閉じる',
   },
+  autocomplete: {
+    noResults: '結果が見つかりません',
+    loading: '読み込み中…',
+    resultsAvailable: '{count, plural, one {# 件の結果} other {# 件の結果}}',
+  },
   avatarGroup: {
     noMembers: 'メンバーはいません',
     memberCount: '{total, plural, one {# 人} other {# 人}}',
@@ -133,6 +138,8 @@ const ja: MlvLanguage = {
     clearDateRange: '日付範囲をクリア',
     applyDateRange: '日付範囲を適用',
     placeholder: '日付範囲を選択...',
+    clear: 'クリア',
+    apply: '適用',
   },
   dayPicker: {
     placeholder: '日付を選択...',
@@ -146,6 +153,9 @@ const ja: MlvLanguage = {
   drawer: {
     drawer: 'ドロワー',
     closeDrawer: 'ドロワーを閉じる',
+  },
+  dropdownPanel: {
+    loading: '読み込み中…',
   },
   editor: {
     editorLabel: 'リッチテキストエディター',
@@ -404,6 +414,8 @@ const ja: MlvLanguage = {
     noResults: '結果が見つかりません',
     loading: '読み込み中…',
     resultsAvailable: '{count, plural, one {# 件の結果} other {# 件の結果}}',
+    itemsSelected:
+      '{count, plural, one {{count} 件を選択中} other {{count} 件を選択中}}',
   },
   sidebar: {
     navigation: 'サイドバーナビゲーション',
@@ -476,6 +488,9 @@ const ja: MlvLanguage = {
     period: '時間帯',
     placeholder: '時刻を選択...',
     timePicker: '時刻選択',
+    hours: '時間',
+    minutes: '分',
+    seconds: '秒',
   },
   toast: {
     dismiss: '閉じる',
@@ -483,6 +498,8 @@ const ja: MlvLanguage = {
   tokenizer: {
     addToken: 'トークンを追加',
     selectedItems: '選択した項目',
+    moreItems:
+      '{count, plural, one {さらに {count} 件} other {さらに {count} 件}}',
   },
 };
 

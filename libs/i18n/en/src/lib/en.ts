@@ -5,6 +5,12 @@ const en: MlvLanguage = {
   alert: {
     dismiss: 'Dismiss alert',
   },
+  autocomplete: {
+    noResults: 'No results found',
+    loading: 'Loading…',
+    resultsAvailable:
+      '{count, plural, one {# result available} other {# results available}}',
+  },
   avatarGroup: {
     noMembers: 'No members',
     memberCount: '{total, plural, one {# member} other {# members}}',
@@ -134,6 +140,8 @@ const en: MlvLanguage = {
     clearDateRange: 'Clear date range',
     applyDateRange: 'Apply date range',
     placeholder: 'Select date range...',
+    clear: 'Clear',
+    apply: 'Apply',
   },
   dayPicker: {
     placeholder: 'Select date...',
@@ -147,6 +155,9 @@ const en: MlvLanguage = {
   drawer: {
     drawer: 'Drawer',
     closeDrawer: 'Close drawer',
+  },
+  dropdownPanel: {
+    loading: 'Loading…',
   },
   editor: {
     editorLabel: 'Rich text editor',
@@ -409,6 +420,8 @@ const en: MlvLanguage = {
     loading: 'Loading…',
     resultsAvailable:
       '{count, plural, one {# result available} other {# results available}}',
+    itemsSelected:
+      '{count, plural, one {{count} item selected} other {{count} items selected}}',
   },
   sidebar: {
     navigation: 'Sidebar navigation',
@@ -482,6 +495,9 @@ const en: MlvLanguage = {
     period: 'Period',
     placeholder: 'Select time...',
     timePicker: 'Time picker',
+    hours: 'Hours',
+    minutes: 'Minutes',
+    seconds: 'Seconds',
   },
   toast: {
     dismiss: 'Dismiss',
@@ -489,6 +505,7 @@ const en: MlvLanguage = {
   tokenizer: {
     addToken: 'Add token',
     selectedItems: 'Selected items',
+    moreItems: '{count, plural, one {+{count} more} other {+{count} more}}',
   },
 };
 

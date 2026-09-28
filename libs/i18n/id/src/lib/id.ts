@@ -5,6 +5,12 @@ const id: MlvLanguage = {
   alert: {
     dismiss: 'Tutup peringatan',
   },
+  autocomplete: {
+    noResults: 'Tidak ada hasil',
+    loading: 'Memuat…',
+    resultsAvailable:
+      '{count, plural, one {# hasil tersedia} other {# hasil tersedia}}',
+  },
   avatarGroup: {
     noMembers: 'Tidak ada anggota',
     memberCount: '{total, plural, one {# anggota} other {# anggota}}',
@@ -134,6 +140,8 @@ const id: MlvLanguage = {
     clearDateRange: 'Hapus rentang tanggal',
     applyDateRange: 'Terapkan rentang tanggal',
     placeholder: 'Pilih rentang tanggal...',
+    clear: 'Hapus',
+    apply: 'Terapkan',
   },
   dayPicker: {
     placeholder: 'Pilih tanggal...',
@@ -147,6 +155,9 @@ const id: MlvLanguage = {
   drawer: {
     drawer: 'Panel samping',
     closeDrawer: 'Tutup panel',
+  },
+  dropdownPanel: {
+    loading: 'Memuat…',
   },
   editor: {
     editorLabel: 'Editor teks kaya',
@@ -410,6 +421,8 @@ const id: MlvLanguage = {
     loading: 'Memuat…',
     resultsAvailable:
       '{count, plural, one {# hasil tersedia} other {# hasil tersedia}}',
+    itemsSelected:
+      '{count, plural, one {{count} item dipilih} other {{count} item dipilih}}',
   },
   sidebar: {
     navigation: 'Navigasi bilah samping',
@@ -483,6 +496,9 @@ const id: MlvLanguage = {
     period: 'Periode',
     placeholder: 'Pilih waktu...',
     timePicker: 'Pemilih waktu',
+    hours: 'Jam',
+    minutes: 'Menit',
+    seconds: 'Detik',
   },
   toast: {
     dismiss: 'Tutup',
@@ -490,6 +506,8 @@ const id: MlvLanguage = {
   tokenizer: {
     addToken: 'Tambah token',
     selectedItems: 'Item yang dipilih',
+    moreItems:
+      '{count, plural, one {+{count} lainnya} other {+{count} lainnya}}',
   },
 };
 

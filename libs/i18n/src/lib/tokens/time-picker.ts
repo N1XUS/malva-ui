@@ -14,6 +14,31 @@ export interface MlvTimePickerI18n {
   placeholder?: string;
   /** Default aria-label for the time picker component. */
   timePicker: string;
+  /**
+   * Accessible name of the hours column (its listbox).
+   *
+   * Optional so a hand-written or older pack still type-checks;
+   * `mlv-time-picker` falls back to English when it is missing. Every shipped
+   * pack declares it.
+   */
+  hours?: string;
+  /**
+   * Accessible name of the minutes column (its listbox).
+   *
+   * Optional so a hand-written or older pack still type-checks;
+   * `mlv-time-picker` falls back to English when it is missing. Every shipped
+   * pack declares it.
+   */
+  minutes?: string;
+  /**
+   * Accessible name of the seconds column (its listbox), shown with
+   * `showSeconds`.
+   *
+   * Optional so a hand-written or older pack still type-checks;
+   * `mlv-time-picker` falls back to English when it is missing. Every shipped
+   * pack declares it.
+   */
+  seconds?: string;
 }
 
 export const MLV_TIME_PICKER_I18N = new InjectionToken<
@@ -38,5 +63,20 @@ export const MLV_TIME_PICKER_I18N_CONTEXT: Record<
     component: 'mlv-time-picker',
     usage: 'aria-label',
     description: 'Accessible name for the time picker widget',
+  },
+  hours: {
+    component: 'mlv-time-picker',
+    usage: 'aria-label',
+    description: 'Accessible name of the hours drum column',
+  },
+  minutes: {
+    component: 'mlv-time-picker',
+    usage: 'aria-label',
+    description: 'Accessible name of the minutes drum column',
+  },
+  seconds: {
+    component: 'mlv-time-picker',
+    usage: 'aria-label',
+    description: 'Accessible name of the seconds drum column',
   },
 };

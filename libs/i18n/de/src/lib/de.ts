@@ -5,6 +5,12 @@ const de: MlvLanguage = {
   alert: {
     dismiss: 'Warnung schließen',
   },
+  autocomplete: {
+    noResults: 'Keine Ergebnisse gefunden',
+    loading: 'Wird geladen…',
+    resultsAvailable:
+      '{count, plural, one {# Ergebnis verfügbar} other {# Ergebnisse verfügbar}}',
+  },
   avatarGroup: {
     noMembers: 'Keine Mitglieder',
     memberCount: '{total, plural, one {# Mitglied} other {# Mitglieder}}',
@@ -131,6 +137,8 @@ const de: MlvLanguage = {
     clearDateRange: 'Datumsbereich löschen',
     applyDateRange: 'Datumsbereich anwenden',
     placeholder: 'Datumsbereich auswählen...',
+    clear: 'Löschen',
+    apply: 'Anwenden',
   },
   dayPicker: {
     placeholder: 'Datum auswählen...',
@@ -144,6 +152,9 @@ const de: MlvLanguage = {
   drawer: {
     drawer: 'Seitenleiste',
     closeDrawer: 'Seitenleiste schließen',
+  },
+  dropdownPanel: {
+    loading: 'Wird geladen…',
   },
   editor: {
     editorLabel: 'Rich-Text-Editor',
@@ -395,6 +406,8 @@ const de: MlvLanguage = {
     loading: 'Wird geladen…',
     resultsAvailable:
       '{count, plural, one {# Ergebnis verfügbar} other {# Ergebnisse verfügbar}}',
+    itemsSelected:
+      '{count, plural, one {{count} Element ausgewählt} other {{count} Elemente ausgewählt}}',
   },
   sidebar: {
     navigation: 'Seitennavigation',
@@ -466,11 +479,16 @@ const de: MlvLanguage = {
     period: 'Zeitraum',
     placeholder: 'Uhrzeit auswählen...',
     timePicker: 'Zeitauswahl',
+    hours: 'Stunden',
+    minutes: 'Minuten',
+    seconds: 'Sekunden',
   },
   toast: { dismiss: 'Schließen' },
   tokenizer: {
     addToken: 'Token hinzufügen',
     selectedItems: 'Ausgewählte Elemente',
+    moreItems:
+      '{count, plural, one {+{count} weiteres} other {+{count} weitere}}',
   },
 };
 

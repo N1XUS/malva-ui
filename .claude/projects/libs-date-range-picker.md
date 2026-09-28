@@ -178,7 +178,7 @@ date.
 - `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (date math and localized labels; moved out of `@malva-ui/core/calendar` in 2026-09)
 - `@malva-ui/core/popup` — `mlv-popup` for the floating panel overlay; `[mlvPopupHeaderActions]` for the sheet's `Done` action
 - `@malva-ui/core/button` — `mlvButton` on the footer `Clear` / `Apply` and the sheet's `Done`
-- `@malva-ui/i18n` — `MLV_DATE_RANGE_PICKER_I18N`, plus `MLV_CALENDAR_I18N` for the sheet's shared `done` label
+- `@malva-ui/i18n` — `MLV_DATE_RANGE_PICKER_I18N` (incl. the optional `clear` / `apply` footer labels, #370), plus `MLV_CALENDAR_I18N` for the sheet's shared `done` label
 - `@malva-ui/core/form-utils` — `MlvSignalFormControlBase` signal-control base class
 - `@malva-ui/cdk/utils` — theme/utility injection tokens
 - `@malva-ui/cdk/accessibility` — `MlvTabbableElementService` for moving focus into the popup panel on open
@@ -308,6 +308,14 @@ returns early while `computedDisabled()`.
 container, outside `fixture.nativeElement`. The suite stubs
 `MlvBreakpointService`: jsdom's `matchMedia` never matches a `min-width` query,
 so the real service is pinned to `'sm'` and every open would be the sheet.
+
+## Footer labels (#370)
+
+- The anchored footer's visible text was the English literals "Clear" / "Apply" in every locale, while their `aria-label`s (`clearDateRange` / `applyDateRange`) were translated. They now render `_footerLabels()` — the optional `clear` / `apply` keys, falling back through `OPTIONAL_MESSAGE_FALLBACKS` to the same English.
+- The `aria-label`s are kept, not dropped: they are the richer name ("Clear date range"), and English output must stay byte-identical (owner ruling D34). WCAG 2.5.3 (label in name) needs the visible word inside the name, so `locale-contract.spec.ts` pins, for every shipped pack, that the lowercased `clearDateRange` / `applyDateRange` contains the lowercased `clear` / `apply` (de "Löschen" ⊂ "Datumsbereich löschen").
+- Measured under `de` in Chrome 153 (CDP `Accessibility.getFullAXTree`, on the rendered footer markup): the footer buttons are named "Datumsbereich löschen" / "Datumsbereich anwenden" with visible text "Löschen" / "Anwenden".
+- Not changed: the mobile sheet's `Done` shows `calendar.done` while its `aria-label` is `applyDateRange` ("Done" is not in "Apply date range" — a 2.5.3 failure in English too, left for a follow-up because fixing it changes an English name).
+- Spec: `date-range-picker-i18n.spec.ts`.
 
 ## Clear button (2026-09, #301)
 

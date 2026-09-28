@@ -5,6 +5,12 @@ const uk: MlvLanguage = {
   alert: {
     dismiss: 'Закрити сповіщення',
   },
+  autocomplete: {
+    noResults: 'Нічого не знайдено',
+    loading: 'Завантаження…',
+    resultsAvailable:
+      '{count, plural, one {# результат доступний} few {# результати доступні} many {# результатів доступно} other {# результату доступно}}',
+  },
   avatarGroup: {
     noMembers: 'Немає учасників',
     memberCount:
@@ -137,6 +143,8 @@ const uk: MlvLanguage = {
     clearDateRange: 'Очистити діапазон дат',
     applyDateRange: 'Застосувати діапазон дат',
     placeholder: 'Вибрати діапазон дат...',
+    clear: 'Очистити',
+    apply: 'Застосувати',
   },
   dayPicker: {
     placeholder: 'Вибрати дату...',
@@ -150,6 +158,9 @@ const uk: MlvLanguage = {
   drawer: {
     drawer: 'Бічна панель',
     closeDrawer: 'Закрити панель',
+  },
+  dropdownPanel: {
+    loading: 'Завантаження…',
   },
   editor: {
     editorLabel: 'Редактор форматованого тексту',
@@ -418,6 +429,8 @@ const uk: MlvLanguage = {
     loading: 'Завантаження…',
     resultsAvailable:
       '{count, plural, one {# результат доступний} few {# результати доступні} many {# результатів доступно} other {# результату доступно}}',
+    itemsSelected:
+      '{count, plural, one {Вибрано {count} елемент} few {Вибрано {count} елементи} many {Вибрано {count} елементів} other {Вибрано {count} елемента}}',
   },
   sidebar: {
     navigation: 'Бічна навігація',
@@ -493,6 +506,9 @@ const uk: MlvLanguage = {
     period: 'Період',
     placeholder: 'Вибрати час...',
     timePicker: 'Вибір часу',
+    hours: 'Години',
+    minutes: 'Хвилини',
+    seconds: 'Секунди',
   },
   toast: {
     dismiss: 'Закрити',
@@ -500,6 +516,8 @@ const uk: MlvLanguage = {
   tokenizer: {
     addToken: 'Додати позначку',
     selectedItems: 'Вибрані елементи',
+    moreItems:
+      '{count, plural, one {+ ще {count}} few {+ ще {count}} many {+ ще {count}} other {+ ще {count}}}',
   },
 };
 

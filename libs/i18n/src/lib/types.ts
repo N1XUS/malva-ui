@@ -1,4 +1,5 @@
 import type { MlvAlertI18n } from './tokens/alert';
+import type { MlvAutocompleteI18n } from './tokens/autocomplete';
 import type { MlvAvatarGroupI18n } from './tokens/avatar-group';
 import type { MlvBottomNavI18n } from './tokens/bottom-nav';
 import type { MlvBreadcrumbI18n } from './tokens/breadcrumb';
@@ -14,6 +15,7 @@ import type { MlvDateRangePickerI18n } from './tokens/date-range-picker';
 import type { MlvDayPickerI18n } from './tokens/day-picker';
 import type { MlvDialogI18n } from './tokens/dialog';
 import type { MlvDrawerI18n } from './tokens/drawer';
+import type { MlvDropdownPanelI18n } from './tokens/dropdown-panel';
 import type { MlvEditorI18n } from './tokens/editor';
 import type { MlvFileUploadI18n } from './tokens/file-upload';
 import type { MlvFilterI18n } from './tokens/filter';
@@ -54,6 +56,12 @@ export interface MlvLanguage {
    */
   locale?: string;
   alert: MlvAlertI18n;
+  /**
+   * `[mlvAutocomplete]` messages. Optional so a hand-written or older pack
+   * still type-checks: without it the directive speaks English. Every shipped
+   * pack declares it.
+   */
+  autocomplete?: MlvAutocompleteI18n;
   avatarGroup: MlvAvatarGroupI18n;
   bottomNav: MlvBottomNavI18n;
   breadcrumb: MlvBreadcrumbI18n;
@@ -69,6 +77,12 @@ export interface MlvLanguage {
   dayPicker: MlvDayPickerI18n;
   dialog: MlvDialogI18n;
   drawer: MlvDrawerI18n;
+  /**
+   * `mlv-dropdown-panel` defaults. Optional so a hand-written or older pack
+   * still type-checks: without it the panel speaks English. Every shipped pack
+   * declares it.
+   */
+  dropdownPanel?: MlvDropdownPanelI18n;
   editor: MlvEditorI18n;
   fileUpload: MlvFileUploadI18n;
   filter: MlvFilterI18n;

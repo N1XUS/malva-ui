@@ -5,6 +5,12 @@ const ro: MlvLanguage = {
   alert: {
     dismiss: 'Închide alerta',
   },
+  autocomplete: {
+    noResults: 'Niciun rezultat',
+    loading: 'Se încarcă…',
+    resultsAvailable:
+      '{count, plural, one {# rezultat disponibil} few {# rezultate disponibile} other {# de rezultate disponibile}}',
+  },
   avatarGroup: {
     noMembers: 'Niciun membru',
     memberCount:
@@ -137,6 +143,8 @@ const ro: MlvLanguage = {
     clearDateRange: 'Șterge intervalul de date',
     applyDateRange: 'Aplică intervalul de date',
     placeholder: 'Selectează intervalul de date...',
+    clear: 'Șterge',
+    apply: 'Aplică',
   },
   dayPicker: {
     placeholder: 'Selectează data...',
@@ -150,6 +158,9 @@ const ro: MlvLanguage = {
   drawer: {
     drawer: 'Panou lateral',
     closeDrawer: 'Închide panoul',
+  },
+  dropdownPanel: {
+    loading: 'Se încarcă…',
   },
   editor: {
     editorLabel: 'Editor de text îmbogățit',
@@ -418,6 +429,8 @@ const ro: MlvLanguage = {
     loading: 'Se încarcă…',
     resultsAvailable:
       '{count, plural, one {# rezultat disponibil} few {# rezultate disponibile} other {# de rezultate disponibile}}',
+    itemsSelected:
+      '{count, plural, one {{count} element selectat} few {{count} elemente selectate} other {{count} de elemente selectate}}',
   },
   sidebar: {
     navigation: 'Navigare laterală',
@@ -491,6 +504,9 @@ const ro: MlvLanguage = {
     period: 'Perioadă',
     placeholder: 'Selectează ora...',
     timePicker: 'Selector de oră',
+    hours: 'Ore',
+    minutes: 'Minute',
+    seconds: 'Secunde',
   },
   toast: {
     dismiss: 'Închide',
@@ -498,6 +514,8 @@ const ro: MlvLanguage = {
   tokenizer: {
     addToken: 'Adaugă etichetă',
     selectedItems: 'Elemente selectate',
+    moreItems:
+      '{count, plural, one {+ încă {count}} few {+ încă {count}} other {+ încă {count}}}',
   },
 };
 

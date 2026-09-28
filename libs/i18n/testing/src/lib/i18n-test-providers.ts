@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import {
   MLV_ALERT_I18N,
+  MLV_AUTOCOMPLETE_I18N,
   MLV_AVATAR_GROUP_I18N,
   MLV_BOTTOM_NAV_I18N,
   MLV_BREADCRUMB_I18N,
@@ -23,6 +24,7 @@ import {
   MLV_DAY_PICKER_I18N,
   MLV_DIALOG_I18N,
   MLV_DRAWER_I18N,
+  MLV_DROPDOWN_PANEL_I18N,
   MLV_EDITOR_I18N,
   MLV_FILE_UPLOAD_I18N,
   MLV_FILTER_I18N,
@@ -61,6 +63,7 @@ const I18N_TOKEN_DEFAULTS: ReadonlyArray<
   readonly [InjectionToken<Signal<unknown>>, unknown]
 > = [
   [MLV_ALERT_I18N, en.alert],
+  [MLV_AUTOCOMPLETE_I18N, en.autocomplete],
   [MLV_AVATAR_GROUP_I18N, en.avatarGroup],
   [MLV_BOTTOM_NAV_I18N, en.bottomNav],
   [MLV_BREADCRUMB_I18N, en.breadcrumb],
@@ -76,6 +79,7 @@ const I18N_TOKEN_DEFAULTS: ReadonlyArray<
   [MLV_DAY_PICKER_I18N, en.dayPicker],
   [MLV_DIALOG_I18N, en.dialog],
   [MLV_DRAWER_I18N, en.drawer],
+  [MLV_DROPDOWN_PANEL_I18N, en.dropdownPanel],
   [MLV_EDITOR_I18N, en.editor],
   [MLV_FILE_UPLOAD_I18N, en.fileUpload],
   [MLV_FILTER_I18N, en.filter],

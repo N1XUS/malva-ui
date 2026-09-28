@@ -47,6 +47,32 @@ import { MlvSelectionService } from '@malva-ui/core/form-utils';
 import { MlvRtlService, mlvNextId } from '@malva-ui/cdk/utils';
 import { MLV_DENSITY_CONTEXT, MlvDensityService } from '@malva-ui/cdk/density';
 import type { MlvDensity } from '@malva-ui/cdk/density';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { MLV_AUTOCOMPLETE_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
+import type { MlvAutocompleteI18n } from '@malva-ui/i18n';
+
+/** `MlvAutocompleteI18n` keys a hand-written or older language pack may omit. */
+type MlvAutocompleteOptionalMessageKey = {
+  [K in keyof MlvAutocompleteI18n]-?: undefined extends MlvAutocompleteI18n[K]
+    ? K
+    : never;
+}[keyof MlvAutocompleteI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when there is no
+ * `provideMlvI18n()`, or the active pack omits the slice or a key. Keyed by
+ * every optional key of the interface, so a new optional key does not compile
+ * without one (the `mlv-filter` pattern). The strings are the English pack's,
+ * which words them as `mlv-combobox` does.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvAutocompleteOptionalMessageKey, string>
+> = {
+  noResults: 'No results found',
+  loading: 'Loading…',
+  resultsAvailable:
+    '{count, plural, one {# result available} other {# results available}}',
+};
 
 /** Alias of {@link MlvOptionsSearchFn} — kept for backwards compatibility. */
 export type MlvAutocompleteSearchFn<T> = MlvOptionsSearchFn<T>;
@@ -209,11 +235,12 @@ export class MlvAutocomplete<T = unknown> {
   /**
    * Text shown / announced inside the panel's loading affordances — the top row
    * while a remote source (an async {@link search} or a `MlvDataSource`)
-   * resolves, and the bottom row while a further page loads. Localise by binding
-   * a translated string.
-   * @default 'Loading…'
+   * resolves, and the bottom row while a further page loads. Unset, it is the
+   * active language pack's `autocomplete.loading` (`MLV_AUTOCOMPLETE_I18N`),
+   * else English "Loading…".
+   * @default undefined — resolved through i18n
    */
-  readonly loadingText = input<string>('Loading…', {
+  readonly loadingText = input<string | undefined>(undefined, {
     alias: 'mlvAutocompleteLoadingText',
   });
 
@@ -354,6 +381,47 @@ export class MlvAutocomplete<T = unknown> {
     parent: this._injector,
   });
 
+  /**
+   * @private The autocomplete i18n slice. Optional: the directive also works
+   * with no `provideMlvI18n()` in the injector, in English.
+   */
+  private readonly _i18n = inject(MLV_AUTOCOMPLETE_I18N, { optional: true });
+
+  /** @private Formats the ICU result count in the active pack's locale. */
+  private readonly _resolver = inject(MlvI18nResolverService);
+
+  /**
+   * @private Announces the result count. The directive owns no template to
+   * hold a live region (`mlv-combobox` renders one), so it speaks through the
+   * CDK announcer's shared region instead.
+   */
+  private readonly _liveAnnouncer = inject(LiveAnnouncer);
+
+  /** @private Every message, from the pack or the English fallbacks. */
+  private readonly _messages = computed<Required<MlvAutocompleteI18n>>(() => {
+    const i18n = this._i18n?.();
+    return {
+      noResults: i18n?.noResults ?? OPTIONAL_MESSAGE_FALLBACKS.noResults,
+      loading: i18n?.loading ?? OPTIONAL_MESSAGE_FALLBACKS.loading,
+      resultsAvailable:
+        i18n?.resultsAvailable ?? OPTIONAL_MESSAGE_FALLBACKS.resultsAvailable,
+    };
+  });
+
+  /** @private Loading text handed to the panel: {@link loadingText}, else i18n. */
+  private readonly _resolvedLoadingText = computed(
+    () => this.loadingText() ?? this._messages().loading,
+  );
+
+  /**
+   * @private The no-results row projected into the panel's
+   * `[mlvDropdownPanelEmpty]` slot, built per overlay (the panel is re-created
+   * on every open) and kept in step with the pack's `noResults` by an effect.
+   * The panel renders that slot, after its listbox, only while it has no
+   * options and is not loading.
+   */
+  private _emptyRow: HTMLElement | null = null;
+
   // ─── State ───────────────────────────────────────────────────────────────
 
   /** @private The resolved focusable `<input>` (host itself, or the inner input of a `mlv-input`). */
@@ -401,6 +469,26 @@ export class MlvAutocomplete<T = unknown> {
 
   /** Whether the suggestion popup is currently open (read-only view of internal state). */
   readonly isOpen = this._open.asReadonly();
+
+  /**
+   * @private Polite announcement of the current result count — the same
+   * wording and the same states as `mlv-combobox`'s `_resultsAnnouncement`:
+   * the pack's `noResults` for an empty list, `resultsAvailable` otherwise.
+   * Empty while the popup is closed, and while a remote search is in flight,
+   * so neither a stale count nor a premature "No results found" is read out.
+   * A computed, so an unchanged message is not announced twice.
+   */
+  private readonly _resultsAnnouncement = computed(() => {
+    if (!this._open() || this._panelLoading()) return '';
+    const count = this._results().length;
+    const messages = this._messages();
+    if (count === 0) return messages.noResults;
+    return this._resolver.resolve(
+      { resultsAvailable: messages.resultsAvailable },
+      'resultsAvailable',
+      { count },
+    );
+  });
 
   /** @private Stable listbox id shared between the input's `aria-controls` and the panel's option ids. */
   private readonly _listboxId = mlvNextId('mlv-autocomplete-listbox');
@@ -523,7 +611,7 @@ export class MlvAutocomplete<T = unknown> {
       // `null` emits no attribute (#222).
       ref.setInput('ariaLabel', this._panelAriaLabel());
       ref.setInput('loading', this._panelLoading());
-      ref.setInput('loadingText', this.loadingText());
+      ref.setInput('loadingText', this._resolvedLoadingText());
       ref.setInput('hasMore', this._adapter.hasMore());
       ref.setInput('loadingMore', this._adapter.loadingMore());
       ref.setInput('infiniteScrollThreshold', this.infiniteScrollThreshold());
@@ -568,6 +656,25 @@ export class MlvAutocomplete<T = unknown> {
           this._activeDescendant.reset();
         }
       });
+    });
+
+    // Keep the projected no-results row worded in the active pack. Re-runs on
+    // attach (the row is re-created with each overlay) and on a language switch.
+    effect(() => {
+      if (!this._panelRef() || !this._emptyRow) return;
+      this._renderer.setProperty(
+        this._emptyRow,
+        'textContent',
+        this._messages().noResults,
+      );
+    });
+
+    // Announce the result count whenever it changes (see
+    // `_resultsAnnouncement`); the empty string between sessions resets it.
+    effect(() => {
+      const message = this._resultsAnnouncement();
+      if (!message) return;
+      untracked(() => void this._liveAnnouncer.announce(message, 'polite'));
     });
 
     this._destroyRef.onDestroy(() => this._disposeOverlay());
@@ -933,9 +1040,8 @@ export class MlvAutocomplete<T = unknown> {
    * `ariaLabel` inputs, so it always shares the accessible name of the field it
    * belongs to. This directive owns no field — it attaches to an input the
    * consumer wrote — so it reads the name off that input rather than inventing
-   * a generic one: there is no autocomplete i18n pack to translate a fallback
-   * string from, and an untranslated English literal is not shippable in a
-   * library.
+   * a generic one: the listbox belongs to that field and must share its name,
+   * which no fallback string from the `autocomplete` i18n slice could.
    *
    * Follows the accessible-name computation's order for a labelable control:
    * `aria-labelledby` (step 2B), then `aria-label` (2C), then the associated
@@ -1059,8 +1165,23 @@ export class MlvAutocomplete<T = unknown> {
         hasBackdrop: false,
       });
 
+      // The no-results row, projected into the panel's `[mlvDropdownPanelEmpty]`
+      // slot, which renders it after the listbox rather than inside it (a
+      // text row in an option-less listbox fails axe
+      // `aria-required-children`). Its text is written by the wording effect in
+      // the constructor once the ref is published. `projectableNodes` is
+      // indexed by the panel's `ngContentSelectors` —
+      // `['*', '[mlvDropdownPanelEmpty]']` — so the row goes in slot 1 and the
+      // default slot stays empty.
+      const emptyRow = this._renderer.createElement('div') as HTMLElement;
+      this._renderer.addClass(emptyRow, 'mlv-dropdown-panel__empty');
+      this._emptyRow = emptyRow;
+
       const ref = this._overlayRef.attach(
-        new ComponentPortal(MlvDropdownPanel, this._vcr, this._panelInjector),
+        new ComponentPortal(MlvDropdownPanel, this._vcr, this._panelInjector, [
+          [],
+          [emptyRow],
+        ]),
       ) as ComponentRef<MlvDropdownPanel<T>>;
 
       // Paint a floating surface on the bare panel. `mlv-combobox` / `mlv-select`
@@ -1122,6 +1243,7 @@ export class MlvAutocomplete<T = unknown> {
   /** @private Tears down the overlay + panel ref. */
   private _disposeOverlay(): void {
     this._panelRef.set(null);
+    this._emptyRow = null;
     if (this._overlayRef) {
       this._overlayRef.dispose();
       this._overlayRef = null;

@@ -314,3 +314,45 @@ describe('MlvNativeDateAdapter across DST transitions', () => {
     );
   });
 });
+
+/**
+ * #370: `mlv-time-picker` rendered English "AM" / "PM" in every locale. The
+ * labels now come from `getDayPeriodNames()`, a non-abstract member with an
+ * `Intl` default, so an existing custom adapter keeps compiling.
+ */
+describe('MlvDateAdapter.getDayPeriodNames', () => {
+  let adapter: MlvNativeDateAdapter;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    adapter = TestBed.inject(MlvNativeDateAdapter);
+  });
+
+  it('returns "AM" / "PM" in English', () => {
+    adapter.setLocale('en-US');
+    expect(adapter.getDayPeriodNames()).toEqual(['AM', 'PM']);
+    adapter.setLocale('en');
+    expect(adapter.getDayPeriodNames()).toEqual(['AM', 'PM']);
+  });
+
+  it("follows the adapter locale's Intl day periods", () => {
+    adapter.setLocale('ja');
+    expect(adapter.getDayPeriodNames()).toEqual(['午前', '午後']);
+    adapter.setLocale('uk');
+    expect(adapter.getDayPeriodNames()).toEqual(['дп', 'пп']);
+    adapter.setLocale('zh-Hans');
+    expect(adapter.getDayPeriodNames()).toEqual(['上午', '下午']);
+  });
+
+  it('falls back to "AM" / "PM" for a locale Intl rejects', () => {
+    adapter.setLocale('not a locale!');
+    expect(adapter.getDayPeriodNames()).toEqual(['AM', 'PM']);
+  });
+
+  it('is inherited by an adapter that does not override it', () => {
+    class MinimalAdapter extends MlvNativeDateAdapter {}
+    const minimal = TestBed.runInInjectionContext(() => new MinimalAdapter());
+    minimal.setLocale('ja');
+    expect(minimal.getDayPeriodNames()).toEqual(['午前', '午後']);
+  });
+});

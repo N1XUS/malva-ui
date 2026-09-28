@@ -50,6 +50,14 @@ import {
 } from './option-window';
 import { fromEvent, startWith } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MLV_DROPDOWN_PANEL_I18N } from '@malva-ui/i18n';
+
+/**
+ * @private English loading text, used when neither `loadingText` nor the
+ * active language pack supplies one: the English pack's
+ * `dropdownPanel.loading`, and the input's default before #370.
+ */
+const DROPDOWN_PANEL_LOADING_FALLBACK = 'Loading…';
 
 /**
  * The committed selection split by what the inner aria listbox may be shown
@@ -256,10 +264,30 @@ export class MlvDropdownPanel<T> {
 
   /**
    * Text shown (and announced) inside the loading affordance while
-   * {@link loading} is `true`. Localise by binding a translated string.
-   * @default 'Loading…'
+   * {@link loading} or {@link loadingMore} is `true`. Unset, it is the active
+   * language pack's `dropdownPanel.loading` (`MLV_DROPDOWN_PANEL_I18N`), else
+   * English "Loading…" — so a panel outside any `provideMlvI18n()`, or under a
+   * pack without the slice, renders exactly what it did before #370.
+   * @default undefined — resolved through i18n
    */
-  readonly loadingText = input<string>('Loading…');
+  readonly loadingText = input<string | undefined>(undefined);
+
+  /**
+   * @private The dropdown-panel i18n slice. Optional: the panel is also used
+   * standalone, with no `provideMlvI18n()` in the injector.
+   */
+  private readonly _i18n = inject(MLV_DROPDOWN_PANEL_I18N, { optional: true });
+
+  /**
+   * @protected Text of both loading rows: {@link loadingText}, else the active
+   * pack's, else the English fallback.
+   */
+  protected readonly _resolvedLoadingText = computed(
+    () =>
+      this.loadingText() ??
+      this._i18n?.().loading ??
+      DROPDOWN_PANEL_LOADING_FALLBACK,
+  );
 
   /**
    * When `true`, a page beyond the first is being fetched: renders a polite
