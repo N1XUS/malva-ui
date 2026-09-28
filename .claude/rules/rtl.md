@@ -202,7 +202,7 @@ const offset = this._direction() === 'rtl' ? rect.right - event.clientX : event.
 const percent = clamp((offset / rect.width) * 100, 0, 100);
 ```
 
-JS-measured indicators (tab underline, segmented pill, drawer / rail resize) keep their CSS physical (`left: var(--mlv-tab-indicator-left)`) and make the measuring effect depend on the direction. Nothing else tells the component to re-measure: mirroring moves children without changing their size, so no `ResizeObserver` fires and no query changes.
+JS-measured indicators (tab underline, segmented pill, rail resize) keep their CSS physical (`left: var(--mlv-tab-indicator-left)`) and make the measuring effect depend on the direction. Nothing else tells the component to re-measure: mirroring moves children without changing their size, so no `ResizeObserver` fires and no query changes.
 
 ```ts
 constructor() {

@@ -631,15 +631,23 @@ descendant can do the same.
 
 **Keyboard support:**
 
-| Key                         | Action                                           |
-| --------------------------- | ------------------------------------------------ |
-| `Arrow Up` / `Arrow Right`  | Increase size by 10% of viewport                 |
-| `Arrow Down` / `Arrow Left` | Decrease size by 10% (or dismiss if at zero)     |
-| `Home`                      | Snap to smallest snap point (or dismiss if zero) |
-| `End`                       | Snap to largest snap point (or full viewport)    |
-| `Escape`                    | Dismiss (close the drawer)                       |
+Spatial (#344): the handle moves the way the arrow points, 10% of the viewport per press. Only the two arrows on the drag axis act; the cross-axis pair is ignored (no resize, not `preventDefault()`ed). Keys are read from `event.key` against the table's **own** keys (`hasOwnProperty.call`, so a key named after an `Object.prototype` member does nothing); a `keyCode`-only event (CDK testing's `dispatchKeyboardEvent(el, 'keydown', LEFT_ARROW)`, `key` `''`) does nothing either. The key is resolved before `getBoundingClientRect()`, so an unhandled key (Tab, Escape, a modifier) reads no layout.
 
-**ARIA attributes:** `role="separator"`, `tabindex="0"`, `aria-label="Resize panel"`, `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`.
+| `position` | Grows (handle moves toward the content) | Shrinks (toward the edge; dismisses at zero) |
+| ---------- | --------------------------------------- | -------------------------------------------- |
+| `left`     | `Arrow Right`                           | `Arrow Left`                                 |
+| `right`    | `Arrow Left`                            | `Arrow Right`                                |
+| `top`      | `Arrow Down`                            | `Arrow Up`                                   |
+| `bottom`   | `Arrow Up`                              | `Arrow Down`                                 |
+
+| Key    | Action                                           |
+| ------ | ------------------------------------------------ |
+| `Home` | Snap to smallest snap point (or dismiss if zero) |
+| `End`  | Snap to largest snap point (or full viewport)    |
+
+**Escape is not the handle's.** It reaches CDK's `OverlayKeyboardDispatcher` like Escape anywhere else in the drawer, so `closeOnEscape` decides, an overlay above the drawer (a hover-shown tooltip, #319) takes the first press, and one press closes the drawer once. Before #344 the handle emitted `dismissed` on Escape itself: a `closeOnEscape: false` drawer still closed from the handle, a service drawer's ref saw two `close()` calls, and a visible tooltip could not stop the drawer closing under it. Pinned by `drawer-resize.spec.ts` § _spatial keys (#344)_, `drawer.spec.ts` and `drawer.service.spec.ts` § _Escape on the resize handle (#344)_.
+
+**ARIA attributes:** `role="separator"`, `tabindex="0"`, `aria-label="Resize panel"`, `aria-orientation` (`vertical` for a `left` / `right` handle, `horizontal` for `top` / `bottom` — the orientation of the handle's own line, and the axis its arrows act on), `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`.
 
 `aria-valuenow` is backed by a signal (`_currentPercent`) — the pointer path
 writes it from a `fromEvent` listener, which schedules no change detection
@@ -981,10 +989,10 @@ export default class UserDetailsComponent {
 
 ## Direction (RTL)
 
-- **Scoped, not per-document.** `MlvDrawerResize`'s `_onKeydown` passes a cached `elementDirection(host)` signal to `MlvRtlService.normalizeArrowKey(event, direction)` — the handle lives inside the drawer pane, so host and pane agree by construction. A drawer inside a `[dir="rtl"]` subtree therefore mirrors its resize stepping while the document stays LTR, and an LTR island under an RTL document does not.
-- The same host feeds the pointer maths, so the keyboard and geometry halves of the resize cannot disagree.
-- A bottom-sheet drawer resizes on the block axis and never mirrors. `Home` / `End` mean first / last in both directions.
-- Regressions in `drawer.spec.ts`.
+- **`position` is a physical edge.** `MlvDrawerPosition` `'left'` / `'right'` pin the panel to that side of the screen in every direction (`GlobalPositionStrategy.left()` / `.right()` do not mirror), the handle sits on the panel's physical inner edge (`drawer.scss`, `// physical:`) and the pointer drag reads `clientX` against it.
+- **The resize keys follow the edge, not the direction (#344).** `MlvDrawerResize` looks the arrow up by `event.key` in `SPATIAL_RESIZE_STEPS` (`// physical:`), never through `MlvRtlService.normalizeArrowKey`, so the handle moves the way the arrow points in LTR, in a scoped `[dir="rtl"]` subtree and in an LTR island alike. It reads no direction at all. Before, the arrows were logical (`Up` / `Right` grow, `Down` / `Left` shrink, horizontal pair mirrored in RTL): on a `right` drawer in LTR, `Arrow Right` grew the panel while moving its handle left.
+- `Home` / `End` mean smallest / largest in both directions.
+- Regressions in `drawer-resize.spec.ts` § _spatial keys (#344)_: every position × LTR document, scoped `[dir="rtl"]` subtree, scoped `[dir="ltr"]` island of an RTL document.
 
 ## Dependencies
 
@@ -1002,4 +1010,4 @@ export default class UserDetailsComponent {
 | `@malva-ui/core/scrollbar`    | `MlvScrollbar` used by `[mlvDrawerBody]` for themed drawer-body scrolling                                                                                                                                                                       |
 | `@malva-ui/cdk/accessibility` | `MlvClick` used by `MlvDrawerSections`                                                                                                                                                                                                          |
 | `@lucide/angular`             | Chevron icon in `MlvDrawerSections`                                                                                                                                                                                                             |
-| `@malva-ui/cdk/utils`         | `mlvNextId` for auto-generated ids (`MlvDrawerSection`, `MlvDrawerHeader`), `MlvRtlService` in `MlvDrawerResize`, `MlvStructural`                                                                                                               |
+| `@malva-ui/cdk/utils`         | `mlvNextId` for auto-generated ids (`MlvDrawerSection`, `MlvDrawerHeader`), `mlvPointerGestureEnd` in `MlvDrawerResize`, `MlvStructural`                                                                                                        |

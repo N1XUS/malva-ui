@@ -1,10 +1,12 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Type } from '@angular/core';
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { By } from '@angular/platform-browser';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvDrawerResize } from './drawer-resize';
+import type { MlvDrawerPosition } from './drawer.service';
 
 /**
  * jsdom ships no `PointerEvent`, so pointer gestures are built from
@@ -212,10 +214,11 @@ describe('MlvDrawerResize — clamped box', () => {
 
     expect(handle.getAttribute('aria-valuenow')).toBe('30');
 
-    // ArrowDown asks for 300 − 100 = 200px (20%); the floor keeps the box at
-    // 300px, and the value follows the box.
+    // ArrowLeft moves a left drawer's handle toward its edge: it asks for
+    // 300 − 100 = 200px (20%); the floor keeps the box at 300px, and the
+    // value follows the box.
     handle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
     );
     fixture.detectChanges();
 
@@ -226,13 +229,143 @@ describe('MlvDrawerResize — clamped box', () => {
   });
 });
 
-describe('MlvDrawerResize — scoped direction', () => {
+// #344 — the resize arrows were logical: Up / Right always grew the panel and
+// Down / Left shrank it, with the horizontal pair mirrored in RTL. But a
+// drawer's `position` names a physical viewport edge (`GlobalPositionStrategy`
+// keeps `left` / `right` physical in RTL, and so does `drawer.scss`), so the
+// keys ran against the handle for a `right` or `top` drawer, and for a `left`
+// drawer in RTL. Now the handle moves the way the arrow points, as the pointer
+// drag already did (APG window splitter, owner ruling D15): the arrow away
+// from the drawer's edge grows it, the one toward the edge shrinks it, the
+// cross-axis arrows resize nothing, and none of it depends on direction.
+
+/** A handle with no `[dir]` above it. */
+@Component({
+  template: `
+    <div class="panel">
+      <div mlvDrawerResize [position]="position()"></div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+})
+class UnscopedHandleHostComponent {
+  readonly position = signal<MlvDrawerPosition>('left');
+}
+
+/** A handle inside a static `[dir="rtl"]` subtree. */
+@Component({
+  template: `
+    <div dir="rtl">
+      <div class="panel">
+        <div mlvDrawerResize [position]="position()"></div>
+      </div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+})
+class RtlScopedHandleHostComponent {
+  readonly position = signal<MlvDrawerPosition>('left');
+}
+
+/** A handle inside a static `[dir="ltr"]` island. */
+@Component({
+  template: `
+    <div dir="ltr">
+      <div class="panel">
+        <div mlvDrawerResize [position]="position()"></div>
+      </div>
+    </div>
+  `,
+  imports: [MlvDrawerResize],
+})
+class LtrScopedHandleHostComponent {
+  readonly position = signal<MlvDrawerPosition>('left');
+}
+
+type SpatialHost =
+  | UnscopedHandleHostComponent
+  | RtlScopedHandleHostComponent
+  | LtrScopedHandleHostComponent;
+
+/** Where the handle sits: its host, and the direction the document gets. */
+interface DirectionScope {
+  readonly name: string;
+  readonly host: Type<SpatialHost>;
+  readonly documentDirection: 'ltr' | 'rtl';
+}
+
+const DIRECTION_SCOPES: readonly DirectionScope[] = [
+  {
+    name: 'an LTR document',
+    host: UnscopedHandleHostComponent,
+    documentDirection: 'ltr',
+  },
+  {
+    name: 'a scoped [dir="rtl"] subtree of an LTR document',
+    host: RtlScopedHandleHostComponent,
+    documentDirection: 'ltr',
+  },
+  {
+    name: 'a scoped [dir="ltr"] island of an RTL document',
+    host: LtrScopedHandleHostComponent,
+    documentDirection: 'rtl',
+  },
+];
+
+/**
+ * Per position: the arrow that moves the handle away from the viewport edge
+ * (grows), the one that moves it toward the edge (shrinks), and the two that
+ * cross the drag axis.
+ */
+const SPATIAL_KEYS: readonly {
+  readonly position: MlvDrawerPosition;
+  readonly grow: string;
+  readonly shrink: string;
+  readonly across: readonly [string, string];
+}[] = [
+  {
+    position: 'left',
+    grow: 'ArrowRight',
+    shrink: 'ArrowLeft',
+    across: ['ArrowUp', 'ArrowDown'],
+  },
+  {
+    position: 'right',
+    grow: 'ArrowLeft',
+    shrink: 'ArrowRight',
+    across: ['ArrowUp', 'ArrowDown'],
+  },
+  {
+    position: 'top',
+    grow: 'ArrowDown',
+    shrink: 'ArrowUp',
+    across: ['ArrowLeft', 'ArrowRight'],
+  },
+  {
+    position: 'bottom',
+    grow: 'ArrowUp',
+    shrink: 'ArrowDown',
+    across: ['ArrowLeft', 'ArrowRight'],
+  },
+];
+
+const SPATIAL_CASES = SPATIAL_KEYS.flatMap((keys) =>
+  DIRECTION_SCOPES.map((scope) => ({ ...keys, scope })),
+);
+
+describe('MlvDrawerResize — spatial keys (#344)', () => {
   const innerWidth = window.innerWidth;
+  const innerHeight = window.innerHeight;
 
   afterEach(() => {
+    vi.restoreAllMocks();
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
       value: innerWidth,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: innerHeight,
     });
     // `setDirection` is global state (it writes `dir` onto <html>) — reset both
     // the service and the attribute so a direction never leaks into the next test.
@@ -241,29 +374,42 @@ describe('MlvDrawerResize — scoped direction', () => {
   });
 
   /**
-   * A 1000px viewport with the panel box stubbed at 300px, so every key press
-   * steps from the same base: 300 ± (1000 × 0.1).
+   * A 1000 × 1000px viewport with the panel box stubbed at 300 × 300px, so
+   * every key press steps from the same base: 300 ± (1000 × 0.1).
    */
-  async function scopedFixture(direction: 'ltr' | 'rtl'): Promise<{
-    fixture: ComponentFixture<FreeResizeHostComponent>;
+  async function handleFixture(
+    scope: DirectionScope,
+    position: MlvDrawerPosition,
+  ): Promise<{
+    fixture: ComponentFixture<SpatialHost>;
     handle: HTMLElement;
     panel: HTMLElement;
   }> {
-    const fixture = await createFixture(FreeResizeHostComponent);
-    const handle = fixture.nativeElement.querySelector(
-      '[mlvDrawerResize]',
-    ) as HTMLElement;
-    const panel = fixture.nativeElement.querySelector('.panel') as HTMLElement;
+    await TestBed.configureTestingModule({
+      imports: [scope.host],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(scope.host);
+    fixture.componentInstance.position.set(position);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.inject(MlvRtlService).setDirection(scope.documentDirection);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const handle = root.querySelector('[mlvDrawerResize]') as HTMLElement;
+    const panel = root.querySelector('.panel') as HTMLElement;
     Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1000,
+    });
+    Object.defineProperty(window, 'innerHeight', {
       configurable: true,
       value: 1000,
     });
     vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
       width: 300,
-      height: 800,
+      height: 300,
     } as DOMRect);
-    (fixture.nativeElement as HTMLElement).setAttribute('dir', direction);
-    fixture.detectChanges();
     return { fixture, handle, panel };
   }
 
@@ -271,41 +417,122 @@ describe('MlvDrawerResize — scoped direction', () => {
     return panel.style.getPropertyValue('--mlv-drawer-current-size');
   }
 
-  function keydown(handle: HTMLElement, key: string): void {
-    handle.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  /** Dispatches a bubbling, cancelable keydown and returns it. */
+  function press(handle: HTMLElement, key: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    handle.dispatchEvent(event);
+    return event;
   }
 
-  it('mirrors resize arrows inside a scoped [dir="rtl"] subtree while the document stays LTR', async () => {
-    const { fixture, handle, panel } = await scopedFixture('rtl');
+  it.each(SPATIAL_CASES)(
+    'moves a $position handle the way the arrow points, in $scope.name',
+    async ({ position, grow, shrink, across, scope }) => {
+      const { fixture, handle, panel } = await handleFixture(scope, position);
+      expect(TestBed.inject(MlvRtlService).direction()).toBe(
+        scope.documentDirection,
+      );
 
-    expect(TestBed.inject(MlvRtlService).direction()).toBe('ltr');
+      const grown = press(handle, grow);
+      fixture.detectChanges();
+      expect(`${grow} → ${size(panel)}`).toBe(`${grow} → 400px`);
+      expect(grown.defaultPrevented).toBe(true);
 
-    // Vertical arrows never mirror: ArrowUp still grows the panel.
-    keydown(handle, 'ArrowUp');
-    fixture.detectChanges();
-    expect(size(panel)).toBe('400px');
+      const shrunk = press(handle, shrink);
+      fixture.detectChanges();
+      expect(`${shrink} → ${size(panel)}`).toBe(`${shrink} → 200px`);
+      expect(shrunk.defaultPrevented).toBe(true);
 
-    // ArrowRight is "smaller" once the inline axis runs right-to-left…
-    keydown(handle, 'ArrowRight');
-    fixture.detectChanges();
-    expect(size(panel)).toBe('200px');
+      // An arrow across the drag axis has no spatial meaning: it resizes
+      // nothing and stays with the page (not `defaultPrevented`).
+      for (const key of across) {
+        const crossed = press(handle, key);
+        fixture.detectChanges();
+        expect(`${key} → ${size(panel)}`).toBe(`${key} → 200px`);
+        expect(`${key} prevented: ${crossed.defaultPrevented}`).toBe(
+          `${key} prevented: false`,
+        );
+      }
+    },
+  );
 
-    // …and ArrowLeft is "bigger".
-    keydown(handle, 'ArrowLeft');
-    fixture.detectChanges();
-    expect(size(panel)).toBe('400px');
+  it.each([
+    { position: 'left', orientation: 'vertical' },
+    { position: 'right', orientation: 'vertical' },
+    { position: 'top', orientation: 'horizontal' },
+    { position: 'bottom', orientation: 'horizontal' },
+  ] as const)(
+    'reports a $position handle as a $orientation separator',
+    async ({ position, orientation }) => {
+      const { handle } = await handleFixture(DIRECTION_SCOPES[0], position);
+
+      // A side drawer's handle splits left from right, so its arrows are the
+      // horizontal pair; without the attribute a focusable separator is
+      // `horizontal` and tells assistive technology the opposite.
+      expect(handle.getAttribute('aria-orientation')).toBe(orientation);
+    },
+  );
+
+  // The step table is a plain object, so a plain `steps[event.key]` index
+  // hands back an `Object.prototype` member for a key named after one: a
+  // function or an object, which the step arithmetic turns into `NaNpx` and
+  // a prevented event. `KeyboardEvent.key` is free text (a synthetic event,
+  // a remapped keyboard), so only the table's own keys may count.
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])(
+    'ignores a %s key: no resize, not prevented',
+    async (key) => {
+      const { fixture, handle, panel } = await handleFixture(
+        DIRECTION_SCOPES[0],
+        'left',
+      );
+      press(handle, 'ArrowRight');
+      fixture.detectChanges();
+      expect(size(panel)).toBe('400px');
+
+      const event = press(handle, key);
+      fixture.detectChanges();
+
+      expect(`${key} → ${size(panel)}`).toBe(`${key} → 400px`);
+      expect(`${key} prevented: ${event.defaultPrevented}`).toBe(
+        `${key} prevented: false`,
+      );
+    },
+  );
+
+  it('reads no layout for a key it does not handle', async () => {
+    const { handle, panel } = await handleFixture(DIRECTION_SCOPES[0], 'left');
+    const rect = vi.mocked(panel.getBoundingClientRect);
+
+    for (const key of ['Tab', 'Shift', 'Escape', 'ArrowUp', 'a']) {
+      press(handle, key);
+    }
+    expect(rect.mock.calls.length).toBe(0);
+
+    press(handle, 'ArrowRight');
+    expect(rect.mock.calls.length).toBeGreaterThan(0);
   });
 
-  it('leaves a scoped [dir="ltr"] island unmirrored while the document is RTL', async () => {
-    // The fixture comes first: `TestBed.inject` instantiates the test module,
-    // and `createFixture` still has to configure it.
-    const { fixture, handle, panel } = await scopedFixture('ltr');
-    TestBed.inject(MlvRtlService).setDirection('rtl');
-    fixture.detectChanges();
+  it('leaves Escape to the drawer: no dismiss, not prevented', async () => {
+    const { fixture, handle } = await handleFixture(
+      DIRECTION_SCOPES[0],
+      'bottom',
+    );
+    let dismissals = 0;
+    const directive = fixture.debugElement
+      .query(By.directive(MlvDrawerResize))
+      .injector.get(MlvDrawerResize);
+    const subscription = directive.dismissed.subscribe(() => dismissals++);
 
-    keydown(handle, 'ArrowRight');
-    fixture.detectChanges();
-    expect(size(panel)).toBe('400px');
+    const escape = press(handle, 'Escape');
+
+    // Closing on Escape is the drawer's (`closeOnEscape`), through CDK's
+    // keyboard dispatcher — see `drawer.spec.ts` and `drawer.service.spec.ts`.
+    expect(dismissals).toBe(0);
+    expect(escape.defaultPrevented).toBe(false);
+    subscription.unsubscribe();
   });
 });
 
