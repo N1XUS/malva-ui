@@ -479,6 +479,7 @@ const tr: MlvLanguage = {
   },
   timePicker: {
     period: 'Dönem',
+    placeholder: 'Saat seç...',
     timePicker: 'Saat seçici',
   },
   toast: {

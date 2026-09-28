@@ -489,6 +489,7 @@ const ro: MlvLanguage = {
   },
   timePicker: {
     period: 'Perioadă',
+    placeholder: 'Selectează ora...',
     timePicker: 'Selector de oră',
   },
   toast: {

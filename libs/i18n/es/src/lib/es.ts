@@ -484,6 +484,7 @@ const es: MlvLanguage = {
   },
   timePicker: {
     period: 'Periodo',
+    placeholder: 'Seleccionar hora...',
     timePicker: 'Selector de hora',
   },
   toast: {

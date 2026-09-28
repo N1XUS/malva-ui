@@ -462,7 +462,11 @@ const de: MlvLanguage = {
     restrictedTarget: 'Gesperrt',
   },
   popup: { close: 'Schließen' },
-  timePicker: { period: 'Zeitraum', timePicker: 'Zeitauswahl' },
+  timePicker: {
+    period: 'Zeitraum',
+    placeholder: 'Uhrzeit auswählen...',
+    timePicker: 'Zeitauswahl',
+  },
   toast: { dismiss: 'Schließen' },
   tokenizer: {
     addToken: 'Token hinzufügen',

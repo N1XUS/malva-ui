@@ -49,6 +49,16 @@ describe('MlvTimePicker — clearable (#301)', () => {
     expect(fixture.componentInstance.hasValue()).toBe(false);
     expect(touched).toHaveBeenCalledTimes(1);
     expect(clearButton()).toBeNull();
+    // A cleared picker shows its placeholder, not the wall clock (#348).
+    const trigger = (fixture.nativeElement as HTMLElement).querySelector(
+      '.mlv-time-picker__trigger',
+    );
+    expect(trigger?.textContent ?? '').not.toMatch(/\d\d:\d\d/);
+    expect(
+      trigger
+        ?.querySelector('.mlv-time-picker__placeholder')
+        ?.textContent?.trim(),
+    ).toBe('Select time...');
   });
 
   it('reports no value and renders no clear button while empty', async () => {

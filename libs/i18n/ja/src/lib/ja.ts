@@ -474,6 +474,7 @@ const ja: MlvLanguage = {
   },
   timePicker: {
     period: '時間帯',
+    placeholder: '時刻を選択...',
     timePicker: '時刻選択',
   },
   toast: {

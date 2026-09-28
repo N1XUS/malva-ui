@@ -483,6 +483,7 @@ const nl: MlvLanguage = {
   },
   timePicker: {
     period: 'Periode',
+    placeholder: 'Tijd selecteren...',
     timePicker: 'Tijdkiezer',
   },
   toast: {

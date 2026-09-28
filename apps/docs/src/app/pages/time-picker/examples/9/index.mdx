@@ -1,0 +1,15 @@
+---
+title: Empty value
+description: An empty value shows the placeholder; defaultToNow seeds the drums
+---
+
+An empty value (`''`) renders as empty: the trigger shows the **placeholder**
+(the i18n "Select time..." unless `placeholder` overrides it) and the drums open
+with **no selection**. Nothing is written to the model until the user picks —
+the first pick commits a whole time, taking the drums' resting position (`00`,
+or `01 AM` in 12-hour mode) for the columns it did not touch.
+
+`defaultToNow` seeds the drums with the current time each time an empty picker
+opens, read from the date adapter's `now()`. The seed is a starting point, not a
+value: the model stays `''` and the trigger keeps its placeholder until the user
+changes a drum or the period.

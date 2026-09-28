@@ -11,6 +11,7 @@ import {
   input,
   model,
   signal,
+  untracked,
   viewChild,
   viewChildren,
   ViewEncapsulation,
@@ -47,6 +48,12 @@ import { MlvButton } from '@malva-ui/core/button';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvScrubber } from '@malva-ui/core/scrubber';
 import { MLV_TIME_PICKER_I18N } from '@malva-ui/i18n';
+import type { MlvTimePickerI18n } from '@malva-ui/i18n';
+import {
+  MLV_DATE_ADAPTER,
+  MlvNativeDateAdapter,
+  type MlvDateAdapter,
+} from '@malva-ui/core/date';
 
 /**
  * Clock mode — 24-hour or 12-hour (AM/PM).
@@ -63,6 +70,25 @@ function range(start: number, end: number): number[] {
   return Array.from({ length: end - start }, (_, i) => i + start);
 }
 
+/** `MlvTimePickerI18n` keys a hand-written or older language pack may omit. */
+type MlvTimePickerOptionalMessageKey = {
+  [K in keyof MlvTimePickerI18n]-?: undefined extends MlvTimePickerI18n[K]
+    ? K
+    : never;
+}[keyof MlvTimePickerI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvTimePickerOptionalMessageKey, string>
+> = {
+  placeholder: 'Select time...',
+};
+
 /**
  * Time picker component (`mlv-time-picker`) that allows users to select a time
  * value using a compact trigger that opens a floating popup with scrollable
@@ -71,6 +97,10 @@ function range(start: number, end: number): number[] {
  *
  * Emits values as `HH:mm` (24h format) or `HH:mm:ss` when `showSeconds` is true.
  * In 12h mode the emitted value is still in 24h format internally.
+ *
+ * An empty value (`''`) renders as empty: the trigger shows the placeholder
+ * and the drums open with no selection. Opt into a clock seed with
+ * `defaultToNow`.
  */
 @Component({
   selector: 'mlv-time-picker',
@@ -141,6 +171,26 @@ export class MlvTimePicker
     transform: coerceBooleanProperty,
   });
 
+  /**
+   * Text the trigger shows while the value is empty. Falls back to the
+   * i18n-provided placeholder ("Select time...").
+   */
+  readonly placeholder = input<string | undefined>(undefined);
+
+  /**
+   * When `true`, opening the popup on an **empty** value seeds the drums with
+   * the current time, read from the date adapter's `now()` (`MLV_DATE_ADAPTER`,
+   * else `MlvNativeDateAdapter`) — hours and minutes; seconds seed as `00`,
+   * since the adapter reads no seconds. Seeding selects the drums without
+   * committing: the model stays `''` and the trigger keeps its placeholder
+   * until the user changes a drum or the period, which commits the whole time.
+   * Re-seeds on every open while the value is empty; a held value is left
+   * alone. Off by default: an empty value opens with empty drums.
+   */
+  readonly defaultToNow = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
+
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_TIME_PICKER_I18N);
 
@@ -148,6 +198,27 @@ export class MlvTimePicker
   protected readonly _resolvedAriaLabel = computed(
     () => this.ariaLabel() ?? this._i18n().timePicker,
   );
+
+  /**
+   * @protected Resolved placeholder: the `placeholder` input, else the active
+   * pack's, else the English fallback for a pack that omits the key.
+   */
+  protected readonly _resolvedPlaceholder = computed(
+    () =>
+      this.placeholder() ??
+      this._i18n().placeholder ??
+      OPTIONAL_MESSAGE_FALLBACKS.placeholder,
+  );
+
+  /**
+   * @private Clock `defaultToNow` seeds from. The same resolution as the date
+   * pickers: a consumer's `MLV_DATE_ADAPTER`, else the native adapter — never
+   * `new Date()`, so a consumer (or a spec) that controls the adapter's clock
+   * controls this one.
+   */
+  private readonly _dateAdapter: MlvDateAdapter<unknown> =
+    inject(MLV_DATE_ADAPTER, { optional: true }) ??
+    (inject(MlvNativeDateAdapter) as unknown as MlvDateAdapter<unknown>);
 
   /** @private Whether the time selection popup is open. */
   readonly isOpen = signal(false);
@@ -163,6 +234,13 @@ export class MlvTimePicker
 
   /** @private AM/PM period — `'AM'` or `'PM'`. Only relevant in 12h mode. */
   protected readonly _period = signal<'AM' | 'PM'>('AM');
+
+  /**
+   * @private Whether the drums currently hold a `defaultToNow` seed for an
+   * empty value. Cleared whenever an empty value is applied or the popup opens
+   * without seeding.
+   */
+  private readonly _seeded = signal(false);
 
   /** Unique ID for the message element, used for aria-describedby linking. */
 
@@ -182,7 +260,10 @@ export class MlvTimePicker
     () => this._focused() || this.isOpen(),
   );
 
-  /** @protected Formatted display value shown in the trigger. */
+  /**
+   * @protected Formatted display value shown in the trigger while the picker
+   * holds a value; the placeholder stands in for it otherwise.
+   */
   protected readonly _displayValue = computed(() => {
     const is12h = this.mode() === '12h';
     const hour = is12h ? this._displayHour() : this._hour();
@@ -221,6 +302,36 @@ export class MlvTimePicker
     const h = this._hour() % 12;
     return h === 0 ? 12 : h;
   });
+
+  /**
+   * @protected Whether the drums show no selection: the value is empty and
+   * nothing seeded them. The working time behind them (`_hour` … `_period`)
+   * then holds the time the drums rest on — the first item of each — which is
+   * what the first pick commits for the columns it did not touch.
+   */
+  protected readonly _drumsEmpty = computed(
+    () => !this.hasValue() && !this._seeded(),
+  );
+
+  /** @protected The hour drum's selection; `null` while the drums are empty. */
+  protected readonly _selectedHour = computed(() =>
+    this._drumsEmpty() ? null : this._displayHour(),
+  );
+
+  /** @protected The minute drum's selection; `null` while the drums are empty. */
+  protected readonly _selectedMinute = computed(() =>
+    this._drumsEmpty() ? null : this._minute(),
+  );
+
+  /** @protected The second drum's selection; `null` while the drums are empty. */
+  protected readonly _selectedSecond = computed(() =>
+    this._drumsEmpty() ? null : this._second(),
+  );
+
+  /** @protected The pressed period; `null` (neither) while the drums are empty. */
+  protected readonly _selectedPeriod = computed(() =>
+    this._drumsEmpty() ? null : this._period(),
+  );
 
   /** @private Reference to the trigger element for focus restoration after popup close. */
   private readonly _triggerRef =
@@ -273,6 +384,20 @@ export class MlvTimePicker
   constructor() {
     super();
     effect(() => this._applyValue(this.value()));
+
+    // Every open of an empty picker starts from empty drums — or, under
+    // `defaultToNow`, from a fresh seed. An effect rather than a step in
+    // `_toggleDropdown`, so an open through the public `isOpen` signal is
+    // covered too. Runs before this view refreshes, so the popup content is
+    // stamped from the seeded drums rather than re-rendered into them.
+    effect(() => {
+      const open = this.isOpen();
+      untracked(() => {
+        if (this.hasValue()) return;
+        if (open && this.defaultToNow()) this._seedFromNow();
+        else this._clearDrums();
+      });
+    });
   }
 
   /**
@@ -331,9 +456,10 @@ export class MlvTimePicker
   /**
    * Whether the control holds a clearable value — a non-empty time string.
    *
-   * Reads the model, not the drum: the drum always shows a time (the current
-   * one when the value is empty), so answering from it made the wrapper render
-   * a clear button on an empty picker (#301).
+   * Reads the model, not the drums: before #348 the drums always showed a
+   * time (the current one when the value was empty), so answering from them
+   * made the wrapper render a clear button on an empty picker (#301). It also
+   * decides what the trigger shows — the time, or the placeholder.
    */
   readonly hasValue = computed(() => (this.value() ?? '').length > 0);
 
@@ -350,20 +476,46 @@ export class MlvTimePicker
     if (this._write('')) this._markTouched();
   }
 
-  /** @private Synchronizes drum columns from an external model value. */
+  /**
+   * @private Synchronizes drum columns from an external model value. An empty
+   * (or `null`) value empties the drums; it no longer reads the clock (#348).
+   */
   private _applyValue(value: string): void {
     if (value) {
       this._parseValue(value);
     } else {
-      // Default to current time on null/empty
-      const now = new Date();
-      this._hour.set(now.getHours());
-      this._minute.set(now.getMinutes());
-      this._second.set(now.getSeconds());
-      if (this.mode() === '12h') {
-        this._period.set(now.getHours() >= 12 ? 'PM' : 'AM');
-      }
+      this._clearDrums();
     }
+  }
+
+  /**
+   * @private Empties the drums: no selection, and a working time equal to the
+   * drums' resting position — the first item of each (`00` in 24h, `01` AM in
+   * 12h, whose hour drum runs 01…12), minutes and seconds `00`. Reads `mode`,
+   * so the value effect re-rests the drums on a mode switch.
+   */
+  private _clearDrums(): void {
+    this._hour.set(this.mode() === '12h' ? 1 : 0);
+    this._minute.set(0);
+    this._second.set(0);
+    this._period.set('AM');
+    this._seeded.set(false);
+  }
+
+  /**
+   * @private Seeds the drums from the date adapter's clock for `defaultToNow`.
+   * Hours and minutes only — `MlvDateAdapter` reads no seconds. Writes the
+   * working time and nothing else: the model stays empty.
+   */
+  private _seedFromNow(): void {
+    const now = this._dateAdapter.now();
+    const hour = this._dateAdapter.getHours(now);
+    // 12h mode stores the hour 0–11 and carries the half-day in `_period`.
+    this._hour.set(this.mode() === '12h' ? hour % 12 : hour);
+    this._minute.set(this._dateAdapter.getMinutes(now));
+    this._second.set(0);
+    this._period.set(hour >= 12 ? 'PM' : 'AM');
+    this._seeded.set(true);
   }
 
   /**

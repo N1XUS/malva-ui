@@ -8,7 +8,7 @@ Nx project name: `core-time-picker`. Internal scroll controls explicitly use
 
 ## Overview
 
-The Time Picker library (`@malva-ui/core/time-picker`) provides a popup-based drum-roll style time selection component. A compact trigger displays the current time with a clock icon; clicking it opens a floating popup panel with scrollable columns. Supports 24h and 12h (AM/PM) modes, optional seconds, and signal/reactive/template-driven forms.
+The Time Picker library (`@malva-ui/core/time-picker`) provides a popup-based drum-roll style time selection component. A compact trigger displays the selected time — or the placeholder while the value is empty — with a clock icon; clicking it opens a floating popup panel with scrollable columns. Supports 24h and 12h (AM/PM) modes, optional seconds, and signal/reactive/template-driven forms.
 
 The component follows the same trigger → popup pattern as `mlv-day-picker`, `mlv-select`, and `mlv-combobox`, using `mlv-form-control-wrapper` for consistent form control styling (border, background, states, focus, density).
 
@@ -62,15 +62,17 @@ exported before is unchanged; `MlvTimePickerColumn` never was exported.
 
 #### Own Inputs
 
-| Input         | Type           | Default         | Description                           |
-| ------------- | -------------- | --------------- | ------------------------------------- |
-| `mode`        | `MlvTimeMode`  | `'24h'`         | Clock mode — 24-hour or 12-hour AM/PM |
-| `showSeconds` | `BooleanInput` | `false`         | Shows a seconds column                |
-| `ariaLabel`   | `string`       | `'Time picker'` | ARIA label for the group element      |
+| Input          | Type                  | Default                                                        | Description                                                                                                                        |
+| -------------- | --------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`         | `MlvTimeMode`         | `'24h'`                                                        | Clock mode — 24-hour or 12-hour AM/PM                                                                                              |
+| `showSeconds`  | `BooleanInput`        | `false`                                                        | Shows a seconds column                                                                                                             |
+| `placeholder`  | `string \| undefined` | `undefined` → i18n `timePicker.placeholder` ("Select time...") | Trigger text while the value is empty (#348)                                                                                       |
+| `defaultToNow` | `BooleanInput`        | `false`                                                        | Seeds the drums from the date adapter's `now()` each time an **empty** picker opens, without committing (#348) — see _Empty value_ |
+| `ariaLabel`    | `string`              | `'Time picker'`                                                | ARIA label for the group element                                                                                                   |
 
 #### Forms value format
 
-Emits and accepts time strings in `HH:mm` (or `HH:mm:ss` when `showSeconds` is true). Always in 24-hour notation.
+Emits and accepts time strings in `HH:mm` (or `HH:mm:ss` when `showSeconds` is true). Always in 24-hour notation. `''` (or `null` from a non-strict form) is the empty value: the trigger shows the placeholder and the drums hold no selection (#348).
 
 #### Host Bindings
 
@@ -164,8 +166,11 @@ the component and is documented in `libs-scrubber.md`.
 
 The keyboard model the picker exposes is unchanged: ArrowUp/ArrowDown navigate
 and select within a column (wrapping), ArrowLeft/ArrowRight move between
-columns, Home/End jump to first/last, Enter/Space select, and typing digits
-seeks by the zero-padded label.
+columns, Home/End jump to first/last, and typing digits seeks by the
+zero-padded label. Arrows select as they move (`follow`); Enter / Space do
+nothing in a drum, except in the scrubber's `explicit` mode — an empty drum
+that has never had focus (#348). Before #348 this line said Enter / Space
+select, which was never true in `follow` mode.
 
 Direction of the inter-column pair:
 
@@ -277,7 +282,9 @@ Border, background, and focus styling are handled by `mlv-form-control-wrapper` 
 - `@malva-ui/core/form-utils` — `MlvSignalFormControlBase`, `MlvFormControlWrapper`, `MlvFormControlWrapperControl`, `MlvHint`, `MlvLabel`, `MLV_FORM_CONTROL`, `MlvMessage`
 - `@malva-ui/core/popup` — `MlvPopup`, `MlvPopupContent`, `MlvPopupContainer`
 - `@malva-ui/core/button` — `MlvButton` (AM/PM toggle buttons)
-- `@malva-ui/core/scrubber` — `MlvScrubber` (the drum-roll columns, #129)
+- `@malva-ui/core/scrubber` — `MlvScrubber` (the drum-roll columns, #129; a `null` `selectedValue` for the empty drums, #348)
+- `@malva-ui/core/date` — `MLV_DATE_ADAPTER`, `MlvNativeDateAdapter`, `MlvDateAdapter` (the `defaultToNow` clock, #348)
+- `@malva-ui/i18n` — `MLV_TIME_PICKER_I18N`, `MlvTimePickerI18n` (`period`, optional `placeholder`, `timePicker`)
 - `@malva-ui/cdk/density` — `MlvDensityDirective`, `MLV_DENSITY_ELEMENT`
 - `@malva-ui/cdk/utils` — `MlvRtlService` (inter-column arrow keys)
 - `@lucide/angular` — `LucideClock` (trigger icon)
@@ -351,8 +358,24 @@ open would be the sheet.
 
 ## Clear button (2026-09, #301)
 
-- `hasValue` reads the **model** — `(value() ?? '').length > 0` — instead of returning `true`. The drum always shows a time (the current one on an empty value), so `true` made the wrapper render an X on an empty picker.
+- `hasValue` reads the **model** — `(value() ?? '').length > 0` — instead of returning `true`. The drum then always showed a time (the current one on an empty value, until #348), so `true` made the wrapper render an X on an empty picker.
 - `clearable` renders the wrapper's X while a time is set and the picker is neither readonly nor disabled. Before #301 nothing was bound to the wrapper's `(clear)`, so the X did nothing.
-- Handler: protected `_onClear()` → `_write('')`, then `touch` only when the write landed. After a clear the trigger shows the current time again — the same display an initially empty picker has — while `value` is `''`.
+- Handler: protected `_onClear()` → `_write('')`, then `touch` only when the write landed. After a clear the trigger shows the placeholder — the same display an initially empty picker has — while `value` is `''` (the current time until #348).
 - Scope: the clear button only. Readonly on the drum and popup is #402.
 - Spec: `time-picker-clear.spec.ts`.
+
+## Empty value (2026-09, #348)
+
+Owner ruling D4 option (c). **Breaking, behaviour only** — [docs/migrations/2026-09-time-picker-empty-value.md](../../docs/migrations/2026-09-time-picker-empty-value.md).
+
+- **Before:** `_applyValue('')` seeded the drums from `new Date()`. An empty picker's trigger showed the wall clock as if it were a chosen time, the open drums marked it `aria-selected`, and the first pick in one column committed the rest of the clock with it. Server and client each rendered their own clock.
+- **Trigger:** `@if (hasValue())` → `.mlv-time-picker__value` (`_displayValue()`), else `.mlv-time-picker__placeholder` (`_resolvedPlaceholder()` = `placeholder()` → pack `timePicker.placeholder` → English fallback). Placeholder colour `--mlv-text-tertiary`, as `mlv-day-picker`. The trigger's accessible name is unchanged (label via `aria-labelledby`); its text is also the combobox **value** Chromium exposes, so an empty picker now reads as the placeholder (Chromium 153, CDP `getFullAXTree` on docs example 9: `combobox "Reminder"` value `"No reminder"`; `"01:00"` after a pick). Firefox / WebKit unmeasured.
+- **Drums:** `_drumsEmpty` = `!hasValue() && !_seeded()`. While true, `_selectedHour` / `_selectedMinute` / `_selectedSecond` feed `null` to `mlv-scrubber` (no option `aria-selected`, no `__item--selected`) and `_selectedPeriod` is `null` (neither AM nor PM pressed). The model stays `''`: opening, closing and moving focus between drums commit nothing.
+- **Resting time:** `_clearDrums()` sets the working time to the drums' resting position — the first item of each: `00` (24h) or `01` AM (12h, hour drum runs 01…12), minutes / seconds `00`. The first pick commits a whole time from it: minute 30 → `00:30`; PM first in 12h → `13:00`; Home on an empty drum commits its first item.
+- **`defaultToNow`:** an effect on `isOpen` (so an open through the public signal counts) seeds on **every** open of an empty picker via `_seedFromNow()` — `_dateAdapter.now()` (`MLV_DATE_ADAPTER` → `MlvNativeDateAdapter`, never `new Date()`), hours + minutes, seconds `00` (`MlvDateAdapter` reads no seconds), period from the hour. Seeding selects the drums but commits nothing; the trigger keeps its placeholder until a drum or period changes. A held value is left alone. Without it, every open resets to empty drums.
+- **Known wart (seed):** accepting the seeded time exactly takes a change — a click on the already-selected option is dropped by the scrubber's own echo guard (`_onAriaValueChange`: `next !== selectedValue()`), and Enter / Space are not bound at all in `follow` mode (`@angular/aria` binds them only when selection does not follow focus). The 12h period buttons are the exception: they always emit. Owner question open: commit on open instead, or a positioned-but-unselected seed (needs a scrubber resting-position API with scroll read-back suppression).
+- **Scrubber side:** `null` handling lives in `mlv-scrubber` — no programmatic scroll, and `'explicit'` selection mode until first focus so aria's default-state pass does not select the first item on its own (see libs-scrubber.md → _No selection_). Keyboard selection in a drum starts once it has focus, as for any user.
+- **Known limitation (mode switch while open):** aria runs `setDefaultState()` from a post-render effect whenever the active option leaves the item list, and that pass is **not** gated on interaction. On a focused (so `follow`) hour drum with an empty value, switching `mode` 24h → 12h while the popup is open removes hour options 0 and 13–23; if the active one was among them, aria selects the first remaining option and the picker commits `01:00` with no user input. `mode` is the only input that changes a drum's items, so this needs a consumer flipping `mode` under an open, empty picker. Not fixed (#348 review M1); the follow-up is to emit from a `null` strip only after a user-originated event.
+- **i18n:** optional `MlvTimePickerI18n.placeholder` in all 14 packs; a pack without it falls back to `OPTIONAL_MESSAGE_FALLBACKS` (the `mlv-filter` pattern — a `Record` over the interface's optional keys).
+- **Specs:** `time-picker-empty.spec.ts` (fake `Date` pinned to 14:37:52 and a stub adapter at 09:41, so a picker still reading the system clock is caught), `scrubber-empty.spec.ts`; the a11y suite gains a held-value sweep, since its default host is now empty drums.
+- **Docs:** `/time-picker` example 9. Checked in real Chromium 153 against the built docs app: opening an empty picker selects nothing and writes nothing (1.2 s past the scroll read-back), Escape leaves `''`, ArrowDown on the focused hours drum commits `01:00`, and `defaultToNow` shows the browser clock selected while the model stays `''`.

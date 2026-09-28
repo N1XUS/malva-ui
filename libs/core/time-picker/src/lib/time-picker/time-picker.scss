@@ -77,7 +77,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // Trigger (compact display — shows current time + clock icon)
+    // Trigger (compact display — the value, or the placeholder, + clock icon)
     // -------------------------------------------------------------------------
 
     &__trigger {
@@ -96,6 +96,16 @@
       flex: 1;
       color: var(--mlv-text-primary);
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    // Shown in place of `__value` while the value is empty (#348).
+    &__placeholder {
+      flex: 1;
+      // `--mlv-text-tertiary` is the placeholder step of the text ramp — the
+      // token `mlv-day-picker` and the native `::placeholder` of `mlv-input`
+      // use — so a form mixing the controls shows one placeholder grey.
+      color: var(--mlv-text-tertiary);
       white-space: nowrap;
     }
 

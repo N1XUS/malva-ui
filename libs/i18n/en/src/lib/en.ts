@@ -480,6 +480,7 @@ const en: MlvLanguage = {
   },
   timePicker: {
     period: 'Period',
+    placeholder: 'Select time...',
     timePicker: 'Time picker',
   },
   toast: {

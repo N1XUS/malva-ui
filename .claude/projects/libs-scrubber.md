@@ -46,14 +46,14 @@ Exported from `libs/core/scrubber/src/index.ts`:
 
 #### Inputs
 
-| Name            | Type                          | Default            | Description                                                                                                                                                                   |
-| --------------- | ----------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `label`         | `string` (**required**)       | —                  | Accessible name of the listbox (`aria-label`), e.g. `"Hours"`, `"Year"`.                                                                                                      |
-| `items`         | `readonly T[]` (**required**) | —                  | The values, in scroll order. Must be **distinct** — they are both the `@for` track key and aria's option identity.                                                            |
-| `selectedValue` | `T` (**required**)            | —                  | The value on the centre stripe. Compared with `indexOf` (reference / `===` equality).                                                                                         |
-| `orientation`   | `MlvScrubberOrientation`      | `'vertical'`       | The scroll axis. `'horizontal'` is on the **inline** axis and mirrors in RTL.                                                                                                 |
-| `displayWith`   | `(item: T) => string`         | `(v) => String(v)` | Formats an item for the visible text **and** for aria's type-ahead (`ngOption`'s `label`). The zero-padded two-digit numeral is the time picker's own format, passed in here. |
-| `disabled`      | `boolean` (coerced)           | `false`            | Blocks aria keydown/click and the scroll→value sync, and forces `tabindex="-1"` on the listbox.                                                                               |
+| Name            | Type                          | Default            | Description                                                                                                                                                                                   |
+| --------------- | ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`         | `string` (**required**)       | —                  | Accessible name of the listbox (`aria-label`), e.g. `"Hours"`, `"Year"`.                                                                                                                      |
+| `items`         | `readonly T[]` (**required**) | —                  | The values, in scroll order. Must be **distinct** — they are both the `@for` track key and aria's option identity.                                                                            |
+| `selectedValue` | `T \| null` (**required**)    | —                  | The value on the centre stripe. Compared with `indexOf` (reference / `===` equality). `null` = **no selection** (#348) — see _No selection_; `null` is therefore not usable as an item value. |
+| `orientation`   | `MlvScrubberOrientation`      | `'vertical'`       | The scroll axis. `'horizontal'` is on the **inline** axis and mirrors in RTL.                                                                                                                 |
+| `displayWith`   | `(item: T) => string`         | `(v) => String(v)` | Formats an item for the visible text **and** for aria's type-ahead (`ngOption`'s `label`). The zero-padded two-digit numeral is the time picker's own format, passed in here.                 |
+| `disabled`      | `boolean` (coerced)           | `false`            | Blocks aria keydown/click and the scroll→value sync, and forces `tabindex="-1"` on the listbox.                                                                                               |
 
 #### Outputs
 
@@ -90,17 +90,17 @@ their inputs bind freely. aria owns the roles (`listbox`/`option`),
 `aria-selected`, `aria-activedescendant`, roving tabindex, keyboard navigation
 and selection. Pinned configuration:
 
-| aria input      | Value              | Why                                                                                                                                                                                   |
-| --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `focusMode`     | `activedescendant` | Focus stays on the `<ul>`, so a parent's inter-strip navigation and `focusList()` keep working. aria moves neither DOM focus nor scroll in this mode, so it cannot fight scroll-snap. |
-| `selectionMode` | `follow`           | Drum-roll semantic = "centred is selected" → an arrow key moves **and** selects.                                                                                                      |
-| `orientation`   | `orientation()`    | Decides aria's arrow pair (and emits `aria-orientation`).                                                                                                                             |
-| `wrap`          | `true`             | Navigation wraps from last to first.                                                                                                                                                  |
-| `disabled`      | `disabled()`       | A disabled strip blocks aria keydown/click.                                                                                                                                           |
-| `tabindex`      | `-1` when disabled | A disabled listbox leaves the tab order (aria would keep it focusable at `0`).                                                                                                        |
+| aria input      | Value              | Why                                                                                                                                                                                                   |
+| --------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `focusMode`     | `activedescendant` | Focus stays on the `<ul>`, so a parent's inter-strip navigation and `focusList()` keep working. aria moves neither DOM focus nor scroll in this mode, so it cannot fight scroll-snap.                 |
+| `selectionMode` | `_selectionMode()` | `follow` — drum-roll semantic = "centred is selected" → an arrow key moves **and** selects. `explicit` only while `selectedValue` is `null` and the strip has never had focus (#348, _No selection_). |
+| `orientation`   | `orientation()`    | Decides aria's arrow pair (and emits `aria-orientation`).                                                                                                                                             |
+| `wrap`          | `true`             | Navigation wraps from last to first.                                                                                                                                                                  |
+| `disabled`      | `disabled()`       | A disabled strip blocks aria keydown/click.                                                                                                                                                           |
+| `tabindex`      | `-1` when disabled | A disabled listbox leaves the tab order (aria would keep it focusable at `0`).                                                                                                                        |
 
 **Value bridging:** the public scalar `selectedValue` / `valueChange` are
-preserved. Internally `[value]="[selectedValue()]"` bridges the scalar into
+preserved. Internally `[value]="_ariaValue()"` (`[selectedValue()]`, or `[]` for `null`) bridges the scalar into
 aria's array (`V[]`) single-select model, and `(valueChange)` collapses
 `V[]` → scalar (guarding no-op echoes).
 
@@ -127,8 +127,21 @@ where each `aria-activedescendant` resolves.
 
 - Vertical: ArrowUp / ArrowDown navigate + select (wrapping).
 - Horizontal: ArrowLeft / ArrowRight, **mirrored in RTL**.
-- Home / End: first / last. Enter / Space: select the active item.
+- Home / End: first / last. Arrows, Home and End select as they move (`follow`); Enter / Space are **not bound** in `follow` mode — `@angular/aria` binds them only when selection does not follow focus. (This line said "Enter / Space: select the active item" before #348, which was never true in `follow`.)
+- With no selection and no focus yet, arrows only move the active item (`explicit` mode; see _No selection_).
 - Type-ahead: matches `displayWith`'s output, case-insensitively, by prefix.
+
+### No selection (2026-09, #348)
+
+`selectedValue` widened `T` → `T | null` (row 115) so `mlv-time-picker` can render an empty value as empty drums.
+
+- **Rendering:** `_ariaValue` is `[]` → no option `aria-selected`, no `__item--selected`. aria still has an active descendant (the first item, seeded in `ngAfterViewInit` from index `-1` → `0`), so Arrow / Home / type-ahead have somewhere to start.
+- **No self-selection:** aria's `setDefaultStateEffect` (an `afterRenderEffect` running until the listbox's first `focusin`) calls `select()` on the first item of a `follow` listbox with nothing selected — the strip would emit a value nobody chose. So `_selectionMode` is `'explicit'` while `selectedValue` is `null` **and** `_interacted` is false; `explicit` makes that pass only activate. `_interacted` latches on the host's first `focusin`, from a constructor `fromEvent(…, 'focusin').pipe(take(1))` — registered on the host, not the `<ul>`, and from the constructor, because a parent may focus the list mid-render (the time picker's open handler does).
+- **Keys in `explicit`:** arrows move without selecting; Enter / Space and a click select. Focus flips the strip to `follow` before any key arrives in real use (a key needs focus), so a keyboard user gets the drum-roll semantic from the first Arrow; only a script dispatching a keydown at an unfocused strip sees the difference.
+- **Known limitation:** aria's third post-render effect runs `setDefaultState()` when the active option leaves `items`, with no interaction gate. On a latched (`follow`) strip whose `selectedValue` is `null`, that pass selects the first item and `_onAriaValueChange` emits it — an emission no user caused. It takes an item-list change on a focused, empty strip (in-repo: `mlv-time-picker`'s `mode` switch while open). Not fixed (#348 review M1).
+- **Activation emits:** `_onAriaValueChange` guards echoes against `selectedValue`, and `null` matches no item — so activating the resting (first) item emits it, as a choice.
+- **No scroll on `null`:** the `selectedValue` sync effect returns early; the strip stays where it is, and a read-back still pending from an earlier scroll is cancelled (a flick, then a form reset inside the 150 ms debounce, would otherwise commit the landed item after the reset). Scrolling it back to the start would come back through the 150 ms read-back and select the item it lands on. A value arriving later scrolls to it as usual; a user scroll from empty emits the item it settles on.
+- Specs: `scrubber-empty.spec.ts` (10) — ablating the explicit mode, the latch or the scroll guard each turns specs red there and in `time-picker-empty.spec.ts`; `_ariaValue`'s `[]` is defensive (aria prunes an unmatched `[null]` itself) and ablating it turns nothing red.
 
 ## Scroll behaviour
 
@@ -230,13 +243,14 @@ four together.
 
 ## Testing
 
-| File                      | Covers                                                                                                                                                                                                                                                          |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scrubber.spec.ts`        | The scroll listener's wiring: native events at the `<ul>`, disabled, teardown, zero change-detection passes for a burst, passive registration.                                                                                                                  |
-| `scrubber-api.spec.ts`    | Item type and `displayWith` (including through aria's type-ahead), and the orientation → `aria-orientation` + modifier class.                                                                                                                                   |
-| `scrubber-rtl.spec.ts`    | Horizontal `scrollLeft` maths, the RTL sign, a scoped `[dir]` ancestor, programmatic scroll, re-alignment on a live flip, and the arrow-key pair in all three direction cases.                                                                                  |
-| `scrubber-a11y.spec.ts`   | The guarantees the primitive owns rather than borrows from the time picker: option-id uniqueness across three sibling strips (and where each `aria-activedescendant` resolves), the seeded active item under a focus-on-open, and the reduced-motion downgrade. |
-| `scrubber-styles.spec.ts` | The geometry, against the **compiled stylesheet** — jsdom implements no layout, so `getComputedStyle` would read nothing. Wrapped in `stripCssLayersFromText()` from `@malva-ui/internal-testing`.                                                              |
+| File                      | Covers                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scrubber.spec.ts`        | The scroll listener's wiring: native events at the `<ul>`, disabled, teardown, zero change-detection passes for a burst, passive registration.                                                                                                                                                                                                                                                                                           |
+| `scrubber-api.spec.ts`    | Item type and `displayWith` (including through aria's type-ahead), and the orientation → `aria-orientation` + modifier class.                                                                                                                                                                                                                                                                                                            |
+| `scrubber-rtl.spec.ts`    | Horizontal `scrollLeft` maths, the RTL sign, a scoped `[dir]` ancestor, programmatic scroll, re-alignment on a live flip, and the arrow-key pair in all three direction cases.                                                                                                                                                                                                                                                           |
+| `scrubber-a11y.spec.ts`   | The guarantees the primitive owns rather than borrows from the time picker: option-id uniqueness across three sibling strips (and where each `aria-activedescendant` resolves), the seeded active item under a focus-on-open, the reduced-motion downgrade, and axe sweeps — selected, disabled, horizontal, three strips (no selection is swept in `scrubber-empty.spec.ts`). `core-scrubber` left `ROLLOUT_PENDING` with these (#348). |
+| `scrubber-empty.spec.ts`  | `null` `selectedValue` (#348): nothing selected and nothing emitted on render, an active descendant to start from, Home / click / user scroll emitting, a later value scrolling in, removing the selection clearing it without a programmatic scroll, a scroll read-back pending at that moment dropped, axe.                                                                                                                            |
+| `scrubber-styles.spec.ts` | The geometry, against the **compiled stylesheet** — jsdom implements no layout, so `getComputedStyle` would read nothing. Wrapped in `stripCssLayersFromText()` from `@malva-ui/internal-testing`.                                                                                                                                                                                                                                       |
 
 ## Dependencies
 
