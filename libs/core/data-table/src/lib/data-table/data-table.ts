@@ -79,6 +79,7 @@ import {
   MLV_DENSITY_ELEMENT,
 } from '@malva-ui/cdk/density';
 import { MLV_DATA_TABLE_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
+import type { MlvDataTableI18n } from '@malva-ui/i18n';
 import { MlvDataSource, MlvArrayDataSource } from '../data-source';
 import { MlvDataTableEditingService } from './services/data-table-editing.service';
 import { MlvDataTableColumnVisibilityService } from './services/data-table-column-visibility.service';
@@ -160,6 +161,31 @@ interface AuxiliaryColumnWidths {
 }
 
 type AuxiliaryColumnKind = keyof AuxiliaryColumnWidths;
+
+/** `MlvDataTableI18n` keys a hand-written or older language pack may omit. */
+type MlvDataTableOptionalMessageKey = {
+  [K in keyof MlvDataTableI18n]-?: undefined extends MlvDataTableI18n[K]
+    ? K
+    : never;
+}[keyof MlvDataTableI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvDataTableOptionalMessageKey, string>
+> = {
+  selectRow: 'Select row {index}',
+  loadingMore: 'Loading more rows',
+  loadingData: 'Loading table data',
+  noData: 'No data available',
+  pinStart: 'Pin to start',
+  pinEnd: 'Pin to end',
+  actionsHeader: 'Actions',
+};
 
 interface ActiveColumnResize extends ColumnResizeBounds {
   key: string;
@@ -251,6 +277,26 @@ export class MlvDataTable {
   /** @protected Injected i18n translations for the data table. */
   protected readonly _i18n = inject(MLV_DATA_TABLE_I18N);
 
+  /**
+   * @protected The optional #371 messages, from the active pack or the English
+   * fallbacks, so the template never reads an `undefined` key.
+   */
+  protected readonly _messages = computed<
+    Required<Pick<MlvDataTableI18n, MlvDataTableOptionalMessageKey>>
+  >(() => {
+    const i18n = this._i18n();
+    return {
+      selectRow: i18n.selectRow ?? OPTIONAL_MESSAGE_FALLBACKS.selectRow,
+      loadingMore: i18n.loadingMore ?? OPTIONAL_MESSAGE_FALLBACKS.loadingMore,
+      loadingData: i18n.loadingData ?? OPTIONAL_MESSAGE_FALLBACKS.loadingData,
+      noData: i18n.noData ?? OPTIONAL_MESSAGE_FALLBACKS.noData,
+      pinStart: i18n.pinStart ?? OPTIONAL_MESSAGE_FALLBACKS.pinStart,
+      pinEnd: i18n.pinEnd ?? OPTIONAL_MESSAGE_FALLBACKS.pinEnd,
+      actionsHeader:
+        i18n.actionsHeader ?? OPTIONAL_MESSAGE_FALLBACKS.actionsHeader,
+    };
+  });
+
   // ---- Inputs ----------------------------------------------------------------
   readonly columns = input.required<MlvDataTableColumn[]>();
   readonly data = input<MlvDataRow[] | MlvDataSource<MlvDataRow> | undefined>(
@@ -333,12 +379,20 @@ export class MlvDataTable {
    * Accessible name for the trailing actions column header (rendered when
    * {@link editable} is on). The actions `<th>` has no visible label, so this
    * string is exposed to assistive tech via visually-hidden text to satisfy the
-   * `empty-table-header` requirement. Defaults to `'Actions'`.
+   * `empty-table-header` requirement.
    *
-   * NB: this is a plain English default input rather than a `MLV_DATA_TABLE_I18N`
-   * token entry — adding an i18n string is a follow-up (see `libs-data-table.md`).
+   * Unset (the default), it is the active pack's `dataTable.actionsHeader`
+   * (`MLV_DATA_TABLE_I18N`), else `'Actions'`. A bound string wins.
    */
-  readonly actionsHeaderLabel = input('Actions');
+  readonly actionsHeaderLabel = input<string | undefined>(undefined);
+
+  /**
+   * @protected The actions column header text: {@link actionsHeaderLabel},
+   * else the pack's `actionsHeader`, else English.
+   */
+  protected readonly _actionsHeaderLabel = computed(
+    () => this.actionsHeaderLabel() ?? this._messages().actionsHeader,
+  );
 
   /**
    * **Experimental.** Opt into full cell-level keyboard navigation backed by the
@@ -2400,6 +2454,21 @@ export class MlvDataTable {
       this._i18n() as unknown as Record<string, string>,
       'columnWidthPixels',
       { width: this.getColumnResizeValue(col) },
+    );
+  }
+
+  /**
+   * @protected Accessible name of a row's selection checkbox: the pack's
+   * `selectRow` with the 1-based position of the row in the rendered view.
+   * The position is passed as a number: a plain `{index}` is never grouped
+   * (row 1000 reads "Select row 1000", as the old literal did); a pack opts
+   * into locale digits with `{index, number}`.
+   */
+  protected _selectRowLabel(index: number): string {
+    return this._resolver.resolve(
+      this._messages() as unknown as Record<string, string>,
+      'selectRow',
+      { index: index + 1 },
     );
   }
 

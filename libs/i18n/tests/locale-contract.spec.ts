@@ -285,6 +285,104 @@ it.each(Object.entries(packs))(
   },
 );
 
+// #371: the English literals moved into i18n keys. The English pack must keep
+// every rendered string byte-identical, except the pin-side items, which were
+// "Pin left" / "Pin right" although the sides are logical and mirror in RTL
+// (`MlvPinSide`), so they say "start" / "end" now.
+it('keeps the #371 English strings byte-identical to the old literals', () => {
+  expect(en.dataTable).toMatchObject({
+    selectRow: 'Select row {index}',
+    loadingMore: 'Loading more rows',
+    loadingData: 'Loading table data',
+    noData: 'No data available',
+    pinStart: 'Pin to start',
+    pinEnd: 'Pin to end',
+    actionsHeader: 'Actions',
+  });
+  expect(en.copyToClipboard).toMatchObject({
+    copied: 'Copied to clipboard',
+    copyTooltip: 'Copy',
+    copiedTooltip: 'Copied',
+  });
+  expect(en.fileUpload).toMatchObject({
+    dropFiles: 'Drag & drop files here',
+    browseFiles: 'Browse files',
+  });
+  expect(en.editor.placeholder).toBe('Write something…');
+  expect(en.tree).toEqual({
+    expandNode: 'Expand {label}',
+    collapseNode: 'Collapse {label}',
+    loadingChildren: 'Loading children',
+    selectNode: 'Select {label}',
+  });
+  expect(en.viewVariant).toMatchObject({
+    newTeamView: 'New team view',
+    newPersonalView: 'New personal view',
+    systemViews: 'System',
+    teamViews: 'Team',
+    personalViews: 'My views',
+    moreActions: 'More actions for {name}',
+    variantActions: 'Actions for {name}',
+  });
+  expect(Object.keys(en.viewVariant ?? {})).toHaveLength(25);
+});
+
+// #371: the view-variant bands reuse words each pack already has for the same
+// action, so a page shows one "Retry", one "Dismiss", one "Reset".
+it.each(Object.entries(packs))(
+  '%s words the view-variant actions as it words the same actions elsewhere',
+  (locale, pack) => {
+    expect(pack.viewVariant?.retry, locale).toBe(pack.dataTable.retry);
+    expect(pack.viewVariant?.dismiss, locale).toBe(pack.notification.dismiss);
+    expect(pack.viewVariant?.reset, locale).toBe(pack.filter.reset);
+  },
+);
+
+/**
+ * #371 keys a pack may word exactly as English does, because the word is the
+ * same in that language.
+ */
+const englishHomographs: Record<string, readonly string[]> = {
+  fr: ['dataTable.actionsHeader'],
+  de: ['viewVariant.systemViews', 'viewVariant.teamViews'],
+  it: ['viewVariant.teamViews'],
+  nl: ['viewVariant.teamViews'],
+};
+
+it.each(Object.entries(packs).filter(([locale]) => locale !== 'en'))(
+  '%s translates every #371 key instead of copying English',
+  (locale, pack) => {
+    const english = flattenMessages(en);
+    const translated = flattenMessages(pack);
+    const keys = [
+      ...[
+        'selectRow',
+        'loadingMore',
+        'loadingData',
+        'noData',
+        'pinStart',
+        'pinEnd',
+        'actionsHeader',
+      ].map((key) => `dataTable.${key}`),
+      'copyToClipboard.copied',
+      'copyToClipboard.copyTooltip',
+      'copyToClipboard.copiedTooltip',
+      'fileUpload.dropFiles',
+      'fileUpload.browseFiles',
+      'editor.placeholder',
+      ...Object.keys(english).filter(
+        (key) => key.startsWith('tree.') || key.startsWith('viewVariant.'),
+      ),
+    ];
+    const allowed = englishHomographs[locale] ?? [];
+    for (const key of keys) {
+      expect(translated[key], `${locale}:${key}`).toBeTruthy();
+      if (allowed.includes(key)) continue;
+      expect(translated[key], `${locale}:${key}`).not.toBe(english[key]);
+    }
+  },
+);
+
 it('defines parameterized English Tile keyboard accessibility messages', () => {
   expect(en.tile).toEqual(
     expect.objectContaining({
@@ -311,6 +409,8 @@ const dutchEnglishMatches = [
   'pagination.items',
   'pagination.itemCount',
   'scheduler.week',
+  // #371: the team-owned view group heading, spelt as in English.
+  'viewVariant.teamViews',
 ] as const;
 
 it.each([

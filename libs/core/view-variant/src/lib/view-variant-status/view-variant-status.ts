@@ -12,6 +12,7 @@ import type {
   MlvViewVariantAction,
   MlvViewVariantBusyAction,
 } from '../view-variant.types';
+import { injectViewVariantMessages } from '../view-variant-i18n';
 
 /** Internal decision states; `editable-clean` intentionally has no rendered band. */
 type MlvViewVariantStatusMode =
@@ -72,6 +73,12 @@ export class MlvViewVariantStatus<TState> {
   /** Emits when the user dismisses the displayed host error. */
   readonly dismissError = output<void>();
 
+  /**
+   * @protected Every message, from the active pack or the English fallbacks.
+   * Works with no `provideMlvI18n()` at all.
+   */
+  protected readonly _messages = injectViewVariantMessages();
+
   /** @protected The resolved internal state, including invisible editable-clean. */
   protected readonly _mode = computed<MlvViewVariantStatusMode>(() => {
     const variant = this.variant();
@@ -83,15 +90,16 @@ export class MlvViewVariantStatus<TState> {
 
   /** @protected The rendered explanation associated with the current mode. */
   protected readonly _message = computed(() => {
+    const messages = this._messages();
     switch (this._mode()) {
       case 'locked-clean':
-        return 'This system view is read-only';
+        return messages.readOnlySystemView;
       case 'locked-dirty':
-        return 'Duplicate it to save your changes';
+        return messages.duplicateToSave;
       case 'editable-dirty':
-        return 'You have unsaved view changes';
+        return messages.unsavedChanges;
       case 'unsaved':
-        return 'This is an unsaved view';
+        return messages.unsavedView;
       case 'editable-clean':
         return '';
     }

@@ -8,6 +8,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import TextAlign from '@tiptap/extension-text-align';
 import { Color } from '@tiptap/extension-text-style';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
+import type { PlaceholderOptions } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type {
@@ -217,8 +218,12 @@ export interface MlvEditorImageExtensionOptions {
 
 /** Options used to configure editor utility extensions. */
 export interface MlvEditorUtilityExtensionOptions {
-  /** Placeholder text shown for an empty editor. */
-  readonly placeholder?: string;
+  /**
+   * Placeholder shown for an empty editor: a string, or a function Tiptap's
+   * `Placeholder` calls on every decoration pass (so it can follow a signal).
+   * A function's new value shows on the next ProseMirror state update.
+   */
+  readonly placeholder?: PlaceholderOptions['placeholder'];
 
   /** Maximum character count, or null for no limit. */
   readonly characterLimit?: number | null;

@@ -356,7 +356,7 @@
                     [tabbable]="false"
                     (checkedChange)="toggleRowSelection(row)"
                     (click)="$event.stopPropagation()"
-                    [ariaLabel]="'Select row ' + (i + 1)"
+                    [ariaLabel]="_selectRowLabel(i)"
                   />
                 </td>
               }
@@ -454,7 +454,7 @@
           variant="circle"
           [indeterminate]="true"
           [size]="24"
-          ariaLabel="Loading more rows"
+          [ariaLabel]="_messages().loadingMore"
         />
       </div>
     }
@@ -531,7 +531,7 @@
           variant="circle"
           [indeterminate]="true"
           [size]="24"
-          ariaLabel="Loading more rows"
+          [ariaLabel]="_messages().loadingMore"
         />
       </div>
     }
@@ -559,7 +559,7 @@
       variant="circle"
       [indeterminate]="true"
       [size]="48"
-      ariaLabel="Loading table data"
+      [ariaLabel]="_messages().loadingData"
     />
   </div>
 }
@@ -682,7 +682,7 @@
           rowspan="2"
         >
           <span class="mlv-data-table__visually-hidden">{{
-            actionsHeaderLabel()
+            _actionsHeaderLabel()
           }}</span>
         </th>
       }
@@ -783,7 +783,7 @@
           [style]="getAuxiliaryColumnStyle('actions')"
         >
           <span class="mlv-data-table__visually-hidden">{{
-            actionsHeaderLabel()
+            _actionsHeaderLabel()
           }}</span>
         </th>
       }
@@ -906,7 +906,7 @@
       } @else {
         <div class="mlv-data-table__no-data-default">
           <svg lucideTable2 [size]="40" aria-hidden="true" />
-          <span>No data available</span>
+          <span>{{ _messages().noData }}</span>
         </div>
       }
     </td>
@@ -983,7 +983,7 @@
         [tabbable]="false"
         (checkedChange)="toggleRowSelection(row)"
         (click)="$event.stopPropagation()"
-        [ariaLabel]="'Select row ' + (i + 1)"
+        [ariaLabel]="_selectRowLabel(i)"
       />
     </td>
   }
@@ -1176,9 +1176,9 @@
             >
               <svg lucidePin [size]="14" />
               @if (side === 'left') {
-                <span>Pin left</span>
+                <span>{{ _messages().pinStart }}</span>
               } @else {
-                <span>Pin right</span>
+                <span>{{ _messages().pinEnd }}</span>
               }
             </button>
           }

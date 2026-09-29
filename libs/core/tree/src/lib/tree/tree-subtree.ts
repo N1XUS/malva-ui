@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   ViewEncapsulation,
@@ -16,12 +17,27 @@ import {
   LucideChevronDown,
   LucideDynamicIcon,
 } from '@lucide/angular';
+import { MLV_TREE_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
+import type { MlvTreeI18n } from '@malva-ui/i18n';
 import type { MlvFlatTreeNode, MlvTreeNode } from './tree-node';
 import { MLV_TREE } from './tree-context';
 import type { MlvTreeAccessor } from './tree-context';
 
 /** The valid `parent` reference for a subtree's items: the tree root or a group. */
 type TreeParent = Tree<string | number> | TreeItemGroup<string | number>;
+
+/**
+ * @private English fallbacks for the `tree` slice, used when there is no
+ * `provideMlvI18n()`, or the active pack omits the slice or a key. Every key of
+ * the slice is optional, so `Required<>` makes a new key fail to compile
+ * without one. The strings are the English pack's and the old literals'.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<Required<MlvTreeI18n>> = {
+  expandNode: 'Expand {label}',
+  collapseNode: 'Collapse {label}',
+  loadingChildren: 'Loading children',
+  selectNode: 'Select {label}',
+};
 
 /**
  * Internal recursive subtree component used by `MlvTree`.
@@ -78,6 +94,53 @@ export class MlvTreeSubtree {
 
   /** @protected The parent tree context injected via `MLV_TREE`. */
   protected readonly tree = inject<MlvTreeAccessor>(MLV_TREE);
+
+  /**
+   * @private The active pack's `tree` slice. Optional: without
+   * `provideMlvI18n()` the names are English.
+   */
+  private readonly _i18n = inject(MLV_TREE_I18N, { optional: true });
+
+  /** @private Formats the ICU names in the active pack's locale. */
+  private readonly _resolver = inject(MlvI18nResolverService);
+
+  /** @protected Every name, from the pack or the English fallbacks. */
+  protected readonly _messages = computed<Required<MlvTreeI18n>>(() => {
+    const i18n = this._i18n?.();
+    return {
+      expandNode: i18n?.expandNode ?? OPTIONAL_MESSAGE_FALLBACKS.expandNode,
+      collapseNode:
+        i18n?.collapseNode ?? OPTIONAL_MESSAGE_FALLBACKS.collapseNode,
+      loadingChildren:
+        i18n?.loadingChildren ?? OPTIONAL_MESSAGE_FALLBACKS.loadingChildren,
+      selectNode: i18n?.selectNode ?? OPTIONAL_MESSAGE_FALLBACKS.selectNode,
+    };
+  });
+
+  /**
+   * @protected Accessible name of a node's expand/collapse toggle: the pack's
+   * `collapseNode` while it is expanded, `expandNode` otherwise.
+   */
+  protected _toggleLabel(node: MlvTreeNode, expanded: boolean): string {
+    return this._label(expanded ? 'collapseNode' : 'expandNode', node);
+  }
+
+  /** @protected Accessible name of a node's checkbox in multi-select mode. */
+  protected _selectLabel(node: MlvTreeNode): string {
+    return this._label('selectNode', node);
+  }
+
+  /** @private Resolves one `{label}` message for `node`. */
+  private _label(
+    key: 'expandNode' | 'collapseNode' | 'selectNode',
+    node: MlvTreeNode,
+  ): string {
+    return this._resolver.resolve(
+      this._messages() as unknown as Record<string, string>,
+      key,
+      { label: node.label },
+    );
+  }
 
   /**
    * @private Per-node cache of the `[mlvTreeNodeDef]` template context and its

@@ -148,7 +148,7 @@ Mechanics worth keeping:
   - "In the data" alone misses a node re-added as a new row, whose old item is detached. That is why the host check stays.
 - **Residual:** a node moved to another parent (or re-added elsewhere in the tree) while its old row's leave animation is still running passes both checks through the old item. Step 1 then writes to a destroyed item and Angular logs one NG0953 warning. It is logged in production too; dev mode only adds the message text. Step 2 still collapses the node's new row. A re-add in the same position does not reach this, because Angular drops the leaving row at once.
 - Once the tree is destroyed nothing is emitted (a destroyed `OutputRef` warns NG0953).
-- **No built-in error text or announcement.** The tree cannot know the right wording or whether the consumer already shows a toast; tell the user from `loadError` (docs example 4 uses a `role="status"` line). The loading spinner is still `aria-hidden` and its "Loading children" label hard-coded English — #371.
+- **No built-in error text or announcement.** The tree cannot know the right wording or whether the consumer already shows a toast; tell the user from `loadError` (docs example 4 uses a `role="status"` line). The loading spinner is still `aria-hidden`; its label resolves through `MLV_TREE_I18N.loadingChildren` (#371).
 - Pinned by `tree-lazy-load-error.spec.ts` (11 specs). The leave-animation window (a removed node, and a node moved to another parent) is reproduced by re-attaching the old row by hand, because TestBed runs no animations. A class-model and an object-literal loader that read `this` pin the method call. `host.events` pins the order: `nodeToggle` (the collapse) comes before `loadError`.
 - Each ablation turns specs red:
 
@@ -210,6 +210,7 @@ Block: `mlv-tree`
 - `@lucide/angular` — `LucideChevronRight`, `LucideChevronDown`, `LucideDynamicIcon` for icons
 - `@angular/cdk/coercion` — `coerceBooleanProperty` for boolean inputs
 - `@malva-ui/cdk/utils` — `provideMlvScopedDirectionality` (`@internal`), so aria's RTL key swap follows a scoped `[dir]`
+- `@malva-ui/i18n` — `MLV_TREE_I18N` (optional inject) + `MlvI18nResolverService` for the row control names
 - `@malva-ui/styles` — all `--mlv-*` CSS custom properties
 
 ## Accessibility
@@ -218,6 +219,9 @@ Block: `mlv-tree`
 - **Single tab stop:** aria manages the roving tabindex on the rows — only the active row has `tabindex="0"`; the `.mlv-tree__root` container holds `tabindex="-1"`. In multi-select mode the per-row `mlv-checkbox` is rendered with `[tabbable]="false"` (and `pointer-events: none`) so it neither adds a second tab stop nor intercepts the row click — it is a presentational reflection of `aria-selected`; **Space**/click toggles selection via aria.
 - **Enter/Space** select (single) or toggle (multi) the focused row via aria. `nodeActivate` is emitted on row click/Enter/Space in `none` mode and on user single-selection.
 - Disabled rows stay focusable-but-inert (`softDisabled=true`) so arrow navigation still lands on them, matching the historical behavior.
+- **Localized control names (#371):** the chevron toggle (`expandNode` / `collapseNode`), the multi-select checkbox (`selectNode`) and the lazy-load spinner (`loadingChildren`) resolve through `MLV_TREE_I18N` (new `MlvTreeI18n` slice, every key optional, `{label}` = the node label). English fallbacks in `tree-subtree.ts`'s `OPTIONAL_MESSAGE_FALLBACKS` are byte-identical to the old literals ("Expand {label}", "Collapse {label}", "Select {label}", "Loading children"). All 14 packs translate them; a live language switch re-resolves (`tree-i18n.spec.ts`). The toggle is `tabindex="-1"` inside a `treeitem`, so its name is read only when a pointer or AT reaches it directly.
+- **Rows read the pack at render (#371).** With `provideMlvI18n(lazyLoader)` the tree needs the pack loaded before it renders — true in an app (the loader is an app initializer bootstrap awaits), not in a TestBed that renders without awaiting `ApplicationInitStatus.donePromise` (`no language pack loaded`). The three tree specs that used the lazy loader now use `provideMlvI18nTesting()`, and the static `@malva-ui/i18n` import in `tree-subtree.ts` retires their dynamic-import workaround (a static and a dynamic import of one project fail `@nx/enforce-module-boundaries`).
+- **Axe:** first sweeps in #371 (`tree-i18n.spec.ts`: multi-select collapsed, then expanded with a loading spinner). `core-tree` moves to the `owes` shape in `ROLLOUT_PENDING` — single selection, `nav`, a disabled node, a custom template, connectors and a scoped RTL are still unswept.
 
 ## Notes
 

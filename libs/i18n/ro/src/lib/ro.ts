@@ -96,6 +96,9 @@ const ro: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Copiază în clipboard',
+    copied: 'Copiat în clipboard',
+    copyTooltip: 'Copiază',
+    copiedTooltip: 'Copiat',
   },
   dataTable: {
     addRow: 'Adaugă rând',
@@ -135,6 +138,13 @@ const ro: MlvLanguage = {
     errorTitle: 'A apărut o eroare',
     errorMessage: 'Datele tabelului nu au putut fi încărcate.',
     retry: 'Reîncearcă',
+    selectRow: 'Selectează rândul {index}',
+    loadingMore: 'Se încarcă mai multe rânduri',
+    loadingData: 'Se încarcă datele tabelului',
+    noData: 'Nu există date disponibile',
+    pinStart: 'Fixează la început',
+    pinEnd: 'Fixează la sfârșit',
+    actionsHeader: 'Acțiuni',
   },
   dateRangePicker: {
     selectDateRange: 'Selectează intervalul de date',
@@ -274,6 +284,7 @@ const ro: MlvLanguage = {
       'Sugestia {index} din {count}: inserează "{newText}"',
     aiCurrentSuggestionDelete:
       'Sugestia {index} din {count}: elimină "{oldText}"',
+    placeholder: 'Scrie ceva…',
   },
   fileUpload: {
     selectedFiles: 'Fișiere selectate',
@@ -284,6 +295,8 @@ const ro: MlvLanguage = {
     errorSingleFile: 'Este permis un singur fișier.',
     errorFileType: 'Tip de fișier neacceptat: {name}',
     errorFileSize: '„{name}” depășește limita de {size} MB.',
+    dropFiles: 'Trage și plasează fișierele aici',
+    browseFiles: 'Răsfoiește fișierele',
   },
   filter: {
     filters: 'Filtre ({count})',
@@ -516,6 +529,39 @@ const ro: MlvLanguage = {
     selectedItems: 'Elemente selectate',
     moreItems:
       '{count, plural, one {+ încă {count}} few {+ încă {count}} other {+ încă {count}}}',
+  },
+  tree: {
+    expandNode: 'Extinde {label}',
+    collapseNode: 'Restrânge {label}',
+    loadingChildren: 'Se încarcă elementele copil',
+    selectNode: 'Selectează {label}',
+  },
+  viewVariant: {
+    searchViews: 'Caută vizualizări',
+    newView: 'Vizualizare nouă',
+    newTeamView: 'Vizualizare nouă de echipă',
+    newPersonalView: 'Vizualizare personală nouă',
+    retry: 'Reîncearcă',
+    dismiss: 'Închide',
+    systemViews: 'Sistem',
+    teamViews: 'Echipă',
+    personalViews: 'Vizualizările mele',
+    readOnly: 'Doar pentru citire',
+    moreActions: 'Mai multe acțiuni pentru {name}',
+    variantActions: 'Acțiuni pentru {name}',
+    rename: 'Redenumește',
+    share: 'Partajează',
+    delete: 'Șterge',
+    noMatches: 'Nicio vizualizare nu corespunde căutării.',
+    duplicateView: 'Duplică vizualizarea',
+    resetChanges: 'Resetează modificările',
+    updateView: 'Actualizează vizualizarea',
+    saveAsNew: 'Salvează ca nouă',
+    reset: 'Resetează',
+    readOnlySystemView: 'Această vizualizare de sistem este doar pentru citire',
+    duplicateToSave: 'Duplică-o pentru a salva modificările',
+    unsavedChanges: 'Ai modificări nesalvate ale vizualizării',
+    unsavedView: 'Aceasta este o vizualizare nesalvată',
   },
 };
 

@@ -36,6 +36,26 @@ import type {
   MlvUploadedFile,
 } from './file-upload.types';
 
+/** `MlvFileUploadI18n` keys a hand-written or older language pack may omit. */
+type MlvFileUploadOptionalMessageKey = {
+  [K in keyof MlvFileUploadI18n]-?: undefined extends MlvFileUploadI18n[K]
+    ? K
+    : never;
+}[keyof MlvFileUploadI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's and the old input defaults.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvFileUploadOptionalMessageKey, string>
+> = {
+  dropFiles: 'Drag & drop files here',
+  browseFiles: 'Browse files',
+};
+
 /**
  * File upload component providing a drag-and-drop zone, file validation, and
  * signal, reactive, and template-driven forms integration. Produces an array
@@ -110,14 +130,41 @@ export class MlvFileUpload extends MlvSignalFormControlBase<MlvUploadedFile[]> {
     transform: coerceBooleanProperty,
   });
 
-  /** Primary heading text shown in the drop zone. */
-  readonly title = input<string>('Drag & drop files here');
+  /**
+   * Primary heading text shown in the drop zone.
+   *
+   * Unset (the default), it is the active pack's `fileUpload.dropFiles`
+   * (`MLV_FILE_UPLOAD_I18N`), else `'Drag & drop files here'`. A bound string
+   * wins.
+   */
+  readonly title = input<string | undefined>(undefined);
 
   /** Secondary description text shown below the title. */
   readonly subtitle = input<string>('');
 
-  /** Label text for the browse button. */
-  readonly actionLabel = input<string>('Browse files');
+  /**
+   * Label text for the browse button.
+   *
+   * Unset (the default), it is the active pack's `fileUpload.browseFiles`,
+   * else `'Browse files'`. A bound string wins.
+   */
+  readonly actionLabel = input<string | undefined>(undefined);
+
+  /** @protected The drop-zone heading: {@link title}, else i18n, else English. */
+  protected readonly _title = computed(
+    () =>
+      this.title() ??
+      this._i18n().dropFiles ??
+      OPTIONAL_MESSAGE_FALLBACKS.dropFiles,
+  );
+
+  /** @protected The browse button text: {@link actionLabel}, else i18n, else English. */
+  protected readonly _actionLabel = computed(
+    () =>
+      this.actionLabel() ??
+      this._i18n().browseFiles ??
+      OPTIONAL_MESSAGE_FALLBACKS.browseFiles,
+  );
 
   /** When true, renders a compact single-row drop zone instead of the full zone. */
   readonly compact = input<boolean, BooleanInput>(false, {

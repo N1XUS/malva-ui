@@ -12,7 +12,7 @@ The table measures its rendered columns before the first resize, then preserves 
 
 Use `pinnable` to opt a column into the user-controlled pin toggle shown on header hover:
 
-- `pinnable: true` — both sides allowed; clicking the pin icon opens a popup with **Pin left**, **Pin right**, and (when already pinned) **Unpin** options.
+- `pinnable: true` — both sides allowed; clicking the pin icon opens a popup with **Pin to start**, **Pin to end**, and (when already pinned) **Unpin** options. `left` / `right` are logical and mirror in RTL.
 - `pinnable: 'left'` / `pinnable: 'right'` — only that side is allowed; clicking the pin icon directly toggles between pinned and unpinned.
 - `pinnable: ['left', 'right']` — explicit list form, equivalent to `true`.
 

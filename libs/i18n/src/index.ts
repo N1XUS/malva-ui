@@ -47,6 +47,8 @@ export * from './lib/tokens/tile';
 export * from './lib/tokens/time-picker';
 export * from './lib/tokens/toast';
 export * from './lib/tokens/tokenizer';
+export * from './lib/tokens/tree';
+export * from './lib/tokens/view-variant';
 
 // Locale
 export * from './lib/locale';

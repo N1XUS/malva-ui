@@ -1,20 +1,10 @@
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component } from '@angular/core';
 import { LucideFile, LucideFolder, provideLucideIcons } from '@lucide/angular';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvTree } from './tree';
 import type { MlvTreeNode } from './tree-node';
 import { MlvTreeNodeDef } from './tree-node-def';
-
-/**
- * Builds the minimum set of i18n providers required to render
- * `mlv-loader` (used for lazy-loading spinners and transitively pulled in by
- * `mlv-checkbox` in multi-select mode) inside tests without a static import
- * of the lazy-loaded `@malva-ui/i18n` package.
- */
-async function i18nProviders() {
-  const { provideMlvI18n } = await import('@malva-ui/i18n');
-  return [provideMlvI18n(() => import('@malva-ui/i18n/en'))];
-}
 
 const SIMPLE_NODES: MlvTreeNode<unknown>[] = [
   {
@@ -61,7 +51,7 @@ describe('MlvTree', () => {
     await TestBed.configureTestingModule({
       imports: [MlvTree],
       providers: [
-        ...(await i18nProviders()),
+        provideMlvI18nTesting(),
         provideLucideIcons(LucideFolder, LucideFile),
       ],
     }).compileComponents();
@@ -664,7 +654,7 @@ describe('MlvTreeNodeDef', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HostComponent],
-      providers: [...(await i18nProviders())],
+      providers: [provideMlvI18nTesting()],
     }).compileComponents();
   });
 

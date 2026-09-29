@@ -53,7 +53,7 @@ Import `MlvEditor` from `@malva-ui/editor` and render it as
 | Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`; `'floating'` = selection bubble   |
 | Input  | `toolbarSticky`        | `boolean` (`BooleanInput`) / `false`; uncapped `'bar'` only               |
 | Input  | `extensions`           | `Extensions \| undefined`; a complete replacement                         |
-| Input  | `placeholder`          | `string` / `'Write something…'`                                           |
+| Input  | `placeholder`          | `string \| undefined` → i18n `editor.placeholder` → `'Write something…'`  |
 | Input  | `characterLimit`       | `number \| null` / `null`                                                 |
 | Input  | `ariaLabel`            | `string \| undefined`                                                     |
 | Input  | `ariaLabelledBy`       | `string \| undefined`                                                     |
@@ -140,6 +140,24 @@ height: 8 }` defaults and erases them. Every drag then computes
   HTML-bearing image paste cannot also insert duplicate content; without the
   callback both FileHandler hooks remain undefined.
 - `mlvEditorUtilityExtensions()` supplies Placeholder and CharacterCount.
+  `MlvEditorUtilityExtensionOptions.placeholder` takes Tiptap's
+  `PlaceholderOptions['placeholder']` (a string, or a function called on every
+  decoration pass) since #371; widened from `string`, so existing string calls
+  compile unchanged.
+- **Placeholder follows changes (#371).** `placeholder` is
+  `string | undefined`; unset it resolves to the optional `MLV_EDITOR_I18N`
+  key `placeholder` (translated in all 14 packs), else English. The default
+  preset receives `() => untracked(_resolvedPlaceholder)`, and a constructor
+  `effect` dispatches one empty `addToHistory: false` transaction when the
+  resolved text changes under the same live editor, because ProseMirror
+  recomputes decorations only on a state update. So a new bound value or a
+  language switch re-words the placeholder without re-creating the editor —
+  before, it was a snapshot taken in `ngAfterViewInit`. That transaction
+  changes neither doc nor selection, so no `value` / selection emission; it
+  does emit the public `transaction` output once per change, never at startup.
+  Ignored when `extensions` replaces the preset. Pinned by
+  `editor-placeholder-i18n.spec.ts` (ablating the effect turns the live-switch
+  and bound-change specs red).
 - `mlvEditorBlockHandleExtensions()` creates `MlvEditorBlockHandle`, which
   supplies the `moveBlock`/`moveBlockUp`/`moveBlockDown` commands and the
   `Alt+Shift+ArrowUp`/`Alt+Shift+ArrowDown` keymap for reordering top-level

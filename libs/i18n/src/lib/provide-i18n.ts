@@ -59,6 +59,11 @@ import { MLV_TILE_I18N } from './tokens/tile';
 import { MLV_TIME_PICKER_I18N } from './tokens/time-picker';
 import { MLV_TOAST_I18N } from './tokens/toast';
 import { MLV_TOKENIZER_I18N } from './tokens/tokenizer';
+import { MLV_TREE_I18N, type MlvTreeI18n } from './tokens/tree';
+import {
+  MLV_VIEW_VARIANT_I18N,
+  type MlvViewVariantI18n,
+} from './tokens/view-variant';
 
 /**
  * @private What an optional slice resolves to when the active pack omits it:
@@ -303,6 +308,22 @@ export function provideMlvI18n(
     {
       provide: MLV_TOKENIZER_I18N,
       useFactory: () => inject(MlvI18nService).select('tokenizer'),
+    },
+    {
+      provide: MLV_TREE_I18N,
+      useFactory: () => {
+        const slice = inject(MlvI18nService).select('tree');
+        return computed<MlvTreeI18n>(() => slice() ?? MLV_EMPTY_I18N_SLICE);
+      },
+    },
+    {
+      provide: MLV_VIEW_VARIANT_I18N,
+      useFactory: () => {
+        const slice = inject(MlvI18nService).select('viewVariant');
+        return computed<MlvViewVariantI18n>(
+          () => slice() ?? MLV_EMPTY_I18N_SLICE,
+        );
+      },
     },
   ]);
 }

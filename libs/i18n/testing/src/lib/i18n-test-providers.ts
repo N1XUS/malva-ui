@@ -51,6 +51,8 @@ import {
   MLV_TIME_PICKER_I18N,
   MLV_TOAST_I18N,
   MLV_TOKENIZER_I18N,
+  MLV_TREE_I18N,
+  MLV_VIEW_VARIANT_I18N,
 } from '@malva-ui/i18n';
 import { enLanguage as en } from '@malva-ui/i18n/en';
 
@@ -106,6 +108,8 @@ const I18N_TOKEN_DEFAULTS: ReadonlyArray<
   [MLV_TIME_PICKER_I18N, en.timePicker],
   [MLV_TOAST_I18N, en.toast],
   [MLV_TOKENIZER_I18N, en.tokenizer],
+  [MLV_TREE_I18N, en.tree],
+  [MLV_VIEW_VARIANT_I18N, en.viewVariant],
 ];
 
 /**

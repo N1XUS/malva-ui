@@ -7,6 +7,8 @@ import { MLV_DATA_TABLE_I18N } from './tokens/data-table';
 import { MLV_TASKBOARD_I18N } from './tokens/taskboard';
 import { MLV_AUTOCOMPLETE_I18N } from './tokens/autocomplete';
 import { MLV_DROPDOWN_PANEL_I18N } from './tokens/dropdown-panel';
+import { MLV_TREE_I18N } from './tokens/tree';
+import { MLV_VIEW_VARIANT_I18N } from './tokens/view-variant';
 import type { MlvLanguage } from './types';
 
 const mockEn: MlvLanguage = {
@@ -343,6 +345,38 @@ describe('provideMlvI18n', () => {
     });
     expect(TestBed.inject(MLV_DROPDOWN_PANEL_I18N)()).toEqual({
       loading: 'Fetching…',
+    });
+  });
+
+  // #371: `tree` and `viewVariant` are optional slices on the same terms.
+  it('resolves the tree and view-variant slices a pack omits to empty objects', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18n(async () => ({ default: mockEn }))],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(MLV_TREE_I18N)()).toEqual({});
+    expect(TestBed.inject(MLV_VIEW_VARIANT_I18N)()).toEqual({});
+  });
+
+  it('resolves the tree and view-variant slices a pack declares', async () => {
+    const pack: MlvLanguage = {
+      ...mockEn,
+      tree: { expandNode: 'Open {label}' },
+      viewVariant: { newView: 'Add view' },
+    };
+    TestBed.configureTestingModule({
+      providers: [provideMlvI18n(async () => ({ default: pack }))],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(MLV_TREE_I18N)()).toEqual({
+      expandNode: 'Open {label}',
+    });
+    expect(TestBed.inject(MLV_VIEW_VARIANT_I18N)()).toEqual({
+      newView: 'Add view',
     });
   });
 });

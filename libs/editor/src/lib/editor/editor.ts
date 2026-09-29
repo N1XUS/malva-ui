@@ -371,8 +371,16 @@ export class MlvEditor
   /** Complete Tiptap extension replacement; omit it for Malva's fresh preset. */
   readonly extensions = input<Extensions | undefined>(undefined);
 
-  /** Placeholder displayed by the default extension preset. */
-  readonly placeholder = input('Write something…');
+  /**
+   * Placeholder displayed by the default extension preset.
+   *
+   * Unset (the default), it is the active pack's `editor.placeholder`
+   * (`MLV_EDITOR_I18N`), else `'Write something…'`. A bound string wins. The
+   * placeholder follows later changes of either — a new bound value or a
+   * language switch — without re-creating the editor. A complete
+   * {@link extensions} replacement brings its own placeholder and ignores this.
+   */
+  readonly placeholder = input<string | undefined>(undefined);
 
   /** Maximum character count for Malva's default extension preset. */
   readonly characterLimit = input<number | null>(null);
@@ -665,6 +673,15 @@ export class MlvEditor
     () => this._i18n?.().toolbarLabel ?? 'Editor toolbar',
   );
 
+  /**
+   * @private The default preset's placeholder: {@link placeholder}, else the
+   * pack's `editor.placeholder`, else English.
+   */
+  private readonly _resolvedPlaceholder = computed(
+    () =>
+      this.placeholder() ?? this._i18n?.().placeholder ?? 'Write something…',
+  );
+
   constructor() {
     super();
 
@@ -711,6 +728,29 @@ export class MlvEditor
 
     effect(() => this._synchronizeEditor());
 
+    // The default preset's Placeholder reads `_resolvedPlaceholder` through a
+    // function on every decoration pass, but ProseMirror only recomputes
+    // decorations on a state update. An empty, history-less transaction is
+    // that update: it changes neither the document nor the selection, so it
+    // emits no value and no selection event. Dispatched only when the text
+    // changes under a live editor, never for the value it was created with,
+    // so an editor that is never re-worded emits no extra `transaction`.
+    let rendered: { editor: Editor; text: string } | undefined;
+    effect(() => {
+      const editor = this._editor();
+      const text = this._resolvedPlaceholder();
+      if (!editor || editor.isDestroyed || untracked(this.extensions)) {
+        rendered = undefined;
+        return;
+      }
+      const changed = rendered?.editor === editor && rendered.text !== text;
+      rendered = { editor, text };
+      if (!changed) return;
+      untracked(() =>
+        editor.view.dispatch(editor.state.tr.setMeta('addToHistory', false)),
+      );
+    });
+
     this._overlayRegistry.setFocusHandlers(
       (event) => this._handleCompositeFocusIn(event),
       (event) => this._handleCompositeFocusOut(event),
@@ -745,7 +785,7 @@ export class MlvEditor
         this.extensions() ??
         mlvEditorDefaultExtensions({
           format: 'markdown',
-          placeholder: this.placeholder(),
+          placeholder: () => untracked(this._resolvedPlaceholder),
           characterLimit: this.characterLimit(),
           allowedMimeTypes: ['image/*'],
           fileHandlingEnabled: () => {

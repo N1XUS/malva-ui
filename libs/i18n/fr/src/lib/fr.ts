@@ -95,6 +95,9 @@ const fr: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Copier dans le presse-papiers',
+    copied: 'Copié dans le presse-papiers',
+    copyTooltip: 'Copier',
+    copiedTooltip: 'Copié',
   },
   dataTable: {
     addRow: 'Ajouter une ligne',
@@ -134,6 +137,13 @@ const fr: MlvLanguage = {
     errorTitle: 'Une erreur est survenue',
     errorMessage: 'Les données du tableau n’ont pas pu être chargées.',
     retry: 'Réessayer',
+    selectRow: 'Sélectionner la ligne {index}',
+    loadingMore: 'Chargement d’autres lignes',
+    loadingData: 'Chargement des données du tableau',
+    noData: 'Aucune donnée disponible',
+    pinStart: 'Épingler au début',
+    pinEnd: 'Épingler à la fin',
+    actionsHeader: 'Actions',
   },
   dateRangePicker: {
     selectDateRange: 'Sélectionner une plage de dates',
@@ -271,6 +281,7 @@ const fr: MlvLanguage = {
       'Suggestion {index} sur {count} : insère "{newText}"',
     aiCurrentSuggestionDelete:
       'Suggestion {index} sur {count} : supprime "{oldText}"',
+    placeholder: 'Écrivez quelque chose…',
   },
   fileUpload: {
     selectedFiles: 'Fichiers sélectionnés',
@@ -281,6 +292,8 @@ const fr: MlvLanguage = {
     errorSingleFile: 'Un seul fichier est autorisé.',
     errorFileType: 'Type de fichier non accepté : {name}',
     errorFileSize: '« {name} » dépasse la limite de {size} Mo.',
+    dropFiles: 'Glissez-déposez des fichiers ici',
+    browseFiles: 'Parcourir les fichiers',
   },
   filter: {
     filters: 'Filtres ({count})',
@@ -513,6 +526,39 @@ const fr: MlvLanguage = {
     selectedItems: 'Éléments sélectionnés',
     moreItems:
       '{count, plural, one {+{count} de plus} other {+{count} de plus}}',
+  },
+  tree: {
+    expandNode: 'Développer {label}',
+    collapseNode: 'Réduire {label}',
+    loadingChildren: 'Chargement des éléments enfants',
+    selectNode: 'Sélectionner {label}',
+  },
+  viewVariant: {
+    searchViews: 'Rechercher des vues',
+    newView: 'Nouvelle vue',
+    newTeamView: 'Nouvelle vue d’équipe',
+    newPersonalView: 'Nouvelle vue personnelle',
+    retry: 'Réessayer',
+    dismiss: 'Fermer',
+    systemViews: 'Système',
+    teamViews: 'Équipe',
+    personalViews: 'Mes vues',
+    readOnly: 'Lecture seule',
+    moreActions: 'Plus d’actions pour {name}',
+    variantActions: 'Actions pour {name}',
+    rename: 'Renommer',
+    share: 'Partager',
+    delete: 'Supprimer',
+    noMatches: 'Aucune vue ne correspond à votre recherche.',
+    duplicateView: 'Dupliquer la vue',
+    resetChanges: 'Réinitialiser les modifications',
+    updateView: 'Mettre à jour la vue',
+    saveAsNew: 'Enregistrer comme nouvelle vue',
+    reset: 'Réinitialiser',
+    readOnlySystemView: 'Cette vue système est en lecture seule',
+    duplicateToSave: 'Dupliquez-la pour enregistrer vos modifications',
+    unsavedChanges: 'Vous avez des modifications de vue non enregistrées',
+    unsavedView: 'Cette vue n’est pas enregistrée',
   },
 };
 

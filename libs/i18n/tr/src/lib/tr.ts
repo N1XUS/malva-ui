@@ -91,6 +91,9 @@ const tr: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Panoya kopyala',
+    copied: 'Panoya kopyalandı',
+    copyTooltip: 'Kopyala',
+    copiedTooltip: 'Kopyalandı',
   },
   dataTable: {
     addRow: 'Satır ekle',
@@ -130,6 +133,13 @@ const tr: MlvLanguage = {
     errorTitle: 'Bir sorun oluştu',
     errorMessage: 'Tablo verileri yüklenemedi.',
     retry: 'Yeniden dene',
+    selectRow: '{index}. satırı seç',
+    loadingMore: 'Daha fazla satır yükleniyor',
+    loadingData: 'Tablo verileri yükleniyor',
+    noData: 'Kullanılabilir veri yok',
+    pinStart: 'Başa sabitle',
+    pinEnd: 'Sona sabitle',
+    actionsHeader: 'İşlemler',
   },
   dateRangePicker: {
     selectDateRange: 'Tarih aralığı seç',
@@ -265,6 +275,7 @@ const tr: MlvLanguage = {
     aiCurrentSuggestionInsert: 'Öneri {index}/{count}: "{newText}" ekler',
     aiCurrentSuggestionDelete:
       'Öneri {index}/{count}: "{oldText}" ifadesini kaldırır',
+    placeholder: 'Bir şeyler yazın…',
   },
   fileUpload: {
     selectedFiles: 'Seçili dosyalar',
@@ -275,6 +286,8 @@ const tr: MlvLanguage = {
     errorSingleFile: 'Yalnızca bir dosyaya izin verilir.',
     errorFileType: 'Dosya türü kabul edilmiyor: {name}',
     errorFileSize: '"{name}" {size} MB sınırını aşıyor.',
+    dropFiles: 'Dosyaları buraya sürükleyip bırakın',
+    browseFiles: 'Dosyalara göz atın',
   },
   filter: {
     filters: 'Filtreler ({count})',
@@ -506,6 +519,39 @@ const tr: MlvLanguage = {
     selectedItems: 'Seçili öğeler',
     moreItems:
       '{count, plural, one {+{count} tane daha} other {+{count} tane daha}}',
+  },
+  tree: {
+    expandNode: '{label} öğesini genişlet',
+    collapseNode: '{label} öğesini daralt',
+    loadingChildren: 'Alt öğeler yükleniyor',
+    selectNode: '{label} öğesini seç',
+  },
+  viewVariant: {
+    searchViews: 'Görünümlerde ara',
+    newView: 'Yeni görünüm',
+    newTeamView: 'Yeni ekip görünümü',
+    newPersonalView: 'Yeni kişisel görünüm',
+    retry: 'Yeniden dene',
+    dismiss: 'Kapat',
+    systemViews: 'Sistem',
+    teamViews: 'Ekip',
+    personalViews: 'Görünümlerim',
+    readOnly: 'Salt okunur',
+    moreActions: '{name} için diğer işlemler',
+    variantActions: '{name} için işlemler',
+    rename: 'Yeniden adlandır',
+    share: 'Paylaş',
+    delete: 'Sil',
+    noMatches: 'Aramanızla eşleşen görünüm yok.',
+    duplicateView: 'Görünümü çoğalt',
+    resetChanges: 'Değişiklikleri sıfırla',
+    updateView: 'Görünümü güncelle',
+    saveAsNew: 'Yeni olarak kaydet',
+    reset: 'Sıfırla',
+    readOnlySystemView: 'Bu sistem görünümü salt okunurdur',
+    duplicateToSave: 'Değişikliklerinizi kaydetmek için çoğaltın',
+    unsavedChanges: 'Kaydedilmemiş görünüm değişiklikleriniz var',
+    unsavedView: 'Bu, kaydedilmemiş bir görünüm',
   },
 };
 

@@ -74,6 +74,56 @@ export interface MlvDataTableI18n {
   errorMessage: string;
   /** Button text: retry the failed request. */
   retry: string;
+  /**
+   * aria-label of a row's selection checkbox. ICU `{index}` (1-based row
+   * position in the rendered view).
+   *
+   * Optional so a hand-written or older pack still type-checks;
+   * `mlv-data-table` falls back to English when it is missing. Every shipped
+   * pack declares it.
+   */
+  selectRow?: string;
+  /**
+   * aria-label of the loader shown while a further page loads in
+   * `paginationMode="infinite"`.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  loadingMore?: string;
+  /**
+   * aria-label of the loader shown over the table while `loading` is set.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  loadingData?: string;
+  /**
+   * Default empty-state text, unless a `*mlvDataTableNoData` template is
+   * projected.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  noData?: string;
+  /**
+   * Pin-menu item that pins a column to the inline-start edge. Logical: the
+   * left edge in LTR, the right edge in RTL.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  pinStart?: string;
+  /**
+   * Pin-menu item that pins a column to the inline-end edge. Logical: the
+   * right edge in LTR, the left edge in RTL.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  pinEnd?: string;
+  /**
+   * Visually hidden header text of the edit-actions column, unless
+   * `actionsHeaderLabel` is bound.
+   *
+   * Optional, with an English fallback in `mlv-data-table`.
+   */
+  actionsHeader?: string;
 }
 
 export const MLV_DATA_TABLE_I18N = new InjectionToken<Signal<MlvDataTableI18n>>(
@@ -273,5 +323,47 @@ export const MLV_DATA_TABLE_I18N_CONTEXT: Record<
     component: 'mlv-data-table',
     usage: 'button-text',
     description: 'Button that asks the application to retry the failed request',
+  },
+  selectRow: {
+    component: 'mlv-data-table',
+    usage: 'aria-label',
+    icuParams: ['index'],
+    description:
+      'Checkbox that selects one table row. `{index}` is the 1-based row number and must be preserved in the translation.',
+  },
+  loadingMore: {
+    component: 'mlv-data-table',
+    usage: 'aria-label',
+    description:
+      'Accessible name of the spinner shown while more rows load at the end of an infinitely scrolling table',
+  },
+  loadingData: {
+    component: 'mlv-data-table',
+    usage: 'aria-label',
+    description:
+      'Accessible name of the spinner shown over the table while its data loads',
+  },
+  noData: {
+    component: 'mlv-data-table',
+    usage: 'message',
+    description: 'Text shown in place of rows when the table has no data',
+  },
+  pinStart: {
+    component: 'mlv-data-table',
+    usage: 'button-text',
+    description:
+      'Menu item that pins a column to the start edge of the table (left in left-to-right languages, right in right-to-left ones). Say "start", not "left".',
+  },
+  pinEnd: {
+    component: 'mlv-data-table',
+    usage: 'button-text',
+    description:
+      'Menu item that pins a column to the end edge of the table (right in left-to-right languages, left in right-to-left ones). Say "end", not "right".',
+  },
+  actionsHeader: {
+    component: 'mlv-data-table',
+    usage: 'label',
+    description:
+      'Visually hidden header of the column holding the edit, save and cancel row buttons',
   },
 };
