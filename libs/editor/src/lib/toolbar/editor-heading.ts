@@ -21,7 +21,12 @@ import {
 } from '@lucide/angular';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
 import { MlvListItem } from '@malva-ui/core/list';
-import { MlvMenu, MlvMenuItem, MlvMenuTrigger } from '@malva-ui/core/menu';
+import {
+  MlvMenu,
+  MlvMenuItem,
+  MlvMenuSeparator,
+  MlvMenuTrigger,
+} from '@malva-ui/core/menu';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import {
@@ -75,6 +80,7 @@ function normalizeHeadingLevels(
     MlvListItem,
     MlvMenu,
     MlvMenuItem,
+    MlvMenuSeparator,
     MlvMenuTrigger,
     MlvEditorToolbarWidget,
   ],
@@ -144,6 +150,16 @@ function normalizeHeadingLevels(
           </mlv-list-item>
         }
       }
+      @if (_hasCopyLink()) {
+        <mlv-menu-separator />
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="_disabled(_canCopyLink)"
+          (itemClick)="_run(_copyLink)"
+        >
+          {{ _copy().copyHeadingLink }}
+        </mlv-list-item>
+      }
     </mlv-menu>
   `,
   encapsulation: ViewEncapsulation.None,
@@ -210,6 +226,7 @@ export class MlvEditorHeading {
   protected readonly _copy = computed(() => ({
     paragraph: this._i18n?.().paragraph ?? 'Paragraph',
     headingLevel: this._i18n?.().headingLevel ?? 'Heading level',
+    copyHeadingLink: this._i18n?.().copyHeadingLink ?? 'Copy link to heading',
   }));
 
   /** @protected Paragraph command availability at the current selection. */
@@ -275,6 +292,18 @@ export class MlvEditorHeading {
     return this._context.editor()?.commands.toggleHeading !== undefined;
   }
 
+  /**
+   * @protected Whether the menu offers "Copy link to heading": the caret
+   * block is a heading and `MlvEditorHeadingAnchors` registered its command.
+   */
+  protected _hasCopyLink(): boolean {
+    this._revision();
+    return (
+      this._context.editor()?.commands.copyHeadingLink !== undefined &&
+      this._activeLevel() !== null
+    );
+  }
+
   /** @protected Whether the trigger cannot be opened. */
   protected _triggerDisabled(): boolean {
     return (
@@ -291,6 +320,17 @@ export class MlvEditorHeading {
   /** @protected Paragraph command. */
   protected readonly _paragraph = (editor: Editor): boolean =>
     editor.chain().focus().setParagraph().run();
+
+  /**
+   * @protected Copies the caret heading's link; unavailable for a heading
+   * with no anchor (empty text) or while no host wired the copy callback.
+   */
+  protected readonly _canCopyLink = (editor: Editor): boolean =>
+    editor.can().copyHeadingLink();
+
+  /** @protected Copies the caret heading's link and returns focus to it. */
+  protected readonly _copyLink = (editor: Editor): boolean =>
+    editor.chain().focus().copyHeadingLink().run();
 
   /** @protected Heading command factory. */
   protected _heading(

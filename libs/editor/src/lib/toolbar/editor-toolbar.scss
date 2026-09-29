@@ -49,12 +49,18 @@
       gap: var(--mlv-spacing-1);
     }
 
+    // The shared default groups (N1-D11) stay flex items of the row.
+    .mlv-editor-default-toolbar-groups {
+      display: contents;
+    }
+
     mlv-editor-zoom,
     mlv-editor-heading,
     mlv-editor-list,
     mlv-editor-text-color,
     mlv-editor-highlight,
     mlv-editor-alignment,
+    mlv-editor-clear-formatting,
     mlv-editor-link,
     mlv-editor-table,
     mlv-editor-image-upload {

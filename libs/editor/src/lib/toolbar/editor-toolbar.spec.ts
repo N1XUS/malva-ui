@@ -30,7 +30,7 @@ import {
 } from '../..';
 import type { MlvEditorToolbarContext } from '../..';
 import { MlvEditor } from '../editor/editor';
-import { MlvEditorToolbarRoot } from './editor-toolbar';
+import { MlvEditorToolbarRoot } from './editor-toolbar-root';
 
 @Component({
   imports: [
@@ -445,7 +445,7 @@ describe('MlvEditor toolbar', () => {
     const fixture = await createHost();
     const controls = Array.from(
       fixture.nativeElement.querySelectorAll(
-        'mlv-editor-undo-redo, mlv-editor-zoom, mlv-editor-heading, mlv-editor-list, mlv-editor-inline-marks, mlv-editor-text-color, mlv-editor-highlight, mlv-editor-alignment, mlv-editor-link, mlv-editor-table, mlv-editor-block-insert',
+        'mlv-editor-undo-redo, mlv-editor-zoom, mlv-editor-heading, mlv-editor-list, mlv-editor-font-family, mlv-editor-font-size, mlv-editor-inline-marks, mlv-editor-text-color, mlv-editor-highlight, mlv-editor-clear-formatting, mlv-editor-alignment, mlv-editor-line-height, mlv-editor-link, mlv-editor-table, mlv-editor-block-insert',
       ),
     ).map((element) => element.localName);
 
@@ -454,10 +454,14 @@ describe('MlvEditor toolbar', () => {
       'mlv-editor-zoom',
       'mlv-editor-heading',
       'mlv-editor-list',
+      'mlv-editor-font-family',
+      'mlv-editor-font-size',
       'mlv-editor-inline-marks',
       'mlv-editor-text-color',
       'mlv-editor-highlight',
+      'mlv-editor-clear-formatting',
       'mlv-editor-alignment',
+      'mlv-editor-line-height',
       'mlv-editor-link',
       'mlv-editor-table',
       'mlv-editor-block-insert',
@@ -480,13 +484,20 @@ describe('MlvEditor toolbar', () => {
       'Zoom +',
       'Heading level',
       'Bullet list',
+      'Font: Default',
+      'Font size: Default',
       'Bold',
       'Italic',
       'Strike-through',
       'Underline',
+      'Inline code',
+      'Subscript',
+      'Superscript',
       'Text color',
       'Highlight color',
+      'Clear formatting',
       'Alignment',
+      'Line height: Default',
       'Link',
       'Table',
       'Blockquote',
@@ -506,7 +517,7 @@ describe('MlvEditor toolbar', () => {
       ':scope > .mlv-editor-toolbar__overflow',
     );
     const separators = row?.querySelectorAll(
-      ':scope > mlv-divider[role="separator"][aria-orientation="vertical"]',
+      ':scope > mlv-editor-default-toolbar-groups > mlv-divider[role="separator"][aria-orientation="vertical"]',
     );
     const visibleButtons = Array.from(
       row?.querySelectorAll<HTMLButtonElement>('button[aria-label]') ?? [],
@@ -516,13 +527,22 @@ describe('MlvEditor toolbar', () => {
     expect(row).not.toBeNull();
     expect(overflow).not.toBeNull();
     expect(fade?.contains(overflow)).toBe(false);
-    expect(separators?.length).toBe(8);
+    expect(separators?.length).toBe(9);
     for (const button of visibleButtons) {
       const text = button.textContent?.trim() ?? '';
       if (!/^\d+%$/.test(text)) {
         expect(button.querySelector('svg')).not.toBeNull();
       }
-      expect(text === '' || /^\d+%$/.test(text)).toBe(true);
+      // Icon-only, except the zoom level and the font / size triggers, which
+      // show their current value beside a chevron (#514).
+      const valueTrigger = button.classList.contains(
+        'mlv-editor-style-menu__trigger',
+      );
+      expect(
+        text === '' ||
+          /^\d+%$/.test(text) ||
+          (valueTrigger && text === 'Default'),
+      ).toBe(true);
     }
   });
 
@@ -534,7 +554,14 @@ describe('MlvEditor toolbar', () => {
 
     expect(
       triggers.map((trigger) => trigger.getAttribute('aria-label')),
-    ).toEqual(['Heading level', 'Bullet list', 'Alignment']);
+    ).toEqual([
+      'Heading level',
+      'Bullet list',
+      'Font: Default',
+      'Font size: Default',
+      'Alignment',
+      'Line height: Default',
+    ]);
     expect(
       triggers.every((trigger) =>
         trigger.hasAttribute('mlvEditorToolbarWidget'),
@@ -978,9 +1005,9 @@ describe('MlvEditor toolbar', () => {
     expect(fade?.classList.contains('mlv-fade')).toBe(true);
     expect(
       fade?.querySelectorAll(
-        ':scope > .mlv-toolbar > mlv-divider[role="separator"]',
+        ':scope > .mlv-toolbar > mlv-editor-default-toolbar-groups > mlv-divider[role="separator"]',
       ).length,
-    ).toBe(8);
+    ).toBe(9);
     expect(
       toolbar.querySelector(':scope > .mlv-editor-toolbar__overflow'),
     ).not.toBeNull();

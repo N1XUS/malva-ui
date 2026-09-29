@@ -55,64 +55,7 @@
               }
               <div mlvFade class="mlv-editor__toolbar-scroll">
                 <mlv-toolbar>
-                  <mlv-editor-undo-redo />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                  />
-                  <mlv-editor-zoom />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                  />
-                  <mlv-editor-heading />
-                  <mlv-editor-list />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-inline-marks [hidden]="toolbarRoot.narrow()" />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-text-color />
-                  <mlv-editor-highlight />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-alignment [hidden]="toolbarRoot.narrow()" />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-link />
-                  <mlv-editor-table />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-block-insert [hidden]="toolbarRoot.narrow()" />
-                  <mlv-divider
-                    class="mlv-editor-toolbar__separator"
-                    orientation="vertical"
-                    muted
-                    [hidden]="toolbarRoot.narrow()"
-                  />
-                  <mlv-editor-image-upload />
+                  <mlv-editor-default-toolbar-groups />
                 </mlv-toolbar>
               </div>
               <mlv-editor-toolbar-overflow />

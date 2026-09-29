@@ -27,7 +27,9 @@ describe('editor documentation page', () => {
     const component = await route?.loadComponent?.();
     if (!component) throw new Error('Expected the editor page to lazy load.');
     const instance = new component();
-    expect(instance.examples).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(instance.examples).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    ]);
     expect(instance.meta.title).toBe('Editor');
     // `loadComponent()` pulls the whole editor page graph — `@malva-ui/editor`,
     // Tiptap and all of this page's examples — through Vite's transform inside
@@ -36,7 +38,7 @@ describe('editor documentation page', () => {
   }, 60_000);
 
   it('keeps every editor example on the grouped public entry point', () => {
-    for (let index = 1; index <= 12; index += 1) {
+    for (let index = 1; index <= 13; index += 1) {
       const source = readFileSync(
         join(pageDirectory, 'examples', String(index), 'index.ts'),
         'utf8',

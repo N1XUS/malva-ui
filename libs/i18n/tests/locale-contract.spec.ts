@@ -405,6 +405,9 @@ it('defines parameterized English Tile keyboard accessibility messages', () => {
 const dutchEnglishMatches = [
   'dataTable.filters',
   'dataTable.columnWidthPixels',
+  'editor.subscript',
+  'editor.superscript',
+  'editor.styleValue',
   'filter.filters',
   'pagination.items',
   'pagination.itemCount',
@@ -414,12 +417,14 @@ const dutchEnglishMatches = [
 ] as const;
 
 it.each([
-  ['ja', ja, []],
+  // `editor.styleValue` is `{label}: {value}` — punctuation and ICU
+  // arguments only, written the same way in these languages.
+  ['ja', ja, ['editor.styleValue']],
   ['nl', nl, dutchEnglishMatches],
-  ['pl', pl, []],
-  ['tr', tr, []],
+  ['pl', pl, ['editor.styleValue']],
+  ['tr', tr, ['editor.styleValue']],
   ['zh-Hans', zhHans, []],
-  ['id', id, []],
+  ['id', id, ['editor.styleValue']],
 ] as const)(
   '%s contains no unexpected English fallback messages',
   (locale, pack, expectedEnglishMatches) => {
@@ -696,5 +701,39 @@ it.each(Object.entries(packs))(
     expect(Object.keys(pack).filter((key) => key.endsWith('Language'))).toEqual(
       [],
     );
+  },
+);
+
+// #514: optional on `MlvEditorI18n` so a hand-written pack still compiles,
+// but every shipped pack translates them (the key-set check above then pins
+// the other thirteen packs to English's set).
+const editorN1Keys = [
+  'inlineCode',
+  'subscript',
+  'superscript',
+  'clearFormatting',
+  'fontFamily',
+  'fontSize',
+  'lineHeight',
+  'defaultStyle',
+  'fontFamilySans',
+  'fontFamilySerif',
+  'fontFamilyMono',
+  'copyHeadingLink',
+  'headingLinkCopied',
+  'styleValue',
+] as const;
+
+it.each(Object.entries(packs))(
+  '%s declares every optional text-style and heading-link editor key',
+  (locale, pack) => {
+    const editor = pack.editor as Record<string, unknown>;
+    for (const key of editorN1Keys) {
+      expect(typeof editor[key], `${locale}:editor.${key}`).toBe('string');
+      expect(
+        (editor[key] as string).trim().length,
+        `${locale}:editor.${key}`,
+      ).toBeGreaterThan(0);
+    }
   },
 );

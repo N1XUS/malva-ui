@@ -1,0 +1,10 @@
+// Narrow-mode overflow menu (#514). The panels are portaled to `<body>`, so
+// nothing here relies on an editor ancestor.
+@layer mlv.components {
+  // The submenu chevron points toward the inline end: it mirrors in RTL.
+  .mlv-editor-toolbar__submenu-chevron {
+    flex: 0 0 auto;
+    color: var(--mlv-text-tertiary);
+    transform: scaleX(var(--mlv-inline-direction));
+  }
+}

@@ -6,7 +6,7 @@ import {
 import Image from '@tiptap/extension-image';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import TextAlign from '@tiptap/extension-text-align';
-import { Color } from '@tiptap/extension-text-style';
+import { Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import type { PlaceholderOptions } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
@@ -20,6 +20,21 @@ import {
   type MlvEditorBlockHandleOptions,
 } from './editor-block-handle';
 import { MlvEditorUploadPlaceholder } from './editor-upload-placeholder';
+import {
+  MlvEditorBlockId,
+  type MlvEditorBlockIdOptions,
+} from './block-id/editor-block-id';
+import {
+  MlvEditorSubscript,
+  MlvEditorSuperscript,
+} from './script/editor-script';
+import { MlvEditorBlockLineHeight } from './text-style/editor-block-line-height';
+import { MlvEditorResetFormatting } from './text-style/editor-reset-formatting';
+import { withAbsentStyleAsNull } from './text-style/editor-text-style-parsing';
+import {
+  MlvEditorHeadingAnchors,
+  type MlvEditorHeadingAnchorOptions,
+} from './heading-anchors/editor-heading-anchors';
 import {
   createMarkdownCompatibleHighlight,
   createMarkdownCompatibleStarterKit,
@@ -142,6 +157,11 @@ export const MlvEditorFileHandler = Extension.create<FileHandlerOptions>({
 export interface MlvEditorFormattingExtensionOptions {
   /** Node types that accept text alignment. Defaults to headings and paragraphs. */
   readonly textAlignTypes?: readonly string[];
+  /**
+   * Textblock node types that accept a block line height
+   * (`setBlockLineHeight`). Defaults to headings and paragraphs.
+   */
+  readonly lineHeightTypes?: readonly string[];
 }
 
 /** Options used to configure task-list support. */
@@ -282,12 +302,25 @@ export interface MlvEditorDefaultExtensionOptions
 
   /** Host capabilities for the block drag handle. */
   readonly blockHandle?: Partial<MlvEditorBlockHandleOptions>;
+
+  /**
+   * Adds {@link MlvEditorBlockId}: `true` with its defaults, an object to
+   * configure it. Off by default, so the preset output stays byte-identical.
+   */
+  readonly blockIds?: boolean | Partial<MlvEditorBlockIdOptions>;
+
+  /**
+   * Adds {@link MlvEditorHeadingAnchors}: `true` with its defaults, an
+   * object to configure it. Off by default, so the preset output stays
+   * byte-identical.
+   */
+  readonly headingAnchors?: boolean | Partial<MlvEditorHeadingAnchorOptions>;
 }
 
 /**
  * Creates the core formatting extensions used by the default Malva preset.
  *
- * @param options Optional text-alignment configuration.
+ * @param options Optional text-alignment and line-height configuration.
  * @returns Fresh Tiptap extension instances safe to compose into one editor.
  */
 export function mlvEditorFormattingExtensions(
@@ -301,11 +334,19 @@ export function mlvEditorFormattingExtensions(
       },
     }),
     createMarkdownCompatibleTextStyle(),
-    Color.configure({}),
+    withAbsentStyleAsNull(Color.configure({})),
     createMarkdownCompatibleHighlight(),
     TextAlign.configure({
       types: [...(options.textAlignTypes ?? ['heading', 'paragraph'])],
     }),
+    withAbsentStyleAsNull(FontFamily.configure({})),
+    withAbsentStyleAsNull(FontSize.configure({})),
+    MlvEditorBlockLineHeight.configure({
+      types: [...(options.lineHeightTypes ?? ['heading', 'paragraph'])],
+    }),
+    MlvEditorSubscript.configure({}),
+    MlvEditorSuperscript.configure({}),
+    MlvEditorResetFormatting.configure({}),
   ];
 }
 
@@ -485,6 +526,20 @@ export function mlvEditorDefaultExtensions(
     ...mlvEditorUtilityExtensions(options),
     MlvEditorUploadPlaceholder.configure(),
     ...mlvEditorBlockHandleExtensions(options.blockHandle ?? {}),
+    ...(options.blockIds
+      ? [
+          MlvEditorBlockId.configure(
+            options.blockIds === true ? {} : options.blockIds,
+          ),
+        ]
+      : []),
+    ...(options.headingAnchors
+      ? [
+          MlvEditorHeadingAnchors.configure(
+            options.headingAnchors === true ? {} : options.headingAnchors,
+          ),
+        ]
+      : []),
     ...(options.format === 'markdown'
       ? mlvEditorMarkdownExtensions(options)
       : []),

@@ -1,0 +1,56 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <mlv-editor
+    headingAnchors
+    [(value)]="styles"
+    label="Text styles"
+    hint="Select text, then pick a font, size or line height, a script toggle or Clear formatting"
+  />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">Stored HTML:</p>
+  <pre
+    role="region"
+    aria-label="Stored HTML"
+    tabindex="0"
+    style="
+      margin: 0;
+      max-block-size: 12rem;
+      overflow: auto;
+      white-space: pre-wrap;
+    "
+    >{{ styles() }}</pre
+  >
+
+  <mlv-editor
+    format="json"
+    blockIds
+    [(value)]="value"
+    label="Draft"
+    hint="Every block carries a stable ID"
+  />
+
+  <mlv-editor
+    format="json"
+    blockIds
+    headingAnchors
+    readonly
+    [value]="value()"
+    label="Readonly preview"
+    hint="Hover a heading, or Tab to its copy-link button"
+  />
+
+  <p style="margin: 0; color: var(--mlv-text-secondary)">
+    Top-level blocks of the stored value:
+  </p>
+  <pre
+    role="region"
+    aria-label="Block IDs"
+    tabindex="0"
+    style="
+      margin: 0;
+      max-block-size: 16rem;
+      overflow: auto;
+      white-space: pre-wrap;
+    "
+    >{{ outline() }}</pre
+  >
+</div>

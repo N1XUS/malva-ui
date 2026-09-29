@@ -8,8 +8,11 @@ import {
 import type { Editor } from '@tiptap/core';
 import {
   LucideBold,
+  LucideCode,
   LucideItalic,
   LucideStrikethrough,
+  LucideSubscript,
+  LucideSuperscript,
   LucideUnderline,
 } from '@lucide/angular';
 import {
@@ -20,14 +23,20 @@ import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import { MlvEditorCommandButton } from './editor-command-button';
 import { MlvButtonIcon } from '@malva-ui/core/button';
 
-/** Inline bold, italic, strike-through, and underline toggles. */
+/**
+ * Inline mark toggles: bold, italic, strike-through, underline, inline code,
+ * subscript and superscript. Each hides while its extension is absent.
+ */
 @Component({
   selector: 'mlv-editor-inline-marks',
   imports: [
     MlvEditorCommandButton,
     LucideBold,
+    LucideCode,
     LucideItalic,
     LucideStrikethrough,
+    LucideSubscript,
+    LucideSuperscript,
     LucideUnderline,
     MlvButtonIcon,
   ],
@@ -64,6 +73,30 @@ import { MlvButtonIcon } from '@malva-ui/core/button';
       [command]="_underline"
       ><svg mlvButtonIcon lucideUnderline
     /></mlv-editor-command-button>
+    <mlv-editor-command-button
+      [label]="_copy().code"
+      [pressed]="_isActive('code')"
+      [supports]="_canCode"
+      [canCommand]="_canCodeNow"
+      [command]="_code"
+      ><svg mlvButtonIcon lucideCode
+    /></mlv-editor-command-button>
+    <mlv-editor-command-button
+      [label]="_copy().subscript"
+      [pressed]="_isActive('subscript')"
+      [supports]="_canSubscript"
+      [canCommand]="_canSubscriptNow"
+      [command]="_subscript"
+      ><svg mlvButtonIcon lucideSubscript
+    /></mlv-editor-command-button>
+    <mlv-editor-command-button
+      [label]="_copy().superscript"
+      [pressed]="_isActive('superscript')"
+      [supports]="_canSuperscript"
+      [canCommand]="_canSuperscriptNow"
+      [command]="_superscript"
+      ><svg mlvButtonIcon lucideSuperscript
+    /></mlv-editor-command-button>
   `,
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -85,16 +118,19 @@ export class MlvEditorInlineMarks {
       italic: this._i18n?.().italic ?? 'Italic',
       strike: this._i18n?.().strike ?? 'Strike',
       underline: this._i18n?.().underline ?? 'Underline',
+      code: this._i18n?.().inlineCode ?? 'Inline code',
+      subscript: this._i18n?.().subscript ?? 'Subscript',
+      superscript: this._i18n?.().superscript ?? 'Superscript',
     }),
   );
-  /** @protected Bold availability. */ protected readonly _canBold = (
-    editor: Editor,
-  ): boolean => editor.commands.toggleBold !== undefined;
   /** @protected Reads active state after the latest transaction or selection update. */
   protected _isActive(name: string): boolean {
     this._revision();
     return this._context.isActive(name);
   }
+  /** @protected Bold availability. */ protected readonly _canBold = (
+    editor: Editor,
+  ): boolean => editor.commands.toggleBold !== undefined;
   /** @protected Current bold command availability. */ protected readonly _canBoldNow =
     (editor: Editor): boolean => editor.can().chain().toggleBold().run();
   /** @protected Italic availability. */ protected readonly _canItalic = (
@@ -112,6 +148,21 @@ export class MlvEditorInlineMarks {
   ): boolean => editor.commands.toggleUnderline !== undefined;
   /** @protected Current underline command availability. */ protected readonly _canUnderlineNow =
     (editor: Editor): boolean => editor.can().chain().toggleUnderline().run();
+  /** @protected Inline-code availability. */ protected readonly _canCode = (
+    editor: Editor,
+  ): boolean => editor.commands.toggleCode !== undefined;
+  /** @protected Current inline-code command availability. */ protected readonly _canCodeNow =
+    (editor: Editor): boolean => editor.can().chain().toggleCode().run();
+  /** @protected Subscript availability. */ protected readonly _canSubscript = (
+    editor: Editor,
+  ): boolean => editor.commands.toggleSubscript !== undefined;
+  /** @protected Current subscript command availability. */ protected readonly _canSubscriptNow =
+    (editor: Editor): boolean => editor.can().chain().toggleSubscript().run();
+  /** @protected Superscript availability. */ protected readonly _canSuperscript =
+    (editor: Editor): boolean =>
+      editor.commands.toggleSuperscript !== undefined;
+  /** @protected Current superscript command availability. */ protected readonly _canSuperscriptNow =
+    (editor: Editor): boolean => editor.can().chain().toggleSuperscript().run();
   /** @protected Bold command. */ protected readonly _bold = (
     editor: Editor,
   ): boolean => editor.chain().focus().toggleBold().run();
@@ -124,4 +175,13 @@ export class MlvEditorInlineMarks {
   /** @protected Underline command. */ protected readonly _underline = (
     editor: Editor,
   ): boolean => editor.chain().focus().toggleUnderline().run();
+  /** @protected Inline-code command. */ protected readonly _code = (
+    editor: Editor,
+  ): boolean => editor.chain().focus().toggleCode().run();
+  /** @protected Subscript command. */ protected readonly _subscript = (
+    editor: Editor,
+  ): boolean => editor.chain().focus().toggleSubscript().run();
+  /** @protected Superscript command. */ protected readonly _superscript = (
+    editor: Editor,
+  ): boolean => editor.chain().focus().toggleSuperscript().run();
 }

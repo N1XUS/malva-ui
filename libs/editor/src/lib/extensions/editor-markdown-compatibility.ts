@@ -10,7 +10,13 @@ import {
 import Highlight from '@tiptap/extension-highlight';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { TableKit, type TableKitOptions } from '@tiptap/extension-table';
+import type { TagParseRule } from '@tiptap/pm/model';
 import StarterKit, { type StarterKitOptions } from '@tiptap/starter-kit';
+import {
+  paintsBackground,
+  skipSpansOwnedByOtherMarks,
+  storedStyleSpanRules,
+} from './text-style/editor-text-style-parsing';
 
 /** @internal Markdown renderer signature resolved from a Tiptap extension. */
 type MarkdownRenderer = (
@@ -40,26 +46,79 @@ function parentMarkdownRenderer(
   });
 }
 
+/**
+ * @internal Attributes Markdown never carries: block IDs and derived heading
+ * anchors. Markdown drops them everywhere else, so the whole-node HTML
+ * fallback drops them too; a reload reassigns IDs and re-derives anchors.
+ */
+const MARKDOWN_DROPPED_ATTRIBUTES: readonly string[] = ['blockId', 'anchor'];
+
+/** @internal Copies a JSON node without the attributes Markdown never carries. */
+function withoutMarkdownDroppedAttributes(node: JSONContent): JSONContent {
+  const copy: JSONContent = { ...node };
+  if (node.attrs) {
+    const attrs = { ...node.attrs };
+    for (const name of MARKDOWN_DROPPED_ATTRIBUTES) delete attrs[name];
+    copy.attrs = attrs;
+  }
+  if (node.content) {
+    copy.content = node.content.map(withoutMarkdownDroppedAttributes);
+  }
+  return copy;
+}
+
 /** @internal Emits a complete node as HTML rather than embedding Markdown inside an HTML fragment. */
 function renderNodeAsHtml(node: JSONContent, extensions: Extensions): string {
   return generateHTML(
     {
       type: 'doc',
-      content: [node],
+      content: [withoutMarkdownDroppedAttributes(node)],
     },
     extensions,
   );
 }
 
-/** @internal Builds the color-aware same-name TextStyle mark used by Malva's default preset. */
+/**
+ * @internal `textStyle` attributes Markdown writes, in the fixed order they
+ * appear in the one `<span style>`. The order is part of the output, so a
+ * round trip is byte-stable.
+ */
+const MARKDOWN_TEXT_STYLE_PROPERTIES: readonly (readonly [string, string])[] = [
+  ['color', 'color'],
+  ['fontFamily', 'font-family'],
+  ['fontSize', 'font-size'],
+];
+
+/**
+ * @internal Builds the same-name TextStyle mark used by Malva's default preset:
+ * colour, font family and font size are written as one inline `<span style>`,
+ * each value escaped, which `@tiptap/markdown` parses back as inline HTML.
+ * A span whose style only another mark owns (a highlight's
+ * `background-color`, a script mark's `vertical-align`) creates no text
+ * style.
+ */
 export function createMarkdownCompatibleTextStyle(): AnyExtension {
   return TextStyle.configure({}).extend({
     priority: 98,
+    parseHTML() {
+      const rules = (this.parent?.() ?? []) as readonly TagParseRule[];
+      return [
+        ...storedStyleSpanRules(this.editor),
+        ...rules.map(skipSpansOwnedByOtherMarks),
+      ];
+    },
     renderMarkdown(node, helpers) {
-      const color = node.attrs?.['color'];
       const children = helpers.renderChildren(node);
-      if (typeof color !== 'string' || color.length === 0) return children;
-      return `<span style="color: ${escapeAttribute(color)}">${children}</span>`;
+      const declarations = MARKDOWN_TEXT_STYLE_PROPERTIES.flatMap(
+        ([attribute, property]) => {
+          const value = node.attrs?.[attribute];
+          return typeof value === 'string' && value.length > 0
+            ? [`${property}: ${escapeAttribute(value)}`]
+            : [];
+        },
+      );
+      if (declarations.length === 0) return children;
+      return `<span style="${declarations.join('; ')}">${children}</span>`;
     },
   });
 }
@@ -71,6 +130,26 @@ export function createMarkdownCompatibleHighlight(): AnyExtension {
 
   return base.extend({
     priority: 99,
+    /**
+     * `<mark>`, and a span carrying a `background-color` that paints — the
+     * form Docs and Word paste. A span whose background paints nothing
+     * (`transparent`, a CSS-wide keyword, alpha 0; see `paintsBackground`) is
+     * no highlight: Google Docs declares `transparent` on every run it copies.
+     * The span rule does not consume, so the same span's colour, font family
+     * and font size still reach `textStyle`, and a span with both colour and
+     * background keeps both marks.
+     */
+    parseHTML() {
+      return [
+        { tag: 'mark' },
+        {
+          tag: 'span[style*="background-color"]',
+          consuming: false,
+          getAttrs: (element) =>
+            paintsBackground(element.style.backgroundColor) ? null : false,
+        },
+      ];
+    },
     renderMarkdown(node, helpers, context) {
       const color = node.attrs?.['color'];
       if (typeof color !== 'string' || color.length === 0) {
@@ -82,7 +161,11 @@ export function createMarkdownCompatibleHighlight(): AnyExtension {
   });
 }
 
-/** @internal Extends one block child with an alignment-preserving renderer. */
+/**
+ * @internal Extends one block child with a renderer that falls back to
+ * whole-node HTML when the block carries an alignment or a line height, which
+ * Markdown cannot express; the attribute travels in that HTML.
+ */
 function alignedBlockExtension(
   extension: AnyExtension,
   activeExtensions: () => Extensions,
@@ -96,7 +179,8 @@ function alignedBlockExtension(
         alignment !== 'left' &&
         alignment !== 'center' &&
         alignment !== 'right' &&
-        alignment !== 'justify'
+        alignment !== 'justify' &&
+        !node.attrs?.['lineHeight']
       ) {
         return renderParent?.(node, helpers, context) ?? '';
       }
@@ -105,7 +189,7 @@ function alignedBlockExtension(
   });
 }
 
-/** @internal Builds the same-name StarterKit whose block children preserve explicit alignment. */
+/** @internal Builds the same-name StarterKit whose block children preserve explicit alignment and line height. */
 export function createMarkdownCompatibleStarterKit(
   options: Partial<StarterKitOptions>,
 ): AnyExtension {

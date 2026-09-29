@@ -85,6 +85,10 @@ defineComponentSpec(editorManifest, () => {
           element.getBoundingClientRect().top +
           element.getBoundingClientRect().height / 2,
         hasIcon: element.querySelector('svg') !== null,
+        name: element.getAttribute('aria-label') ?? '',
+        styleTrigger: element.classList.contains(
+          'mlv-editor-style-menu__trigger',
+        ),
         text: element.textContent?.trim() ?? '',
       })),
     );
@@ -93,6 +97,13 @@ defineComponentSpec(editorManifest, () => {
         Math.min(...presentation.map(({ center }) => center)),
     ).toBeLessThan(2);
     for (const button of presentation) {
+      // Font family and size triggers show their value as text, and their
+      // name contains it (WCAG 2.5.3, #514).
+      if (button.styleTrigger) {
+        expect(button.text).not.toBe('');
+        expect(button.name).toContain(button.text);
+        continue;
+      }
       const isZoomValue = /^\d+%$/.test(button.text);
       expect(button.text === '' || isZoomValue).toBe(true);
       if (!isZoomValue) expect(button.hasIcon).toBe(true);

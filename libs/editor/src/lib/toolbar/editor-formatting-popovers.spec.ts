@@ -258,17 +258,27 @@ describe('MlvEditor formatting popovers', () => {
       ),
     ).toHaveLength(1);
 
-    const underline = toolbarButton('Underline');
+    const superscript = toolbarButton('Superscript');
     const textColor = toolbarButton('Text color');
     const highlight = toolbarButton('Highlight color');
+    const clearFormatting = toolbarButton('Clear formatting');
     const alignment = toolbarButton('Alignment');
+    const lineHeight = toolbarButton('Line height: Default');
     const link = toolbarButton('Link');
-    if (!underline || !textColor || !highlight || !alignment || !link) {
+    const sequence = [
+      textColor,
+      highlight,
+      clearFormatting,
+      alignment,
+      lineHeight,
+      link,
+    ];
+    if (!superscript || sequence.some((control) => !control)) {
       throw new Error('Expected formatting navigation controls.');
     }
 
-    underline.focus();
-    for (const expected of [textColor, highlight, alignment, link]) {
+    superscript.focus();
+    for (const expected of sequence) {
       (document.activeElement as HTMLElement).dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'ArrowRight',

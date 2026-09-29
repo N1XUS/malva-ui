@@ -1,4 +1,5 @@
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { Clipboard } from '@angular/cdk/clipboard';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
@@ -25,7 +26,12 @@ import {
 import type { AfterViewInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent } from 'rxjs';
-import type { Content, Extensions, SetContentOptions } from '@tiptap/core';
+import type {
+  Content,
+  Extensions,
+  SetContentOptions,
+  Storage,
+} from '@tiptap/core';
 import type { Mark } from '@tiptap/pm/model';
 import { Editor } from '@tiptap/core';
 import type {} from '@tiptap/markdown';
@@ -41,7 +47,6 @@ import {
   MLV_FORM_CONTROL,
 } from '@malva-ui/core/form-utils';
 import { MlvToolbar } from '@malva-ui/core/toolbar';
-import { MlvDivider } from '@malva-ui/core/divider';
 import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import {
   MLV_EDITOR_OVERLAY_REGISTRY,
@@ -96,35 +101,23 @@ import {
 } from './editor-layout';
 import type { MlvEditorBlockMove } from '../extensions/editor-block-handle';
 import { mlvEditorDefaultExtensions } from '../extensions/editor-extensions';
+import { MLV_EDITOR_CREATE_NORMALIZATION_META } from '../extensions/editor-create-normalization';
+import type { MlvEditorHeadingLink } from '../extensions/heading-anchors/editor-heading-anchors';
+import { MLV_EDITOR_HEADING_LINKS } from './editor-heading-links';
 import {
   createMlvEditorImageUploadCoordinator,
   MLV_EDITOR_IMAGE_UPLOAD_COORDINATOR,
 } from '../upload/editor-image-upload-coordinator';
-import { MlvEditorAlignment } from '../toolbar/editor-alignment';
-import { MlvEditorBlockInsert } from '../toolbar/editor-block-insert';
-import { MlvEditorHeading } from '../toolbar/editor-heading';
-import { MlvEditorHighlight } from '../toolbar/editor-highlight';
-import { MlvEditorInlineMarks } from '../toolbar/editor-inline-marks';
-import { MlvEditorList } from '../toolbar/editor-list';
-import { MlvEditorLink } from '../toolbar/editor-link';
-import {
-  MlvEditorImageUpload,
-  MlvEditorImageUploadStatus,
-} from '../toolbar/editor-image-upload';
-import { MlvEditorTable } from '../toolbar/editor-table';
+import { MlvEditorImageUploadStatus } from '../toolbar/editor-image-upload';
 import { MlvEditorTableControls } from '../table/editor-table-controls';
 import {
   MlvEditorToolbarDef,
   MlvEditorToolbarEndDef,
   MlvEditorToolbarStartDef,
 } from '../toolbar/editor-toolbar.defs';
-import {
-  MlvEditorToolbarOverflow,
-  MlvEditorToolbarRoot,
-} from '../toolbar/editor-toolbar';
-import { MlvEditorUndoRedo } from '../toolbar/editor-undo-redo';
-import { MlvEditorZoom } from '../toolbar/editor-zoom';
-import { MlvEditorTextColor } from '../toolbar/editor-text-color';
+import { MlvEditorDefaultToolbarGroups } from '../toolbar/editor-default-toolbar-groups';
+import { MlvEditorToolbarOverflow } from '../toolbar/editor-toolbar-overflow';
+import { MlvEditorToolbarRoot } from '../toolbar/editor-toolbar-root';
 import { MlvEditorStatus } from '../status/editor-status';
 
 /** @internal Tiptap content and options prepared from one external value. */
@@ -154,24 +147,12 @@ type MlvEditorPreparedContent =
     NgTemplateOutlet,
     MlvFade,
     MlvToolbar,
-    MlvDivider,
     MlvEditorToolbarRoot,
+    MlvEditorDefaultToolbarGroups,
     MlvEditorToolbarOverflow,
-    MlvEditorUndoRedo,
-    MlvEditorZoom,
-    MlvEditorHeading,
-    MlvEditorList,
-    MlvEditorInlineMarks,
-    MlvEditorTextColor,
     MlvEditorStatus,
-    MlvEditorHighlight,
-    MlvEditorLink,
-    MlvEditorImageUpload,
     MlvEditorImageUploadStatus,
-    MlvEditorTable,
     MlvEditorTableControls,
-    MlvEditorAlignment,
-    MlvEditorBlockInsert,
     MlvEditorBubble,
     MlvSpacer,
   ],
@@ -384,6 +365,30 @@ export class MlvEditor
 
   /** Maximum character count for Malva's default extension preset. */
   readonly characterLimit = input<number | null>(null);
+
+  /**
+   * Adds `MlvEditorBlockId` to Malva's default preset: every block carries a
+   * stable ID, persisted as `data-block-id` (HTML) / `attrs.blockId` (JSON)
+   * and dropped from Markdown. Read once, when the editor is created, like
+   * `placeholder`; ignored when `extensions` replaces the preset (add the
+   * extension to that array instead). IDs assigned while a value loads do
+   * not emit a value: the stored value gains them with the next user edit.
+   */
+  readonly blockIds = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
+
+  /**
+   * Adds `MlvEditorHeadingAnchors` to Malva's default preset: every heading
+   * gets a derived `id` and a copy-link button (a tab stop while `readonly`,
+   * hidden while `disabled`; in an editable editor the heading menu's "Copy
+   * link to heading" item). Read once, when the editor is created; ignored
+   * when `extensions` replaces the preset. Links are built by
+   * `MLV_EDITOR_HEADING_LINKS`.
+   */
+  readonly headingAnchors = input<boolean, BooleanInput>(false, {
+    transform: coerceBooleanProperty,
+  });
 
   /** IDREF(s) naming the editable content region. */
   readonly ariaLabelledBy = input<string | undefined>(undefined);
@@ -608,6 +613,12 @@ export class MlvEditor
   /** @private Announces block moves politely; the editor content itself is not a live region. */
   private readonly _liveAnnouncer = inject(LiveAnnouncer);
 
+  /** @private Writes heading links to the clipboard. */
+  private readonly _clipboard = inject(Clipboard);
+
+  /** @private Builds the URL a heading copy-link copies. */
+  private readonly _headingLinks = inject(MLV_EDITOR_HEADING_LINKS);
+
   /** @private Last external value applied to Tiptap without an update event. */
   private _lastAppliedValue: string | null | undefined;
 
@@ -751,6 +762,16 @@ export class MlvEditor
       );
     });
 
+    // The copy-link button reads its label when it renders; re-render the
+    // decorations when the language pack changes.
+    effect(() => {
+      const editor = this._editor();
+      this._i18n?.();
+      if (!editor || editor.isDestroyed) return;
+      if (!('headingAnchors' in editor.storage)) return;
+      untracked(() => editor.view.updateState(editor.state));
+    });
+
     this._overlayRegistry.setFocusHandlers(
       (event) => this._handleCompositeFocusIn(event),
       (event) => this._handleCompositeFocusOut(event),
@@ -787,6 +808,8 @@ export class MlvEditor
           format: 'markdown',
           placeholder: () => untracked(this._resolvedPlaceholder),
           characterLimit: this.characterLimit(),
+          blockIds: this.blockIds(),
+          headingAnchors: this.headingAnchors(),
           allowedMimeTypes: ['image/*'],
           fileHandlingEnabled: () => {
             if (this._destroyed || this.computedDisabled() || this.readonly()) {
@@ -841,6 +864,10 @@ export class MlvEditor
         extensions: selectedExtensions,
         editable: !this.computedDisabled() && !this.readonly(),
         enableContentCheck: true,
+        // Before the view mounts, so the first render already has them; a
+        // consumer `extensions` array with the anchors extension gets them too.
+        onBeforeCreate: ({ editor: createdEditor }) =>
+          this._wireHeadingAnchors(createdEditor),
         editorProps: {
           attributes: this._editorAttributes(),
           scrollMargin: this._scrollMargin,
@@ -850,7 +877,13 @@ export class MlvEditor
           if (this._destroyed) return;
           this.transaction.emit({ editor: changedEditor, transaction });
           this._toolbarRevision.revision.update((revision) => revision + 1);
-          if (transaction.docChanged && !this._applyingExternalValue) {
+          if (
+            transaction.docChanged &&
+            !this._applyingExternalValue &&
+            // An extension normalizing the created document (block IDs,
+            // anchors) is not a user edit, exactly like a value load.
+            !transaction.getMeta(MLV_EDITOR_CREATE_NORMALIZATION_META)
+          ) {
             this._serializeAndWrite(changedEditor, this.format());
           }
         },
@@ -922,6 +955,35 @@ export class MlvEditor
           .replace('{total}', String(move.total))
       : `Moved ${move.type} to position ${move.position} of ${move.total}`;
     this._liveAnnouncer.announce(message, 'polite');
+  }
+
+  /**
+   * @private Fills `MlvEditorHeadingAnchors`' storage callbacks on a created
+   * editor that has the extension (the preset's or a consumer array's). Each
+   * callback runs untracked: ProseMirror calls them while rendering, which
+   * can happen inside the readonly / disabled effect.
+   */
+  private _wireHeadingAnchors(editor: Editor): void {
+    const storage = (editor.storage as Partial<Storage>).headingAnchors;
+    if (!storage) return;
+    storage.copy = (link: MlvEditorHeadingLink) =>
+      untracked(
+        () =>
+          !this._destroyed &&
+          this._clipboard.copy(this._headingLinks.href(link)),
+      );
+    storage.announce = () =>
+      untracked(() => {
+        if (this._destroyed) return;
+        this._liveAnnouncer.announce(
+          this._i18n?.().headingLinkCopied ?? 'Link copied',
+          'polite',
+        );
+      });
+    storage.label = () =>
+      untracked(() => this._i18n?.().copyHeadingLink ?? 'Copy link to heading');
+    storage.disabled = () =>
+      untracked(() => this._destroyed || this.computedDisabled());
   }
 
   /** @private Whether a browser MIME type matches the current coordinator options. */

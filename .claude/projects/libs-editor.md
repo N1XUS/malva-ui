@@ -31,6 +31,19 @@ The Editor library provides an SSR-safe Angular shell around a single browser-on
   host-provided uploader.
 - `MLV_EDITOR_DEFAULT_IMAGE_UPLOAD_OPTIONS`, with `accept: ['image/*']`, a
   10 MiB `maxSize`, and `maxFiles: 1`.
+- Block IDs and heading anchors (#514): `MlvEditorBlockId` /
+  `MlvEditorBlockIdOptions`, `MlvEditorHeadingAnchors` /
+  `MlvEditorHeadingAnchorOptions` / `MlvEditorHeadingLink` /
+  `MlvEditorHeadingAnchorStorage`, and the link builder
+  `MLV_EDITOR_HEADING_LINKS` / `MlvEditorHeadingLinks` /
+  `provideMlvEditorHeadingLinks`. See _Block IDs and heading anchors_.
+- Text styles (#514): the extensions `MlvEditorBlockLineHeight` /
+  `MlvEditorBlockLineHeightOptions`, `MlvEditorSubscript`,
+  `MlvEditorSuperscript`, `MlvEditorResetFormatting`; the toolbar groups
+  `MlvEditorFontFamily`, `MlvEditorFontSize`, `MlvEditorLineHeight`,
+  `MlvEditorClearFormatting`; the option lists `MLV_EDITOR_TEXT_STYLES` /
+  `MlvEditorTextStyleOptions` / `MlvEditorFontFamilyOption` /
+  `provideMlvEditorTextStyles`. See _Text styles_.
 - The AI toolkit symbols (provider contract, streaming engine, per-editor
   context, and `MlvEditorAiMenu`) — exported here for single-module identity
   and mirrored by the `@malva-ui/editor/ai` facade, which is the documented
@@ -55,6 +68,8 @@ Import `MlvEditor` from `@malva-ui/editor` and render it as
 | Input  | `extensions`           | `Extensions \| undefined`; a complete replacement                         |
 | Input  | `placeholder`          | `string \| undefined` → i18n `editor.placeholder` → `'Write something…'`  |
 | Input  | `characterLimit`       | `number \| null` / `null`                                                 |
+| Input  | `blockIds`             | `boolean` (`BooleanInput`) / `false`; read at creation                    |
+| Input  | `headingAnchors`       | `boolean` (`BooleanInput`) / `false`; read at creation                    |
 | Input  | `ariaLabel`            | `string \| undefined`                                                     |
 | Input  | `ariaLabelledBy`       | `string \| undefined`                                                     |
 | Input  | `ariaDescribedBy`      | `string \| undefined`                                                     |
@@ -185,6 +200,9 @@ height: 8 }` defaults and erases them. Every drag then computes
   the handle, the drop indicator and the drag image are created (#337; the
   global `document` put them in the wrong document for an editor mounted in
   another one, such as an iframe).
+- `mlvEditorDefaultExtensions({ blockIds, headingAnchors })` appends
+  `MlvEditorBlockId` / `MlvEditorHeadingAnchors` (`true` = defaults, an object
+  = options); both off by default. See _Block IDs and heading anchors_.
 - `mlvEditorMarkdownExtensions()` creates the official beta Markdown
   extension. The factory includes it only when
   `mlvEditorDefaultExtensions({ format: 'markdown' })` is requested; the
@@ -306,27 +324,41 @@ layout-only for the built-in groups. Both shells keep one non-wrapping row:
 the command groups and semantic vertical `MlvDivider` elements live inside a
 horizontal `MlvFade` scroller, while the responsive overflow trigger remains
 fixed at the row end. Command groups use compact inline-flex hosts so their
-buttons never stack vertically. The default composition currently renders
-these real command groups in order:
-`MlvEditorUndoRedo`, `MlvEditorZoom`, `MlvEditorHeading`, `MlvEditorList`,
-`MlvEditorInlineMarks`, `MlvEditorTextColor`, `MlvEditorHighlight`,
-`MlvEditorAlignment`, `MlvEditorLink`, `MlvEditorTable`,
-`MlvEditorBlockInsert`, and `MlvEditorImageUpload`. Semantic dividers separate
-history, zoom, block type/list, inline marks, colors, alignment, link/table,
-block insertion, and upload groups.
-Every native built-in trigger is marked with `mlvEditorToolbarWidget`, so the
-composite is one Tab stop; ArrowLeft/ArrowRight, Home, and End move between
-enabled widgets and wrap. Built-in toolbar actions are icon-only Malva buttons
-with localized accessible names and tooltips; the compact numeric zoom
-percentage remains visible. Foreground color and highlight use distinct
-projected icons while retaining separate `MlvColorPickerPopup` instances.
-Consumer-projected direct or template controls must
-likewise add `mlvEditorToolbarWidget`; it uses the editor-owned registry rather
-than `mlvToolbarWidget`, whose nested provider is unavailable to projected
-consumer declarations.
+buttons never stack vertically. The default composition renders these real
+command groups in order (`|` = semantic divider, #514 N1-D11):
+`MlvEditorUndoRedo | MlvEditorZoom | MlvEditorHeading, MlvEditorList |
+MlvEditorFontFamily, MlvEditorFontSize | MlvEditorInlineMarks |
+MlvEditorTextColor, MlvEditorHighlight, MlvEditorClearFormatting |
+MlvEditorAlignment, MlvEditorLineHeight | MlvEditorLink, MlvEditorTable |
+MlvEditorBlockInsert | MlvEditorImageUpload`.
+
+- **One declaration:** the internal (not exported)
+  `MlvEditorDefaultToolbarGroups` (`mlv-editor-default-toolbar-groups`,
+  `display: contents`) holds the list; `editor.html`'s toolbar template (docked
+  bar and selection bubble) and `MlvEditorToolbar`'s inline template both
+  render it. `editor-toolbar-groups.spec.ts` pins that the editor and the
+  standalone shell render the same control set.
+- **InlineMarks:** bold, italic, strike, underline, inline code (`toggleCode`,
+  `lucideCode`), subscript, superscript — each a command button gated by
+  command presence.
+  Every native built-in trigger is marked with `mlvEditorToolbarWidget`, so the
+  composite is one Tab stop; ArrowLeft/ArrowRight, Home, and End move between
+  enabled widgets and wrap. Built-in toolbar actions are icon-only Malva buttons
+  with localized accessible names and tooltips; the compact numeric zoom
+  percentage and the font-family / font-size values ("Serif", "16") remain
+  visible, each inside its trigger's name. Foreground color and highlight use distinct
+  projected icons while retaining separate `MlvColorPickerPopup` instances.
+  Consumer-projected direct or template controls must
+  likewise add `mlvEditorToolbarWidget`; it uses the editor-owned registry rather
+  than `mlvToolbarWidget`, whose nested provider is unavailable to projected
+  consumer declarations.
 
 The heading control is a Paragraph/H1-H6 menu, the list control is a
 Bullet/Ordered/Task menu, and alignment is a Left/Center/Right/Justify menu.
+With `MlvEditorHeadingAnchors` registered (command-presence check) and the
+caret in a heading, the heading menu ends with a separator and "Copy link to
+heading" (`copyHeadingLink()`, i18n `copyHeadingLink`) — the keyboard path to
+a heading link in an editable editor; disabled on a heading with no anchor.
 
 The heading trigger reports the block under the caret: `MlvButton.selected`
 paints it as active while the caret sits in a heading, and the glyph swaps from
@@ -443,9 +475,15 @@ Custom projected components can inject the
 public `MLV_EDITOR_TOOLBAR_CONTEXT`; each editor provides an isolated context.
 Direct projected start/end controls remain supported for the editor composite
 focus boundary. The toolbar observes its own available width through the Malva
-resize abstraction. On narrow surfaces, inline marks, alignment, and block
-commands move into the localized `More formatting` menu in logical DOM order
-while heading, lists, history, and zoom remain directly reachable. Overflow
+resize abstraction. On narrow surfaces (below 640px) font family, font size,
+the inline marks, Clear formatting, alignment, line height and the block
+inserts leave the row and appear in the localized `More formatting` menu in
+logical DOM order — "Font" and "Font size" submenus, bold … superscript, Clear
+formatting, the four alignments, a "Line height" submenu, blockquote, code
+block, horizontal rule — while history, zoom, heading, lists, colour,
+highlight, link, table and image upload remain directly reachable. The
+submenus share the toolbar menus' model (`MlvEditorStyleMenuModel`, internal),
+so they read, name and apply values the same way. Overflow
 omits commands that the active extension set did not register, then separately
 uses non-mutating `can()` checks for current-selection disabled state. When a
 narrow toolbar widens with overflow open, it closes the detached panel and
@@ -848,6 +886,258 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
   `hasPendingSuggestions`); suggestions dropped by intersecting edits are
   neither restored nor announced; `restoreCheckpoint()` while reviewing
   whole-doc-restores and ends the review.
+
+## Block IDs and heading anchors (2026-09, #514)
+
+Both opt-in, both off by default: the preset stays byte-identical without them.
+
+- **Switches:** `MlvEditor` inputs `blockIds` / `headingAnchors` (`BooleanInput`),
+  read once at creation like `placeholder`; ignored when `extensions` replaces
+  the preset — put the extensions in that array instead.
+- **Preset:** `mlvEditorDefaultExtensions({ blockIds, headingAnchors })` —
+  `true` = defaults, `Partial<options>` = configured; appended after the block
+  handle.
+- **Load-time writes** (the extension's create pass, or an `MlvEditor` value
+  load) emit no value and add no history entry; the stored value gains them
+  with the next user edit (`MLV_EDITOR_CREATE_NORMALIZATION_META`, internal,
+  marks the create pass for `MlvEditor`).
+- **Writes are AttrSteps only** (`setNodeAttribute`, empty step map), stored
+  marks re-pinned; appended to the root's history event, so one undo removes an
+  edit and its IDs / anchors. Each plugin skips only its own writes — a block
+  another plugin appends to one of them (StarterKit's trailing paragraph after
+  the create pass) is judged like any other.
+
+### Block IDs — `MlvEditorBlockId` (Tiptap extension)
+
+- Extension name `blockId`; global attribute `blockId` (default `null`,
+  `keepOnSplit: false`). HTML `data-block-id`, JSON `attrs.blockId`, Markdown
+  dropped (also from the whole-node HTML fallback) and regenerated on load.
+- **Options** (`MlvEditorBlockIdOptions`):
+  - `types: readonly string[] | 'blocks'` — default `'blocks'`: every block
+    type except `doc`, `text`, the top node, inline nodes and table
+    rows / cells / header cells (`tableRole`). Resolved when the schema is
+    built (the attribute must exist then).
+  - `generateId: () => string` — default 10 chars `[0-9a-z]` from
+    `crypto.getRandomValues`, rejection-sampled (no modulo bias). A collision is
+    re-minted; after 32 tries a `-N` suffix.
+  - `filterTransaction: ((tr) => boolean) | null` — `false` leaves a
+    transaction alone, and anything appended to a rejected root (remote
+    collaboration steps).
+  - `assignOnCreate: boolean` — default `true`; `false` disarms the plugin until
+    `ensureBlockIds()`.
+- **Command** `ensureBlockIds()`: whole-document plan in one transaction outside
+  history; arms the plugin.
+- **Rules** — per `appendTransaction` batch, only holders inside the changed
+  ranges are touched:
+  - a block with no ID gets one, anywhere in the document;
+  - a holder outside the ranges keeps its ID; in-range holders of it get new
+    ones (a pasted copy gets fresh IDs, the original keeps its own);
+  - transfer: an ID no longer held outside the ranges follows the content start
+    it labelled — Enter at the start of a non-empty block moves it to the
+    content half, cut + paste back restores it, Enter at a heading's start
+    (paragraph inserted above) leaves it on the heading, list items and their
+    paragraphs move together;
+  - otherwise the first holder in document order keeps it (Enter mid / end /
+    in an empty block: the upper half keeps it);
+  - duplicates that arrive through a filtered transaction stay until a local
+    edit reaches one holder, or `ensureBlockIds()`.
+- **Perf:** median ~0.15 ms per keystroke at 2,000 blocks, measured alone
+  (budget 1 ms). The spec guards it relative to ProseMirror applying the same
+  keystroke (the plugin must cost less), because a wall-clock bound failed
+  under the full parallel suite (1.67 ms median there).
+
+### Heading anchors — `MlvEditorHeadingAnchors` (Tiptap extension)
+
+- Extension name `headingAnchors`; heading attribute `anchor` — derived, never
+  parsed (a loaded or pasted `id` is ignored). Renders `id="<idPrefix><anchor>"`;
+  JSON `attrs.anchor`; Markdown none, recomputed identically on load.
+- **Options** (`MlvEditorHeadingAnchorOptions`):
+  - `idPrefix` — default `''`; give each editor on a page its own, or two
+    headings with the same text render the same `id`;
+  - `slugify` — default: NFKC → locale-free lower case → keep letters, marks,
+    numbers, whitespace and `-` → whitespace to `-` → collapse / trim `-`
+    (`Getting started` → `getting-started`, `Привет мир` → `привет-мир`); an
+    empty result means no anchor and no `id`;
+  - `filterTransaction` — as on block IDs.
+- **Dedupe** in document order: the first use of a
+  slug keeps it; a repeat takes `<slug>-N` from a per-slug counter, re-checked
+  against slugs already taken — `Intro`, `Intro`, `Intro 1` → `intro`,
+  `intro-1`, `intro-1-1`. Only later headings get suffixes, so adding a heading
+  never renames one above it. Suffixes follow github-slugger's order; the
+  slugs themselves differ from GitHub's (`_` is stripped, `-` runs collapse,
+  NFKC is applied), so a link copied from GitHub-rendered Markdown need not
+  resolve here.
+- **Recompute:** whole document, in `appendTransaction`, on any relevant doc
+  change (suffixes below an edit shift); slugs memoized per text, bound
+  `max(512, 2 × live headings)`, so a recompute of unchanged headings hits at
+  any document size.
+- **Commands:** `copyHeadingLink()` — the caret heading's link; fails outside a
+  heading, for a heading with no anchor, and while no host wired the copy
+  callback. `ensureHeadingAnchors()` — recompute outside history (a
+  collaborative editor after its first sync).
+- **Copy-link widget:**
+  - ProseMirror widget at the heading's inline end (`side: 1`,
+    `ignoreSelection`, `stopEvent`): `button.mlv-editor__heading-link`
+    (`type="button"`, `contenteditable="false"`) with an inline Lucide link SVG
+    (`__heading-link-icon`, `aria-hidden`). Never a document node, never
+    serialized, `user-select: none`.
+  - Name: i18n `copyHeadingLink` ("Copy link to heading"); re-rendered on a
+    language switch.
+  - `tabindex="0"` while not editable (readonly), `-1` while editable (keyboard
+    path: the heading menu item); not rendered while disabled.
+  - Shown on heading hover, `:focus-within`, its own `:focus-visible`, and while
+    the caret sits in the heading of a focused editor (node decoration
+    `.mlv-editor__heading--caret`, beside the `.mlv-editor__heading` element
+    class every heading of a mounted view carries). Under `(hover: none)` the
+    readonly button is always shown, so a touch reader never meets an invisible
+    hit target, and the editable one takes taps only while shown (caret in its
+    heading of a focused editor): otherwise `pointer-events: none`, so the tap
+    reaches the heading text and places the caret. Opacity fade, instant under
+    reduced motion;
+    1.5rem target (WCAG 2.5.8) with a negative block margin so a small heading's
+    line does not grow; logical margin; glyph not mirrored.
+  - Sits inside the heading element (spec). **Editable:** the button is
+    `aria-hidden="true"` (it is no tab stop, and the heading menu item is the
+    keyboard path), so the heading's name is its text alone. **Readonly:** it
+    stays a named tab stop in the tree, so the heading's name includes it
+    ("Getting started Copy link to heading"), the Docusaurus trade-off; a
+    sibling placement would keep it out — follow-up. Measured in Chromium 153
+    (CDP `Accessibility.getFullAXTree`): editable heading "Getting started"
+    (was "Getting started Copy link to heading"), readonly unchanged. Pinned by
+    unit specs (attribute across `setEditable`, axe in both modes) and
+    `e2e/editor-heading-links.spec.ts` (native names).
+  - Click → copy → on success a polite `LiveAnnouncer` message, i18n
+    `headingLinkCopied` ("Link copied"); a failed copy announces nothing.
+- **Host wiring:** `MlvEditorHeadingAnchorStorage` — `MlvEditor` fills it in
+  `onBeforeCreate` for every editor it creates with the extension, consumer
+  arrays included. No host: no widget, and `copyHeadingLink()` fails.
+  - `copy(link): boolean` — returns whether the copy succeeded; only a success
+    announces (`copyHeadingLink()` still returns `true` once it ran the copy);
+  - `announce()`, `label()` (the button name, re-read on a language switch);
+  - `disabled(): boolean` — read by the widget decorations, so a disabled host
+    renders no button (spec: hidden while disabled).
+- **Links:** `MLV_EDITOR_HEADING_LINKS` (`MlvEditorHeadingLinks.href({ anchor,
+id })`), `provideMlvEditorHeadingLinks(links)`. Root default: `origin +
+pathname + search + '#' + encodeURIComponent(id)` from the injected
+  `DOCUMENT`, read at click time only (SSR-safe; a custom `slugify` may return
+  characters a raw fragment cannot carry, and browsers decode the fragment
+  before matching an `id`).
+
+### Serialization
+
+| Feature            | HTML                                                    | JSON                     | Markdown                                                   |
+| ------------------ | ------------------------------------------------------- | ------------------------ | ---------------------------------------------------------- |
+| Block ID           | `data-block-id`                                         | `attrs.blockId`          | dropped; regenerated on load                               |
+| Heading anchor     | heading `id` (with prefix)                              | `attrs.anchor` (derived) | none; recomputed identically on load                       |
+| Font family / size | `<span style="font-family…; font-size…">`               | `textStyle` attrs        | inline `<span style>` (colour, family, size in that order) |
+| Line height        | `style="line-height"` on the block                      | block `attrs.lineHeight` | whole-node HTML fallback                                   |
+| Highlight          | `<mark>` (a `background-color` span also parses)        | `highlight` mark         | existing `<mark style>`                                    |
+| Sub / sup          | `<sub>` / `<sup>` (a `vertical-align` span also parses) | marks                    | inline `<sub>` / `<sup>`                                   |
+| Inline code        | `<code>`                                                | `code` mark              | backticks (unchanged)                                      |
+
+### AI interplay
+
+- Empty step maps: a review suggestion survives ID / anchor writes — a
+  block-region review keeps its suggestion while its inserted blocks, and blocks
+  inserted elsewhere, get IDs; reject restores the original blocks with their
+  IDs.
+- The stream engine skips reactions to its own writes, so a block-inserting
+  stream commits with every block identified once.
+- A heading rewrite recomputes the anchor on application, keeps it on accept,
+  reverts it on reject.
+- Pinned by `ai/editor-ai-block-ids.spec.ts`; its review spec goes red when IDs
+  are written with `setNodeMarkup` (the upstream `UniqueID` way).
+
+### i18n
+
+Optional `MlvEditorI18n` keys, in all 14 packs: `copyHeadingLink`,
+`headingLinkCopied` (this section); `inlineCode`, `subscript`, `superscript`,
+`clearFormatting`, `fontFamily`, `fontSize`, `lineHeight`, `defaultStyle`,
+`fontFamilySans`, `fontFamilySerif`, `fontFamilyMono`, `styleValue` (ICU
+`{label}: {value}`, the text-style trigger names) (text-style controls, #514).
+
+## Text styles (2026-09, #514)
+
+Font family, font size, block line height, sub / superscript, inline code and
+Clear formatting. Serialization rows: see _Block IDs and heading anchors →
+Serialization_.
+
+### Extensions (formatting preset, `mlvEditorFormattingExtensions`)
+
+- **Font family / size:** Tiptap's `FontFamily` / `FontSize`
+  (`@tiptap/extension-text-style`), like `Color` wrapped so an absent inline
+  style reads `null`, not `''` (a pasted colour span no longer stores empty
+  `fontFamily` / `fontSize`).
+- **`MlvEditorBlockLineHeight`** (`blockLineHeight`): block attribute
+  `lineHeight` on `types` (`MlvEditorBlockLineHeightOptions`, default
+  `['heading', 'paragraph']`; preset option `lineHeightTypes`), rendered as
+  `style="line-height: <v>"`. `setBlockLineHeight(v)` / `unsetBlockLineHeight()`
+  act on every selected textblock of a configured type, fail when none. Not
+  Tiptap's inline `LineHeight` (an inline value cannot shrink a line box).
+- **`MlvEditorSubscript` / `MlvEditorSuperscript`:** `<sub>` / `<sup>` and
+  `span[style*="vertical-align"]` (`sub` / `super`, Docs paste); each
+  `excludes` the other; `set` / `toggle` / `unset` commands; `Mod-,` / `Mod-.`.
+  Markdown writes inline `<sub>` / `<sup>` and `@tiptap/markdown`'s HTML path
+  reads it back — no tokenizer, allowlist unchanged. HTML with `<sub>` /
+  `<sup>` used to fail a strict load (`parse`); it loads now.
+- **`MlvEditorResetFormatting`:** `resetFormatting()` removes every mark but
+  `link` (consumer marks included) from the selection, or clears non-link
+  stored marks at a caret; block type, alignment and line height untouched.
+  Not `unsetAllMarks`, which drops the link.
+- **Inline code:** StarterKit's `toggleCode`; nothing new.
+
+### Parsing
+
+- **Markdown span:** one `<span style>` carries colour, font family and font
+  size, in that fixed order; a block with a line height falls back to
+  whole-node HTML (the aligned-block path).
+- **Highlight** also parses `span[style*="background-color"]`
+  (`consuming: false`); a span with colour and background keeps both marks.
+- **No empty text style:** a span whose style another mark fully owns
+  (`background-color`, `vertical-align`) creates no `textStyle`.
+- **Strict load** (`enableContentCheck` + `errorOnInvalidContent`, which
+  `MlvEditor` uses): upstream's text-style rule does not consume its span, so
+  Tiptap's catch-all rule flagged every `<span style>` — colour spans the
+  editor itself wrote came back as `parse` errors and a `null` value (pre-#514
+  too). Two internal rules now run first (`storedStyleSpanRules`): a span whose
+  whole style the schema stores is consumed by `textStyle`, or skipped when
+  only other marks store it. A span with any unstored declaration (e.g.
+  `letter-spacing`) or another attribute (`class`) still fails, so nothing is
+  dropped silently. Only marks ordered before `textStyle` count as storing a
+  property.
+
+### Toolbar controls
+
+- `MlvEditorFontFamily` / `MlvEditorFontSize` / `MlvEditorLineHeight`
+  (`mlv-editor-font-family` / `-font-size` / `-line-height`) and
+  `MlvEditorClearFormatting` (`mlv-editor-clear-formatting`,
+  `lucideRemoveFormatting`, runs `resetFormatting()`). Each is gated by
+  command presence and `can()`.
+- **Menus** (the `MlvEditorHeading` pattern: `mlvButton` trigger, `mlv-menu`,
+  `mlvMenuItem`): "Default" first (unsets), then the options, the current one
+  `aria-current="true"`; a font item's label renders in its own family. The
+  menu registers with the editor's overlay registry, so the selection bubble
+  stays up while it is open.
+- **Triggers:** family and size show their value as text ("Serif", "16" — a
+  `px` size loses its unit; a value outside the options shows the first family
+  / the raw size), else "Default"; line height is a `lucideUnfoldVertical`
+  icon. Name = i18n `styleValue` ICU `{label}: {value}` ("Font size: 16"),
+  never concatenated in code, so the name contains the visible text (WCAG
+  2.5.3); the tooltip repeats it.
+- **Current value:** read at the selection start (`textStyle` attrs, or the
+  block attribute). Font families match family by family, unquoted, trimmed
+  and lower-cased on both sides (`mlvEditorFontFamilyKey`), because Chromium
+  re-quotes a stored stack (`'Times New Roman'` → `"Times New Roman"`).
+- **Option lists:** `MLV_EDITOR_TEXT_STYLES` (root) /
+  `provideMlvEditorTextStyles(partial)` (omitted fields keep defaults):
+
+  | Field                                                        | Default                                                                                                                                                                                         |
+  | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `fontFamilies: readonly MlvEditorFontFamilyOption[] \| null` | `null` = localized Sans serif `ui-sans-serif, system-ui, sans-serif`, Serif `ui-serif, Georgia, 'Times New Roman', serif`, Monospace `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` |
+  | `fontSizes: readonly string[]`                               | `12px 14px 16px 18px 20px 24px 30px 36px`                                                                                                                                                       |
+  | `lineHeights: readonly string[]`                             | `1 1.15 1.5 2`                                                                                                                                                                                  |
+
+- Narrow mode and the default order: see _Toolbar modules_.
 
 ## Nullable serialization
 

@@ -356,7 +356,18 @@ test.describe('Editor layout [/editor]', () => {
   }) => {
     const scope = await gotoExample(mlv, TABLE_ZOOM_EXAMPLE);
     await scope.getByRole('button', { name: '125%' }).click();
+    await expect
+      .poll(() =>
+        scope
+          .locator('mlv-editor')
+          .evaluate((host) =>
+            getComputedStyle(host).getPropertyValue('--mlv-editor-zoom').trim(),
+          ),
+      )
+      .toBe('1.25');
     const paragraph = scope.locator('mlv-editor .ProseMirror p').first();
+    // Deferred examples above can still shift the page; measure on screen.
+    await paragraph.scrollIntoViewIfNeeded();
     const point = await paragraph.evaluate((element) => {
       const text = element.firstChild as Text;
       const range = document.createRange();

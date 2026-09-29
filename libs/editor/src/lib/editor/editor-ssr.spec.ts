@@ -90,4 +90,32 @@ describe('MlvEditor SSR safety', () => {
     expect(readonly).not.toContain('role="toolbar"');
     expect(readonly).not.toContain('mlv-editor--toolbar-sticky');
   });
+
+  it('server-renders block IDs and heading anchors as the shell, with no copy-link button', async () => {
+    @Component({
+      selector: 'mlv-editor-ssr-anchors-host',
+      imports: [MlvEditor],
+      template: `
+        <mlv-editor
+          label="Body"
+          blockIds
+          headingAnchors
+          readonly
+          value="<h2>Getting started</h2><p>Body</p>"
+        />
+      `,
+    })
+    class SsrAnchorsHost {}
+
+    const html = await renderOnServer(
+      SsrAnchorsHost,
+      'mlv-editor-ssr-anchors-host',
+    );
+
+    // Both extensions live inside the browser-only Tiptap instance; the
+    // server emits the shell and never builds a copy-link button.
+    expect(html).toContain('<mlv-editor');
+    expect(html).not.toContain('mlv-editor__heading-link');
+    expect(html).not.toContain('ProseMirror');
+  });
 });

@@ -114,6 +114,106 @@ export interface MlvEditorI18n {
    * falls back to English when it is missing. Every shipped pack declares it.
    */
   placeholder?: string;
+  /**
+   * Inline-code mark button label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  inlineCode?: string;
+  /**
+   * Subscript mark button label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  subscript?: string;
+  /**
+   * Superscript mark button label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  superscript?: string;
+  /**
+   * Clear-formatting button label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  clearFormatting?: string;
+  /**
+   * Font-family menu label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  fontFamily?: string;
+  /**
+   * Font-size menu label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  fontSize?: string;
+  /**
+   * Line-height menu label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  lineHeight?: string;
+  /**
+   * Default (unset) option label in the font, size and line-height menus.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  defaultStyle?: string;
+  /**
+   * Built-in sans-serif font family label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  fontFamilySans?: string;
+  /**
+   * Built-in serif font family label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  fontFamilySerif?: string;
+  /**
+   * Built-in monospace font family label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  fontFamilyMono?: string;
+  /**
+   * Copy-link-to-heading button and menu item label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  copyHeadingLink?: string;
+  /**
+   * Heading-link-copied announcement.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  headingLinkCopied?: string;
+  /**
+   * Accessible name of a style menu trigger that shows its current value
+   * ("Font size: 16"). ICU with `label` (the menu label) and `value` (the
+   * current value, or the default-style label).
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  styleValue?: string;
 }
 
 /** Signal token for the rich-text editor's translated copy. */
@@ -678,5 +778,83 @@ export const MLV_EDITOR_I18N_CONTEXT: Record<
     usage: 'placeholder',
     description:
       'Placeholder shown in an empty rich-text editor, inviting the user to write',
+  },
+  inlineCode: {
+    component: 'mlv-editor-inline-marks',
+    usage: 'aria-label',
+    description: 'Inline-code mark button',
+  },
+  subscript: {
+    component: 'mlv-editor-inline-marks',
+    usage: 'aria-label',
+    description: 'Subscript mark button',
+  },
+  superscript: {
+    component: 'mlv-editor-inline-marks',
+    usage: 'aria-label',
+    description: 'Superscript mark button',
+  },
+  clearFormatting: {
+    component: 'mlv-editor-clear-formatting',
+    usage: 'aria-label',
+    description:
+      'Button that removes every text mark except links from the selection',
+  },
+  fontFamily: {
+    component: 'mlv-editor-font-family',
+    usage: 'aria-label',
+    description:
+      'Font family menu; the trigger name also carries the current family',
+  },
+  fontSize: {
+    component: 'mlv-editor-font-size',
+    usage: 'aria-label',
+    description:
+      'Font size menu; the trigger name also carries the current size',
+  },
+  lineHeight: {
+    component: 'mlv-editor-line-height',
+    usage: 'aria-label',
+    description: 'Block line-height menu',
+  },
+  defaultStyle: {
+    component: 'mlv-editor-font-family',
+    usage: 'label',
+    description:
+      'First item of the font, size and line-height menus; it removes the explicit value so the default applies',
+  },
+  fontFamilySans: {
+    component: 'mlv-editor-font-family',
+    usage: 'label',
+    description: 'Built-in sans-serif font family option',
+  },
+  fontFamilySerif: {
+    component: 'mlv-editor-font-family',
+    usage: 'label',
+    description: 'Built-in serif font family option',
+  },
+  fontFamilyMono: {
+    component: 'mlv-editor-font-family',
+    usage: 'label',
+    description: 'Built-in monospace font family option',
+  },
+  copyHeadingLink: {
+    component: 'mlv-editor',
+    usage: 'aria-label',
+    description:
+      'Button beside a heading, and heading-menu item, that copies a link to that heading',
+  },
+  headingLinkCopied: {
+    component: 'mlv-editor',
+    usage: 'live-announcement',
+    description:
+      'Polite screen-reader announcement after a heading link is copied to the clipboard',
+  },
+  styleValue: {
+    component: 'mlv-editor-font-size',
+    usage: 'aria-label',
+    description:
+      'Name of the font family, font size and line-height menu triggers: the menu label followed by the value the trigger shows; keep the value last so the visible text stays part of the name',
+    icuParams: ['label', 'value'],
   },
 };

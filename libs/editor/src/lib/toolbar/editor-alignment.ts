@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   inject,
   ViewEncapsulation,
@@ -20,6 +21,7 @@ import {
   MLV_EDITOR_TOOLBAR_REVISION,
 } from '../editor-toolbar-context';
 import type { MlvEditorOverlayRegistry } from '../editor-toolbar-context';
+import { MlvEditorToolbarRoot } from './editor-toolbar-root';
 import { MlvEditorToolbarWidget } from './editor-toolbar-widget';
 
 /** Left, center, right, and justified paragraph alignment commands in a menu. */
@@ -71,7 +73,7 @@ import { MlvEditorToolbarWidget } from './editor-toolbar-widget';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mlv-editor-alignment',
-    '[hidden]': '!_supported()',
+    '[hidden]': '_hidden()',
   },
 })
 export class MlvEditorAlignment {
@@ -156,6 +158,23 @@ export class MlvEditorAlignment {
       this._context.isActive('heading', { textAlign: alignment })
     );
   }
+
+  /**
+   * @private Enclosing toolbar root. Resolved only inside the root's own view
+   * (the default groups of the docked bar, the bubble and the standalone
+   * shell); a control in a consumer toolbar template or projected into the
+   * shell is declared outside it, gets `null` and never hides for narrow mode.
+   */
+  private readonly _root = inject(MlvEditorToolbarRoot, { optional: true });
+
+  /**
+   * @protected Sole owner of the host `hidden`: unsupported by the extension
+   * set, or moved into the narrow overflow. One binding, so a narrow → wide
+   * change cannot re-show a control its editor cannot run.
+   */
+  protected readonly _hidden = computed(
+    () => !this._supported() || (this._root?.narrow() ?? false),
+  );
 
   /** @protected Whether alignment is registered by the active extension set. */
   protected _supported(): boolean {
