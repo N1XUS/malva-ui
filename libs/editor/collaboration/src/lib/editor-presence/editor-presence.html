@@ -1,0 +1,16 @@
+@if (_active()) {
+  <div class="mlv-editor-presence__peers">
+    <span class="cdk-visually-hidden">{{ _count() }}</span>
+    @if (_members().length) {
+      <mlv-avatar-group [members]="_members()" size="s" />
+    }
+  </div>
+  @if (showStatus()) {
+    @if (_statusView(); as view) {
+      <span class="mlv-editor-presence__status">
+        <mlv-status-indicator [tone]="view.tone" />
+        <span class="mlv-editor-presence__status-text">{{ view.text }}</span>
+      </span>
+    }
+  }
+}

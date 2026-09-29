@@ -20,6 +20,8 @@
     "ai/src/**/*.test.ts",
     "ai/src/**/*.spec.ts",
     "ai/src/**/*.d.ts",
+    "collaboration/src/**/*.test.ts",
+    "collaboration/src/**/*.spec.ts",
     "src/**/*.test.tsx",
     "src/**/*.spec.tsx",
     "src/**/*.test.js",

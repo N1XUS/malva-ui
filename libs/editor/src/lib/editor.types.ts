@@ -47,11 +47,16 @@ export type MlvEditorToolbarAppearance = 'bar' | 'floating';
 /** Origin of an image file supplied to the editor. */
 export type MlvEditorImageUploadSource = 'button' | 'paste' | 'drop';
 
-/** Decides whether an uploaded image URL is safe to insert into the editor. */
+/**
+ * Decides whether an image URL is safe: an uploaded one to insert, or — in a
+ * collaborating editor — a stored one, resolved to an absolute href, to fetch
+ * in the editing view. See `MlvEditorImageUploadOptions.urlPolicy`.
+ */
 export type MlvEditorImageUrlPolicy = (url: string) => boolean;
 
 /**
- * Default image URL policy used by the editor upload coordinator.
+ * Default image URL policy used by the editor upload coordinator, and by a
+ * collaborating editor's view when the host sets no `urlPolicy`.
  *
  * Only absolute HTTP(S) URLs with a hostname and without credentials are
  * accepted. Leading and trailing whitespace is ignored, while whitespace or
@@ -93,6 +98,14 @@ export interface MlvEditorSelectionChange {
   readonly transaction: Transaction;
 }
 
+/**
+ * Where a transaction came from. `'remote'` means it was applied from the
+ * collaboration session: a peer's update, a seed, or the first render of the
+ * shared document. A local Y undo or redo is `'local'`. Without
+ * collaboration every transaction is `'local'`.
+ */
+export type MlvEditorTransactionOrigin = 'local' | 'remote';
+
 /** Details emitted for every Tiptap transaction. */
 export interface MlvEditorTransactionEvent {
   /** Editor that produced the transaction. */
@@ -100,6 +113,13 @@ export interface MlvEditorTransactionEvent {
 
   /** Tiptap transaction emitted by the editor. */
   readonly transaction: Transaction;
+
+  /**
+   * Origin of the root transaction; always `'local'` without collaboration.
+   * A remote transaction's step is one whole-document `ReplaceStep`, so code
+   * inspecting `transaction.steps` branches on this first.
+   */
+  readonly origin: MlvEditorTransactionOrigin;
 }
 
 /** Details emitted when the editor receives or loses focus. */
@@ -182,7 +202,20 @@ export interface MlvEditorImageUploadOptions {
   /** Maximum number of files accepted in one upload action. */
   readonly maxFiles: number;
 
-  /** Optional host policy replacing the default uploaded-image URL decision. */
+  /**
+   * Optional host policy replacing `mlvEditorDefaultImageUrlPolicy`. It is
+   * called with two shapes of URL:
+   * - by the upload coordinator, with the `src` the uploader returned,
+   *   exactly as returned (possibly relative, e.g. `/uploads/a.png`);
+   * - by a collaborating editor (`mlvEditorCollaboration`), for every image
+   *   in its editing view, with the stored `src` resolved against the
+   *   document's `baseURI` — always an absolute href
+   *   (`https://app.example/uploads/a.png`). A refused image is withheld from
+   *   the editing view only; serialization keeps its `src`.
+   *
+   * Parse the argument with `new URL(url)` rather than prefix-matching a raw
+   * path, so both shapes are judged alike. A policy that throws refuses.
+   */
   readonly urlPolicy?: MlvEditorImageUrlPolicy;
 }
 
@@ -307,6 +340,11 @@ export interface MlvEditorImageUploadCancelled {
  * `'ai-result'` reports AI output that could not be used. Both restore the
  * document to its pre-request checkpoint; cancellation is silent and never
  * emits an error.
+ *
+ * `'collaboration'` reports a collaboration session failure: the transport
+ * errored or completed, the first sync timed out, the shared document failed
+ * the schema check, an external `value` write was ignored, or an inbound
+ * frame could not be decoded.
  */
 export type MlvEditorErrorCode =
   | 'configuration'
@@ -317,7 +355,8 @@ export type MlvEditorErrorCode =
   | 'upload-transport'
   | 'upload-result'
   | 'ai-transport'
-  | 'ai-result';
+  | 'ai-result'
+  | 'collaboration';
 
 /** Structured error emitted instead of throwing through Angular change detection. */
 export interface MlvEditorError {

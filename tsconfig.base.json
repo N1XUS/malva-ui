@@ -19,6 +19,9 @@
       "@malva-ui/i18n": ["libs/i18n/src/index.ts"],
       "@malva-ui/editor": ["libs/editor/src/index.ts"],
       "@malva-ui/editor/ai": ["libs/editor/ai/src/index.ts"],
+      "@malva-ui/editor/collaboration": [
+        "libs/editor/collaboration/src/index.ts"
+      ],
       "@malva-ui/i18n/de": ["libs/i18n/de/src/index.ts"],
       "@malva-ui/i18n/en": ["libs/i18n/en/src/index.ts"],
       "@malva-ui/i18n/es": ["libs/i18n/es/src/index.ts"],

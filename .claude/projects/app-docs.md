@@ -699,9 +699,10 @@ semantic captions and headings plus responsive, token-driven table styling.
 
 The editor family owns a standalone **Editor** sidebar group (`id: 'editor'`,
 icon `scroll-text`, declared in `GROUP_DEFINITIONS` directly after `forms`)
-containing two pages: **Editor** (`/editor`) and **AI Kit** (`/editor-ai`,
-label override `AI Kit`, icon `sparkles`). The editor page is no longer in the
-Forms group.
+containing three pages, in label order: **AI Kit** (`/editor-ai`, label
+override `AI Kit`, icon `sparkles`), **Collaboration**
+(`/editor-collaboration`, icon `users`) and **Editor** (`/editor`). The editor
+page is no longer in the Forms group.
 
 The `/editor` page provides twelve live examples from the grouped
 `@malva-ui/editor` entry point. It covers nullable direct HTML and
@@ -720,6 +721,30 @@ show that switching never constructs a second editor. Route, navigation,
 source-import, lazy-component, and API-resolution contracts are asserted by the
 editor page spec; API extraction resolves the standalone `editor` package root
 (`{ family: 'editor', entry: '' }` → `libs/editor/src/index.ts`).
+
+### Editor Collaboration page (#515)
+
+The `/editor-collaboration` page (title `Collaboration`) documents
+`@malva-ui/editor/collaboration`. API target `{ family: 'editor', entry:
+'collaboration' }` → `libs/editor/collaboration/src/index.ts`; title map entry
+`Collaboration: 'editor-collaboration'` in `doc-page.component.ts`.
+
+- Example 1 — split view over an in-page relay: two editors (Ada, Grace) on one
+  `LocalRelay` (120 ms delivery), each with `mlv-editor-presence` in
+  `mlvEditorStatus` and an "online" `mlv-switch` that drives the transport's
+  `connected` / `disconnected`.
+- Example 2 — across browser tabs: a `BroadcastChannel` transport
+  (`relay = true`, `collaborationSyncTimeout` 1.5 s, a random name per tab).
+  A lone tab reports offline and stays empty and read-only until a second tab
+  arrives.
+- Both transports are inline in the example's `index.ts` (no shared file), so
+  each lifts into a StackBlitz project as it stands; both subscribe to
+  `context.outbound` before emitting `connected`.
+- Page spec `pages/editor-collaboration/index.spec.ts`: registration, metadata,
+  navigation, lazy load, and a source guard (both entry points imported, no
+  relative import, `extends MlvEditorCollaborationTransport`, `relay = true`).
+- E2e: `libs/editor/e2e/editor-collaboration.spec.ts` drives example 2 with two
+  pages of one browser context.
 
 ### Editor AI Kit page
 
@@ -1465,7 +1490,9 @@ the client, mirroring the MDX transform.
 - **Page → library mapping:** each typed `docsPages` manifest entry declares
   its `{ family, entry }` API target. Most core pages use their own path;
   aliases such as `form-field` → `form-utils`, package-root families such as
-  `editor` and `editor-ai` → `{ family: 'editor', entry: '' }`, and pages
+  `editor` and `editor-ai` → `{ family: 'editor', entry: '' }`, secondary
+  entries such as `editor-collaboration` → `{ family: 'editor', entry:
+'collaboration' }`, and pages
   without API entries are explicit in the same manifest.
 - **What is extracted:** every public export of the barrel, classified as
   component / directive / pipe / service / token / type / interface / class. For classes it reads

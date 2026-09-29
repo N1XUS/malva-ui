@@ -1,0 +1,28 @@
+---
+title: Across browser tabs
+---
+
+The same editor over a `BroadcastChannel` transport. Open this page in a
+second tab of the same browser: each tab joins one channel named after
+`collaborationDocumentId`, and edits, carets and presence flow between them.
+The transport is about twenty lines — open a channel, subscribe to the
+outbound frames, emit `connected`, forward inbound messages, close on
+unsubscribe — and it is the whole contract a WebSocket, WebRTC or pub/sub
+transport meets too. Subscribe before emitting `connected`: the handshake
+goes out the moment `connected` arrives, and a transport that reports it
+first loses it and never syncs.
+
+A tab waits for its first sync before it lets the user edit, so two clients
+never fork the seed. A relay has no server to answer, so a tab that is alone
+on the channel has nobody to sync with: after `collaborationSyncTimeout`
+(1.5 s here, 10 s by default) it reports offline and stays empty and
+read-only, since the seed lands only at a first sync, and it syncs and turns
+editable as soon as a second tab arrives. With a stateful server that
+answers every client, the wait ends at the first round trip.
+
+Every peer's name and colour are validated on receipt: a name is trimmed and
+capped, a colour must be `#rrggbb` or falls back to the palette
+(`MLV_EDITOR_COLLABORATION_COLORS`), and both reach the page only as text or a
+custom property. Content arriving from a peer passes the same image URL policy
+as local input. None of this authenticates anyone: who may join a document is
+the transport's decision.

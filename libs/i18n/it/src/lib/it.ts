@@ -297,6 +297,25 @@ const it: MlvLanguage = {
     copyHeadingLink: 'Copia collegamento al titolo',
     headingLinkCopied: 'Collegamento copiato',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Connessione in corso…',
+    collaborationSyncing: 'Sincronizzazione in corso…',
+    collaborationSynced: 'Tutte le modifiche sincronizzate',
+    collaborationOffline:
+      'Offline. Le modifiche verranno sincronizzate alla riconnessione.',
+    collaborationClosed:
+      'Collaborazione terminata. Il documento è di sola lettura.',
+    collaborationFailed:
+      'Collaborazione non riuscita. Il documento è di sola lettura.',
+    collaborationPeers:
+      '{count, plural, one {# altra persona qui} other {# altre persone qui}}',
+    collaborationPresenceLabel: 'Collaboratori',
+    collaborationViewing: '{name} (in visualizzazione)',
+    collaborationAnonymous: 'Anonimo',
+    collaborationMoveCancelled:
+      'Spostamento del blocco annullato: un’altra persona ha modificato il documento.',
+    collaborationBackOnline: 'Di nuovo online. Modifiche sincronizzate.',
+    collaborationSyncTimeout:
+      'Il documento non è ancora sincronizzato. Potrai modificarlo appena lo sarà.',
   },
   fileUpload: {
     selectedFiles: 'File selezionati',

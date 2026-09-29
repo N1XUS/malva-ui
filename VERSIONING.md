@@ -403,12 +403,12 @@ The workspace pins Angular exactly for reproducible builds
 (`package.json` → `@angular/core: 22.1.7`). `scripts/widen-peer-range.mjs`
 widens each exact pin before publish, at one of **two widths**:
 
-| Peer                                                         | Published range               | Example              |
-| ------------------------------------------------------------ | ----------------------------- | -------------------- |
-| `@angular/*` — `core`, `common`, `forms`, `cdk`, `aria`      | `^<major>.0.0`                | `22.1.5` → `^22.0.0` |
-| Every other exact pin — the twelve `@tiptap/*`, `sortablejs` | `^<major>.<minor>.0`          | `3.29.2` → `^3.29.0` |
-| Ranges the root already expresses                            | untouched                     | `^1.25.0`, `~7.8.0`  |
-| `@malva-ui/*` siblings                                       | exact — they release together | `0.1.12`             |
+| Peer                                                           | Published range               | Example              |
+| -------------------------------------------------------------- | ----------------------------- | -------------------- |
+| `@angular/*` — `core`, `common`, `forms`, `cdk`, `aria`        | `^<major>.0.0`                | `22.1.5` → `^22.0.0` |
+| Every other exact pin — the thirteen `@tiptap/*`, `sortablejs` | `^<major>.<minor>.0`          | `3.29.2` → `^3.29.0` |
+| Ranges the root already expresses                              | untouched                     | `^1.25.0`, `~7.8.0`  |
+| `@malva-ui/*` siblings                                         | exact — they release together | `0.1.12`             |
 
 **The Angular floor is the major, never the minor.** The workspace's Angular
 minor does not reach the published range at all, so there is no such thing as a
@@ -470,7 +470,7 @@ Other rules that hold regardless:
   aspirational rather than tested.
 - The same widths apply to `@angular/cdk`, `@angular/aria`, `@angular/common`
   and `@angular/forms` — they version-lock to Angular's major — while
-  `@lucide/angular`, `rxjs` and the twelve `@tiptap/*` peers of
+  `@lucide/angular`, `rxjs` and the thirteen `@tiptap/*` peers of
   `@malva-ui/editor` keep the minor floor. Tiptap makes no additive-minor
   promise, and a `@tiptap/*` peer resolved at `3.0.0` predates APIs the build
   uses.
@@ -481,6 +481,14 @@ Other rules that hold regardless:
   which the widened `@tiptap/*` range cannot express. The view floor is 1.42.5,
   not the advisory’s 1.42.3, because it is the first view release that pairs
   with model ≥ 1.25.12. Raising either is a Malva major.
+- `@malva-ui/editor` also declares the collaboration stack by hand (#515):
+  `yjs: ^13.6.33`, `y-protocols: ^1.0.7`, `@tiptap/y-tiptap: ^3.0.9` and
+  `prosemirror-state: ^1.4.4`. `widenPeerRange` would widen the `3.0.9` pin
+  to `^3.0.0`, below the `^3.0.7` that `@tiptap/extension-collaboration`
+  itself requires, and `prosemirror-state` must be the one copy
+  `@tiptap/pm` resolves. Each floor is the workspace pin. `lib0` is a
+  `dependencies` entry (`^0.2.100`), not a peer. Raising any of the four
+  peer floors is a Malva major.
 
 `scripts/widen-peer-range.spec.mjs` pins all of this, including that moving the
 workspace's Angular minor leaves the published range unchanged. It runs as part

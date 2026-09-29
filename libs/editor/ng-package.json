@@ -4,5 +4,5 @@
   "lib": {
     "entryFile": "src/index.ts"
   },
-  "allowedNonPeerDependencies": ["^@malva-ui/"]
+  "allowedNonPeerDependencies": ["^@malva-ui/", "lib0"]
 }

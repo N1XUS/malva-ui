@@ -64,7 +64,7 @@ describe('documentation page manifest', () => {
     });
   });
 
-  it('gives the editor family its own sidebar group with the AI Kit page', () => {
+  it('gives the editor family its own sidebar group with the AI Kit and Collaboration pages', () => {
     const forms = docsNavigationGroups.find((group) => group.id === 'forms');
     const editorGroup = docsNavigationGroups.find(
       (group) => group.id === 'editor',
@@ -74,6 +74,7 @@ describe('documentation page manifest', () => {
     expect(editorGroup?.label).toBe('Editor');
     expect(editorGroup?.items.map((item) => item.label)).toEqual([
       'AI Kit',
+      'Collaboration',
       'Editor',
     ]);
 

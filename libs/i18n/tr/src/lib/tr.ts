@@ -290,6 +290,23 @@ const tr: MlvLanguage = {
     copyHeadingLink: 'Başlık bağlantısını kopyala',
     headingLinkCopied: 'Bağlantı kopyalandı',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Bağlanıyor…',
+    collaborationSyncing: 'Eşitleniyor…',
+    collaborationSynced: 'Tüm değişiklikler eşitlendi',
+    collaborationOffline:
+      'Çevrimdışı. Değişiklikler yeniden bağlandığınızda eşitlenecek.',
+    collaborationClosed: 'Ortak çalışma sona erdi. Belge salt okunur.',
+    collaborationFailed: 'Ortak çalışma başarısız oldu. Belge salt okunur.',
+    collaborationPeers:
+      '{count, plural, one {Burada # kişi daha var} other {Burada # kişi daha var}}',
+    collaborationPresenceLabel: 'Ortak çalışanlar',
+    collaborationViewing: '{name} (görüntülüyor)',
+    collaborationAnonymous: 'Anonim',
+    collaborationMoveCancelled:
+      'Blok taşıma iptal edildi: başka biri belgeyi değiştirdi.',
+    collaborationBackOnline: 'Yeniden çevrimiçi. Değişiklikler eşitlendi.',
+    collaborationSyncTimeout:
+      'Belge henüz eşitlenmedi. Eşitlendiğinde düzenleyebilirsiniz.',
   },
   fileUpload: {
     selectedFiles: 'Seçili dosyalar',

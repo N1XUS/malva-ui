@@ -302,6 +302,13 @@ export const pageRoutes = [
       import('./pages/editor-ai/index').then((m) => m.EditorAiPageComponent),
   },
   {
+    path: 'editor-collaboration',
+    loadComponent: () =>
+      import('./pages/editor-collaboration/index').then(
+        (m) => m.EditorCollaborationPageComponent,
+      ),
+  },
+  {
     path: 'divider',
     loadComponent: () =>
       import('./pages/divider/index').then((m) => m.DividerPageComponent),
@@ -721,7 +728,7 @@ const GROUP_DEFINITIONS = [
     id: 'editor',
     label: 'Editor',
     icon: 'scroll-text',
-    paths: ['editor', 'editor-ai'],
+    paths: ['editor', 'editor-ai', 'editor-collaboration'],
   },
   {
     id: 'navigation',
@@ -819,6 +826,7 @@ const GROUP_DEFINITIONS = [
 
 const LABEL_OVERRIDES: Partial<Record<DocsPagePath, string>> = {
   'editor-ai': 'AI Kit',
+  'editor-collaboration': 'Collaboration',
   kbd: 'Kbd',
   'pin-input': 'PIN Input',
   'button-split': 'Split Button',
@@ -866,6 +874,7 @@ const PAGE_ICONS: Record<DocsPagePath, DocsIconName> = {
   dropdown: 'list-filter',
   editor: 'scroll-text',
   'editor-ai': 'sparkles',
+  'editor-collaboration': 'users',
   'empty-state': 'inbox',
   expand: 'chevrons-down-up',
   'file-upload': 'upload',
@@ -929,6 +938,7 @@ const API_OVERRIDES: Partial<Record<DocsPagePath, DocsApiTarget | null>> = {
   density: { family: 'cdk', entry: 'density' },
   editor: { family: 'editor', entry: '' },
   'editor-ai': { family: 'editor', entry: '' },
+  'editor-collaboration': { family: 'editor', entry: 'collaboration' },
   'infinite-scroll': { family: 'cdk', entry: 'infinite-scroll' },
   internationalization: { family: 'i18n', entry: '' },
   overlay: { family: 'cdk', entry: 'overlay' },

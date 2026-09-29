@@ -96,6 +96,7 @@ const dep = (name) =>
 
 const tiptapPackages = [
   '@tiptap/core',
+  '@tiptap/extension-collaboration',
   '@tiptap/extension-file-handler',
   '@tiptap/extension-highlight',
   '@tiptap/extension-image',

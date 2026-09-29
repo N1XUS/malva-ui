@@ -737,3 +737,50 @@ it.each(Object.entries(packs))(
     }
   },
 );
+
+// #515 (F-D19): the collaboration status, presence and announcement copy.
+// Optional on `MlvEditorI18n` like the keys above; every shipped pack
+// translates them.
+const editorCollaborationKeys = [
+  'collaborationConnecting',
+  'collaborationSyncing',
+  'collaborationSynced',
+  'collaborationOffline',
+  'collaborationClosed',
+  'collaborationFailed',
+  'collaborationPeers',
+  'collaborationPresenceLabel',
+  'collaborationViewing',
+  'collaborationAnonymous',
+  'collaborationMoveCancelled',
+  'collaborationBackOnline',
+  'collaborationSyncTimeout',
+] as const;
+
+it.each(Object.entries(packs))(
+  '%s declares every optional collaboration editor key',
+  (locale, pack) => {
+    const editor = pack.editor as Record<string, unknown>;
+    for (const key of editorCollaborationKeys) {
+      expect(typeof editor[key], `${locale}:editor.${key}`).toBe('string');
+      expect(
+        (editor[key] as string).trim().length,
+        `${locale}:editor.${key}`,
+      ).toBeGreaterThan(0);
+    }
+    expect(
+      new IntlMessageFormat(
+        editor['collaborationViewing'] as string,
+        locale,
+      ).format({ name: 'Ada' }),
+      locale,
+    ).toContain('Ada');
+    expect(
+      new IntlMessageFormat(
+        editor['collaborationPeers'] as string,
+        locale,
+      ).format({ count: 3 }),
+      locale,
+    ).toContain('3');
+  },
+);

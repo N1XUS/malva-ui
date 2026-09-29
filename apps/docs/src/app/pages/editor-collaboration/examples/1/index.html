@@ -1,0 +1,45 @@
+<div
+  style="
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1rem;
+  "
+>
+  <div class="demo-col" style="align-items: stretch; gap: 0.5rem">
+    <mlv-editor
+      #adaCollab="mlvEditorCollaboration"
+      label="Ada's editor"
+      [mlvEditorCollaboration]="ada"
+      collaborationDocumentId="docs-split-view"
+      [collaborationUser]="{ id: 'ada', name: 'Ada' }"
+      [collaborationInitialContent]="seed"
+    >
+      <mlv-editor-presence mlvEditorStatus [collaboration]="adaCollab" />
+    </mlv-editor>
+    <mlv-switch
+      [checked]="adaOnline()"
+      (checkedChange)="setOnline('ada', $event)"
+    >
+      Ada online
+    </mlv-switch>
+  </div>
+
+  <div class="demo-col" style="align-items: stretch; gap: 0.5rem">
+    <mlv-editor
+      #graceCollab="mlvEditorCollaboration"
+      label="Grace's editor"
+      [mlvEditorCollaboration]="grace"
+      collaborationDocumentId="docs-split-view"
+      [collaborationUser]="{ id: 'grace', name: 'Grace' }"
+      [collaborationInitialContent]="seed"
+    >
+      <mlv-editor-presence mlvEditorStatus [collaboration]="graceCollab" />
+    </mlv-editor>
+    <mlv-switch
+      [checked]="graceOnline()"
+      (checkedChange)="setOnline('grace', $event)"
+    >
+      Grace online
+    </mlv-switch>
+  </div>
+</div>

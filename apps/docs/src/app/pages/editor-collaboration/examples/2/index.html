@@ -1,0 +1,14 @@
+<div class="demo-col" style="align-items: stretch; gap: 0.5rem">
+  <mlv-editor
+    #collab="mlvEditorCollaboration"
+    label="Shared across tabs"
+    [mlvEditorCollaboration]="transport"
+    collaborationDocumentId="docs-cross-tab"
+    [collaborationUser]="user"
+    [collaborationInitialContent]="seed"
+    [collaborationSyncTimeout]="1500"
+  >
+    <mlv-editor-presence mlvEditorStatus [collaboration]="collab" />
+  </mlv-editor>
+  <p>You are {{ user.name }} in this tab.</p>
+</div>

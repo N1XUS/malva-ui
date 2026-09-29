@@ -13,7 +13,7 @@ The Editor library provides an SSR-safe Angular shell around a single browser-on
 - **Path:** `libs/editor`
 - **Import path:** `@malva-ui/editor` (a standalone published package; **not** re-exported from `@malva-ui/core`)
 - **Nx project:** `editor`
-- **Packaging:** ng-packagr package root with `src/index.ts` as its entry file, plus the `libs/editor/ai` secondary entry point published as `@malva-ui/editor/ai`
+- **Packaging:** ng-packagr package root with `src/index.ts` as its entry file, plus two secondary entry points: `libs/editor/ai` (`@malva-ui/editor/ai`) and `libs/editor/collaboration` (`@malva-ui/editor/collaboration`, #515)
 
 ## Current public API
 
@@ -48,6 +48,16 @@ The Editor library provides an SSR-safe Angular shell around a single browser-on
   context, and `MlvEditorAiMenu`) — exported here for single-module identity
   and mirrored by the `@malva-ui/editor/ai` facade, which is the documented
   import path. See the AI toolkit section below.
+- Collaboration (#515): `MlvEditorTransactionOrigin` (`'local' | 'remote'`),
+  the required `origin` on `MlvEditorTransactionEvent`, the
+  `'collaboration'` member of `MlvEditorErrorCode`, and
+  `MlvEditorPresetCollaborationOptions` (the preset's optional
+  `collaboration` option). The `@internal` `MLV_EDITOR_COLLABORATION` token
+  and its `MlvEditorCollaborationBinding` / `MlvEditorCollaborationAttachContext`
+  types are exported only for the collaboration entry; outside semver. The
+  preset also gained `imageUrlPolicy` (which image sources a collaborating
+  editor's editing DOM fetches; serialization keeps every `src`). The directive, transport, seed and `MlvEditorPresence`
+  live in `@malva-ui/editor/collaboration`. See _Collaboration_.
 
 ## `MlvEditor` component contract
 
@@ -513,6 +523,17 @@ placeholders, and serves the toolbar dialog, paste, and drop paths. It inserts
 only a valid `MlvEditorImageUploadResult`; the default URL policy accepts
 absolute HTTP(S) URLs with a hostname and no credentials, whitespace, or
 control characters. A host can provide a stricter or alternate `urlPolicy`.
+
+- **Two call shapes.** The coordinator calls `urlPolicy` with the uploader's
+  `src` as returned (possibly relative: `/uploads/a.png`). A collaborating
+  editor calls the same policy for every image in its editing view with the
+  stored `src` resolved against the document `baseURI` — always absolute
+  (`https://app.example/uploads/a.png`); see
+  `libs-editor-collaboration.md` § _Readonly, disabled, AI and images_.
+  Parse with `new URL(url)`; a raw-path prefix test (`url.startsWith('/uploads/')`)
+  accepts uploads and then blocks every image once collaboration is on.
+- **A throw refuses** on both paths (the coordinator discards the result; the
+  view renders the image blocked instead of aborting its update).
 
 **Alt and title precedence** (#448):
 
@@ -1867,11 +1888,15 @@ VERSIONING §2. It hides under `@media print`, and its
 `top` and opacity transitions collapse to `--mlv-duration-instant` under
 `prefers-reduced-motion`.
 
+## Collaboration (`@malva-ui/editor/collaboration`, 2026-09, #515)
+
+Real-time co-editing of one `mlv-editor` through a host-implemented transport (Yjs). The secondary entry has its own reference: `.claude/projects/libs-editor-collaboration.md`, symlinked as `libs/editor/collaboration/CLAUDE.md` — directive, transport contract, editor behaviour while collaborating, schema guard, presence, carets, images, i18n, seeding and testing notes. This file keeps what the primary entry owns: the `@internal` contract and the preset's `collaboration` / `imageUrlPolicy` options (_Current public API_), and the collaboration rows of _Tested limitations_.
+
 ## Tiptap peer dependencies
 
 `@malva-ui/editor` — not `@malva-ui/core`, which declares no Tiptap peer since
 the [editor-package split](../../docs/migrations/2026-08-editor-package.md) —
-declares all twelve as **required** peers (no `peerDependenciesMeta`).
+declares all thirteen as **required** peers (no `peerDependenciesMeta`).
 Applications using the editor install the complete matching set:
 
 - `@tiptap/core`
@@ -1886,9 +1911,19 @@ Applications using the editor install the complete matching set:
 - `@tiptap/extension-image`
 - `@tiptap/extension-file-handler`
 - `@tiptap/extensions`
+- `@tiptap/extension-collaboration` (#515)
 
 It also declares two **ProseMirror floor peers by hand**:
 `prosemirror-view: ^1.42.5` and `prosemirror-model: ^1.25.12` (#291).
+
+And the **collaboration stack by hand** (#515, VERSIONING §9): `yjs: ^13.6.33`,
+`y-protocols: ^1.0.7`, `@tiptap/y-tiptap: ^3.0.9` and `prosemirror-state: ^1.4.4`,
+plus `lib0: ^0.2.100` as a `dependencies` entry. Every install carries them;
+only `@malva-ui/editor/collaboration` imports them (see _Collaboration_).
+`widenPeerRange` would widen `3.0.9` to `^3.0.0`, below what
+`@tiptap/extension-collaboration` requires, so the floors are literal.
+One copy each of `yjs` and `prosemirror-state` is required: `yarn dedupe yjs lib0
+prosemirror-state` after a bump. Raising any floor is a Malva major.
 
 - **Version:** root pins `3.31.3` exactly. `libs/editor/package.json` carries the
   `0.0.0-tiptap-package-version` placeholder. `scripts/publish.mjs` rejects a
@@ -1899,7 +1934,7 @@ It also declares two **ProseMirror floor peers by hand**:
   so it needs a `fix(editor)!:` commit and a `docs/migrations/` entry. The last
   raise was 3.29 → 3.31, for three security advisories:
   [2026-09-editor-tiptap-3-31.md](../../docs/migrations/2026-09-editor-tiptap-3-31.md) (#291).
-- **Keep all twelve on one version.** Since 3.30.0 `@tiptap/starter-kit` depends
+- **Keep all thirteen on one version.** Since 3.30.0 `@tiptap/starter-kit` depends
   on its own exact `@tiptap/core` and extensions, so a mismatch installs two
   cores.
 - **The ProseMirror floor peers are security floors, not derived pins.**
@@ -2181,6 +2216,17 @@ its two intended tab stops — the content textbox and the roving toolbar widget
 
 ## Tested limitations
 
+- Collaboration position parity (D-F8) holds for every row of
+  `collaboration-tracker-parity.spec.ts` except two, pinned there as edges:
+  an anchor between two blocks when the **previous** block is deleted
+  resolves to `0` remotely where the local path loses it (the block-boundary
+  anchor is a Yjs position with `assoc` on the right block), and
+  `setBlockType` over the anchor keeps it locally (`6`) where the remote path
+  loses it (the block element is replaced).
+- A lone client on a `relay` transport has nobody to sync with: after
+  `collaborationSyncTimeout` it reports `offline` and stays empty and
+  read-only (the seed lands only at a first sync) until a second client
+  arrives. Measured on docs `/editor-collaboration` example 2 with one tab.
 - CSS `zoom` geometry (click-to-caret, drag image, grips) is e2e-proven in
   Chromium only. Firefox (≥ 126) and Safari are unverified.
 - ProseMirror applies one `scrollMargin` at every scroll ancestor. Sticky

@@ -2,7 +2,7 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Clipboard } from '@angular/cdk/clipboard';
 import type { BooleanInput } from '@angular/cdk/coercion';
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
-import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -33,6 +33,7 @@ import type {
   Storage,
 } from '@tiptap/core';
 import type { Mark } from '@tiptap/pm/model';
+import type { Transaction } from '@tiptap/pm/state';
 import { Editor } from '@tiptap/core';
 import type {} from '@tiptap/markdown';
 import { MlvFade, MlvSpacer } from '@malva-ui/cdk/utils';
@@ -93,7 +94,17 @@ import type {
   MlvEditorToolbarAppearance,
   MlvEditorToolbarPosition,
   MlvEditorTransactionEvent,
+  MlvEditorTransactionOrigin,
 } from '../editor.types';
+import { mlvEditorDefaultImageUrlPolicy } from '../editor.types';
+import {
+  MLV_EDITOR_COLLABORATION,
+  MLV_EDITOR_COLLABORATION_MOVE_CANCELLED_FALLBACK,
+  mlvEditorCollaborationDisabled,
+  registerMlvEditorCollaborationBinding,
+  unregisterMlvEditorCollaborationBinding,
+} from './editor-collaboration.contract';
+import { MlvEditorPositionTracker } from '../extensions/editor-position-tracker';
 import { MlvEditorBubble } from './editor-bubble';
 import {
   createMlvEditorLiveScrollSides,
@@ -119,6 +130,13 @@ import { MlvEditorDefaultToolbarGroups } from '../toolbar/editor-default-toolbar
 import { MlvEditorToolbarOverflow } from '../toolbar/editor-toolbar-overflow';
 import { MlvEditorToolbarRoot } from '../toolbar/editor-toolbar-root';
 import { MlvEditorStatus } from '../status/editor-status';
+
+/**
+ * @internal Trailing window in which remote-origin value writes are coalesced
+ * (F-D8): N peers typing would otherwise serialize the whole document N times
+ * per keystroke.
+ */
+const MLV_EDITOR_REMOTE_VALUE_COALESCE_MS = 100;
 
 /** @internal Tiptap content and options prepared from one external value. */
 type MlvEditorPreparedContent =
@@ -241,6 +259,8 @@ type MlvEditorPreparedContent =
     '[class.mlv-editor--toolbar-floating]':
       'toolbarAppearance() === "floating"',
     '[class.mlv-editor--toolbar-sticky]': '_stickyToolbar()',
+    '[class.mlv-editor--collaborative]': '_collaborationActive()',
+    '[class.mlv-editor--syncing]': '_collaborationSyncing()',
     '[attr.aria-disabled]': 'computedDisabled() || null',
     '[attr.inert]': 'computedDisabled() ? "" : null',
     '[style.--mlv-editor-zoom]': 'zoom() / 100',
@@ -488,7 +508,10 @@ export class MlvEditor
   /** Whether the mounted editor currently accepts document mutations. */
   readonly editable = computed(
     () =>
-      this._editor() !== null && !this.computedDisabled() && !this.readonly(),
+      this._editor() !== null &&
+      !this.computedDisabled() &&
+      !this.readonly() &&
+      this._collaborationWritable(),
   );
 
   /** Emits after the browser-only Tiptap editor has been created. */
@@ -619,6 +642,55 @@ export class MlvEditor
   /** @private Builds the URL a heading copy-link copies. */
   private readonly _headingLinks = inject(MLV_EDITOR_HEADING_LINKS);
 
+  /**
+   * @private Collaboration binding provided by an `mlvEditorCollaboration`
+   * directive on this same element. `self` keeps a directive on an ancestor
+   * from leaking into a nested editor.
+   */
+  private readonly _collaborationBinding = inject(MLV_EDITOR_COLLABORATION, {
+    optional: true,
+    self: true,
+  });
+
+  /** @private The injected document: its `baseURI` resolves collaborating image sources. */
+  private readonly _document = inject(DOCUMENT);
+
+  /**
+   * @protected Whether a collaboration binding is driving this editor: set in
+   * the browser once its editor is being created, never on the server.
+   */
+  protected readonly _collaborationActive = signal(false);
+
+  /**
+   * @private The collaboration write gate: synced once (or seeded offline)
+   * and not failed or closed. Always `true` without a binding.
+   */
+  private readonly _collaborationWritable = computed(
+    () => this._collaborationBinding?.writable() ?? true,
+  );
+
+  /**
+   * @protected Whether a collaborating editor is still waiting for its first
+   * sync (or sync timeout): `.mlv-editor--syncing` and `aria-busy`.
+   */
+  protected readonly _collaborationSyncing = computed(
+    () =>
+      this._collaborationActive() &&
+      this._collaborationBinding?.ready() === false,
+  );
+
+  /** @private Whether `value` mirrors the shared document yet (the gate opened once). */
+  private _collaborationValueLive = false;
+
+  /** @private Whether the ignored-external-write error was reported (once per instance). */
+  private _collaborationValueErrorReported = false;
+
+  /** @private Whether the collaborating editor emitted `editorReady`. */
+  private _collaborationReadyEmitted = false;
+
+  /** @private Pending coalesced remote-origin value write. */
+  private _remoteValueTimer: ReturnType<typeof setTimeout> | null = null;
+
   /** @private Last external value applied to Tiptap without an update event. */
   private _lastAppliedValue: string | null | undefined;
 
@@ -723,7 +795,9 @@ export class MlvEditor
       this._wasReadonly = readonly;
 
       if (!editor) return;
-      editor.setEditable(!disabled && !readonly);
+      editor.setEditable(
+        !disabled && !readonly && this._collaborationWritable(),
+      );
       if (!disabled && wasDisabled && this._disabledSelection) {
         editor.commands.setTextSelection(this._disabledSelection);
         if (this._disabledStoredMarks) {
@@ -738,6 +812,39 @@ export class MlvEditor
     });
 
     effect(() => this._synchronizeEditor());
+
+    // Collaboration (F-D7, F-D8): once the write gate first opens, `value`
+    // starts mirroring the shared document with the current serialization.
+    effect(() => {
+      const editor = this._editor();
+      const binding = this._collaborationBinding;
+      if (!editor || !binding || !this._collaborationActive()) return;
+      if (this._collaborationValueLive || !binding.writable()) return;
+      this._collaborationValueLive = true;
+      untracked(() => this._serializeAndWrite(editor, this.format()));
+    });
+
+    // Collaboration (F-D7): `editorReady` waits for the first sync or the
+    // sync timeout, whichever comes first, and emits once.
+    effect(() => {
+      const editor = this._editor();
+      const binding = this._collaborationBinding;
+      if (!editor || !binding || this._collaborationReadyEmitted) return;
+      if (!binding.ready()) return;
+      this._collaborationReadyEmitted = true;
+      untracked(() => this.editorReady.emit(editor));
+    });
+
+    // Collaboration (F-D10): the Y undo stack changes without a transaction
+    // (`clear()`, capture timeouts), so toolbar Undo / Redo follow its events.
+    effect(() => {
+      const binding = this._collaborationBinding;
+      if (!binding || !this._collaborationActive()) return;
+      binding.undoRevision();
+      untracked(() =>
+        this._toolbarRevision.revision.update((revision) => revision + 1),
+      );
+    });
 
     // The default preset's Placeholder reads `_resolvedPlaceholder` through a
     // function on every decoration pass, but ProseMirror only recomputes
@@ -802,9 +909,20 @@ export class MlvEditor
     try {
       // A consumer array remains a literal replacement. Defaults are selected
       // once so preflight and Tiptap receive the identical extension objects.
+      const binding = this._collaborationBinding;
       const selectedExtensions =
         this.extensions() ??
         mlvEditorDefaultExtensions({
+          ...(binding
+            ? {
+                collaboration: {
+                  isChangeOrigin: (tr: Transaction) =>
+                    binding.isChangeOrigin(tr),
+                  imageUrlPolicy: (url: string) =>
+                    this._collaborationImageUrlPolicy(url),
+                },
+              }
+            : {}),
           format: 'markdown',
           placeholder: () => untracked(this._resolvedPlaceholder),
           characterLimit: this.characterLimit(),
@@ -812,7 +930,7 @@ export class MlvEditor
           headingAnchors: this.headingAnchors(),
           allowedMimeTypes: ['image/*'],
           fileHandlingEnabled: () => {
-            if (this._destroyed || this.computedDisabled() || this.readonly()) {
+            if (!this._acceptsLocalMutation()) {
               return false;
             }
             return this._injector
@@ -821,7 +939,7 @@ export class MlvEditor
           },
           acceptsMimeType: (mimeType) => this._acceptsImageMimeType(mimeType),
           onFiles: ({ files, source, position }) => {
-            if (this._destroyed || this.computedDisabled() || this.readonly()) {
+            if (!this._acceptsLocalMutation()) {
               return;
             }
             const acceptedImages = files.filter(
@@ -839,19 +957,36 @@ export class MlvEditor
           blockHandle: {
             mount: () => this._view()?.nativeElement ?? null,
             label: () => this._i18n?.().dragBlock ?? 'Drag block',
-            enabled: () =>
-              !this._destroyed && !this.computedDisabled() && !this.readonly(),
+            enabled: () => this._acceptsLocalMutation(),
             announceMove: (move) => this._announceBlockMove(move),
+            announceCollaborationCancel: () =>
+              void this._liveAnnouncer.announce(
+                this._i18n?.().collaborationMoveCancelled?.trim() ||
+                  MLV_EDITOR_COLLABORATION_MOVE_CANCELLED_FALLBACK,
+                'polite',
+              ),
           },
         });
+      // The binding's extensions carry the shared document; the tracker comes
+      // after them so its view recaptures anchors once the sync plugin's view
+      // has pushed a local change (F-D12).
+      const extensions: Extensions = binding
+        ? [
+            ...selectedExtensions,
+            ...binding.extensions(),
+            MlvEditorPositionTracker,
+          ]
+        : selectedExtensions;
       const preflight = preflightMlvEditorExtensions(
-        selectedExtensions,
+        extensions,
         initialFormat,
+        binding !== null,
       );
       if (!preflight.ok) {
         this.editorError.emit(preflight.error);
         return;
       }
+      if (binding) this._collaborationActive.set(true);
 
       const editor = new Editor({
         element: this._content().nativeElement,
@@ -861,8 +996,11 @@ export class MlvEditor
         // switch between any two formats can serialize the existing document
         // without constructing a second editor. A supplied array remains
         // literal.
-        extensions: selectedExtensions,
-        editable: !this.computedDisabled() && !this.readonly(),
+        extensions,
+        editable:
+          !this.computedDisabled() &&
+          !this.readonly() &&
+          this._collaborationWritable(),
         enableContentCheck: true,
         // Before the view mounts, so the first render already has them; a
         // consumer `extensions` array with the anchors extension gets them too.
@@ -875,7 +1013,8 @@ export class MlvEditor
         },
         onTransaction: ({ editor: changedEditor, transaction }) => {
           if (this._destroyed) return;
-          this.transaction.emit({ editor: changedEditor, transaction });
+          const origin = this._transactionOrigin(transaction);
+          this.transaction.emit({ editor: changedEditor, transaction, origin });
           this._toolbarRevision.revision.update((revision) => revision + 1);
           if (
             transaction.docChanged &&
@@ -884,7 +1023,11 @@ export class MlvEditor
             // anchors) is not a user edit, exactly like a value load.
             !transaction.getMeta(MLV_EDITOR_CREATE_NORMALIZATION_META)
           ) {
-            this._serializeAndWrite(changedEditor, this.format());
+            if (this._collaborationBinding) {
+              this._writeCollaborativeValue(changedEditor, origin);
+            } else {
+              this._serializeAndWrite(changedEditor, this.format());
+            }
           }
         },
         onSelectionUpdate: ({ editor: changedEditor, transaction }) => {
@@ -892,8 +1035,16 @@ export class MlvEditor
           this.selectionChange.emit({ editor: changedEditor, transaction });
           this._toolbarRevision.revision.update((revision) => revision + 1);
         },
-        onContentError: ({ error }) => {
+        onContentError: ({ editor: failedEditor, error }) => {
           if (this._destroyed) return;
+          // The shared document failed the schema check: the binding reports
+          // it as a collaboration failure (F-D22), never as a parse error.
+          if (
+            this._collaborationBinding &&
+            mlvEditorCollaborationDisabled(failedEditor)
+          ) {
+            return;
+          }
           this.editorError.emit({
             code: 'parse',
             message:
@@ -907,11 +1058,26 @@ export class MlvEditor
       this._activeFormat = initialFormat;
       this._lastAppliedValue = null;
       this._editor.set(editor);
+      if (binding) {
+        // The shared document is the source of truth: the initial `value` is
+        // ignored, and `editorReady` waits for the first sync (F-D7, F-D8).
+        registerMlvEditorCollaborationBinding(editor, binding);
+        binding.attach({
+          editor,
+          format: initialFormat,
+          editable: this.editable,
+          reportError: (error) => this.reportError(error),
+          announce: (message) =>
+            void this._liveAnnouncer.announce(message, 'polite'),
+        });
+        return;
+      }
       this._applyInitialValue(editor, initialValue, initialFormat);
       // Consumers may immediately issue commands from `editorReady`; emit only
       // after the initial model has either been applied or recovered from.
       this.editorReady.emit(editor);
     } catch (cause: unknown) {
+      this._collaborationActive.set(false);
       this.editorError.emit({
         code: 'configuration',
         message: 'Unable to create the editor with the configured extensions.',
@@ -940,7 +1106,9 @@ export class MlvEditor
 
   /** Clears the document through Tiptap when the shared form wrapper is clearable. */
   clearValue(): void {
-    if (this.computedDisabled() || this.readonly()) return;
+    // The collaboration gate too: clearing before the first sync, or after a
+    // failure, would write a local change the shared document never agreed to.
+    if (!this._acceptsLocalMutation()) return;
     this._editor()?.commands.clearContent();
   }
 
@@ -986,6 +1154,27 @@ export class MlvEditor
       untracked(() => this._destroyed || this.computedDisabled());
   }
 
+  /**
+   * @private F-D23: a peer's image reaches the shared document without
+   * passing the upload coordinator, so a collaborating editor renders only
+   * the sources an upload would have been allowed to insert. The stored
+   * `src` is resolved against the injected document's `baseURI` first, so a
+   * relative same-origin image renders, and the policy judges the absolute
+   * href the browser would fetch; one that does not resolve is refused.
+   */
+  private _collaborationImageUrlPolicy(url: string): boolean {
+    let href: string;
+    try {
+      href = new URL(url, this._document.baseURI).href;
+    } catch {
+      return false;
+    }
+    const policy = untracked(this.imageUploadOptions).urlPolicy;
+    return (
+      typeof policy === 'function' ? policy : mlvEditorDefaultImageUrlPolicy
+    )(href);
+  }
+
   /** @private Whether a browser MIME type matches the current coordinator options. */
   private _acceptsImageMimeType(mimeType: string): boolean {
     const normalizedMimeType = mimeType.trim().toLowerCase();
@@ -1002,7 +1191,7 @@ export class MlvEditor
 
   /** Runs a Tiptap mutation command when the editor is available and editable. */
   run(command: (editor: Editor) => boolean): boolean {
-    if (this.computedDisabled() || this.readonly()) return false;
+    if (!this._acceptsLocalMutation()) return false;
     const editor = this._editor();
     if (!editor) return false;
     try {
@@ -1014,7 +1203,7 @@ export class MlvEditor
 
   /** Checks a Tiptap command when the editor is available and editable. */
   can(command: (editor: Editor) => boolean): boolean {
-    if (this.computedDisabled() || this.readonly()) return false;
+    if (!this._acceptsLocalMutation()) return false;
     const editor = this._editor();
     if (!editor) return false;
     try {
@@ -1059,6 +1248,10 @@ export class MlvEditor
       },
     });
     this._synchronizeContentSurfaceState(editor);
+    if (this._collaborationBinding) {
+      this._synchronizeCollaborativeValue(editor, requestedFormat);
+      return;
+    }
     const rawIncoming = this.value();
     const incoming = normalizeEditorValue(rawIncoming);
     // Tracked values were produced under the currently active format, so the
@@ -1237,6 +1430,111 @@ export class MlvEditor
   }
 
   /**
+   * @private Whether a local mutation may run now: not destroyed, disabled or
+   * `readonly`, and the collaboration gate (if any) open.
+   */
+  private _acceptsLocalMutation(): boolean {
+    return (
+      !this._destroyed &&
+      !this.computedDisabled() &&
+      !this.readonly() &&
+      this._collaborationWritable()
+    );
+  }
+
+  /**
+   * @private Origin of a root transaction (F-D9): `remote` for a
+   * change-origin transaction from the shared document, except a local Y undo
+   * or redo; `local` otherwise, and always without a binding.
+   */
+  private _transactionOrigin(
+    transaction: Transaction,
+  ): MlvEditorTransactionOrigin {
+    const binding = this._collaborationBinding;
+    return binding &&
+      binding.isChangeOrigin(transaction) &&
+      !binding.isUndoRedo(transaction)
+      ? 'remote'
+      : 'local';
+  }
+
+  /**
+   * @private Mirrors a collaborative document change into `value` (F-D8).
+   * Nothing is written before the gate first opened. A local change writes
+   * synchronously and supersedes a pending remote write; remote changes
+   * coalesce into one trailing write per window.
+   */
+  private _writeCollaborativeValue(
+    editor: Editor,
+    origin: MlvEditorTransactionOrigin,
+  ): void {
+    if (!this._collaborationValueLive) return;
+    if (origin === 'remote') {
+      if (this._remoteValueTimer !== null) return;
+      this._remoteValueTimer = setTimeout(() => {
+        this._remoteValueTimer = null;
+        const current = this._editor();
+        if (this._destroyed || !current) return;
+        this._serializeAndWrite(current, this.format());
+      }, MLV_EDITOR_REMOTE_VALUE_COALESCE_MS);
+      return;
+    }
+    // The local serialization already carries every pending remote change.
+    this._cancelRemoteValueWrite();
+    this._serializeAndWrite(editor, this.format());
+  }
+
+  /** @private Drops a pending coalesced remote value write. */
+  private _cancelRemoteValueWrite(): void {
+    if (this._remoteValueTimer === null) return;
+    clearTimeout(this._remoteValueTimer);
+    this._remoteValueTimer = null;
+  }
+
+  /**
+   * @private The collaboration branch of `_synchronizeEditor` (F-D8):
+   * `value` is output-only. A format switch re-serializes the document. An
+   * external write is never applied: before the gate first opened it is
+   * ignored silently (the initial model value); after, the first one per
+   * instance reports a `collaboration` error and the model is set back to
+   * the current serialization.
+   */
+  private _synchronizeCollaborativeValue(
+    editor: Editor,
+    requestedFormat: MlvEditorFormat,
+  ): void {
+    const incoming = normalizeEditorValue(this.value());
+    if (this._activeFormat !== requestedFormat) {
+      this._activeFormat = requestedFormat;
+      if (this._collaborationValueLive) {
+        this._cancelRemoteValueWrite();
+        untracked(() => this._serializeAndWrite(editor, requestedFormat));
+      }
+      return;
+    }
+    if (!this._collaborationValueLive) return;
+    if (
+      editorValuesAreEquivalent(
+        incoming,
+        this._lastEmittedValue,
+        requestedFormat,
+      )
+    ) {
+      return;
+    }
+    if (!this._collaborationValueErrorReported) {
+      this._collaborationValueErrorReported = true;
+      this.editorError.emit({
+        code: 'collaboration',
+        message: 'value is output-only while collaborating',
+        recoverable: true,
+      });
+    }
+    this._cancelRemoteValueWrite();
+    untracked(() => this._serializeAndWrite(editor, requestedFormat));
+  }
+
+  /**
    * @private Serializes an editor transaction and writes only valid distinct
    * values.
    *
@@ -1379,6 +1677,13 @@ export class MlvEditor
       attributes['aria-readonly'] = 'true';
     }
 
+    if (this._collaborationActive() && !this._collaborationWritable()) {
+      attributes['aria-readonly'] = 'true';
+    }
+    if (this._collaborationSyncing()) {
+      attributes['aria-busy'] = 'true';
+    }
+
     // The selection bubble stays hidden until a selection exists, so the key
     // that reaches it is the only hint assistive technology gets. Disabled or
     // `readonly`, the bubble never shows and the key does nothing.
@@ -1515,6 +1820,7 @@ export class MlvEditor
     const managedAttributes = [
       'aria-disabled',
       'aria-readonly',
+      'aria-busy',
       'tabindex',
       'aria-invalid',
       'aria-keyshortcuts',
@@ -1559,9 +1865,17 @@ export class MlvEditor
 
   /** @private Destroys the owned Tiptap editor exactly once. */
   private _destroyEditor(): void {
+    this._cancelRemoteValueWrite();
     const editor = this._editor();
-    if (!editor) return;
+    if (!editor) {
+      this._collaborationBinding?.detach();
+      return;
+    }
     this._editor.set(null);
-    editor?.destroy();
+    editor.destroy();
+    if (this._collaborationBinding) {
+      this._collaborationBinding.detach();
+      unregisterMlvEditorCollaborationBinding(editor);
+    }
   }
 }

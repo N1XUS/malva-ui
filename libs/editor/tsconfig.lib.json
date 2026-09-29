@@ -7,12 +7,14 @@
     "inlineSources": true,
     "types": []
   },
-  "include": ["src/**/*.ts", "ai/src/**/*.ts"],
+  "include": ["src/**/*.ts", "ai/src/**/*.ts", "collaboration/src/**/*.ts"],
   "exclude": [
     "src/**/*.spec.ts",
     "src/**/*.test.ts",
     "ai/src/**/*.spec.ts",
     "ai/src/**/*.test.ts",
+    "collaboration/src/**/*.spec.ts",
+    "collaboration/src/**/*.test.ts",
     "vite.config.ts",
     "vite.config.mts",
     "vitest.config.ts",

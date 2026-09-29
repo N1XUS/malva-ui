@@ -1,0 +1,52 @@
+@use '../../../../../styles/src/lib/mixins' as mixins;
+
+@layer mlv.components {
+  $block: mlv-editor-presence;
+
+  // Presence and connection status beside a collaborating editor (F-D19).
+  // Nothing animates here, so reduced motion needs no path.
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-s-size),
+      0,
+      0
+    );
+
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mlv-spacing-3);
+    min-inline-size: 0;
+    color: var(--mlv-text-secondary);
+    line-height: var(--mlv-typography-body-s-line-height);
+
+    &__peers {
+      display: inline-flex;
+      align-items: center;
+      min-inline-size: 0;
+    }
+
+    &__status {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--mlv-spacing-1-5);
+      white-space: nowrap;
+    }
+
+    // Offline keeps editing (changes queue); the text says so in the warning
+    // colour. A session that ended or failed leaves the document read-only:
+    // the text reads as the error it is, not as secondary chrome.
+    &--offline {
+      .#{$block}__status-text {
+        color: var(--mlv-text-warning);
+      }
+    }
+
+    &--failed,
+    &--closed {
+      .#{$block}__status-text {
+        color: var(--mlv-text-negative);
+      }
+    }
+  }
+}

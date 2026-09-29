@@ -9,6 +9,14 @@ import {
 } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import {
+  mlvEditorCollaborationBindingFor,
+  mlvEditorIsRemoteEdit,
+} from '../editor/editor-collaboration.contract';
+import {
+  trackMlvEditorPosition,
+  type MlvEditorTrackedPosition,
+} from './editor-position-tracker';
 
 /** A completed block move, reported so the host can announce it. */
 export interface MlvEditorBlockMove {
@@ -45,6 +53,13 @@ export interface MlvEditorBlockHandleOptions {
 
   /** Whether block moving is currently permitted; false while readonly or disabled. */
   readonly enabled: () => boolean;
+
+  /**
+   * Called when a peer's edit cancels an in-progress drag (collaboration only):
+   * the dragged block was deleted or changed. The host announces it. A peer's
+   * edit that leaves the block intact keeps the drag, re-measured.
+   */
+  readonly announceCollaborationCancel?: () => void;
 }
 
 declare module '@tiptap/core' {
@@ -96,6 +111,17 @@ const MLV_EDITOR_DRAG_SOURCE_CLASS = 'mlv-editor__block--dragging';
 const MLV_EDITOR_DRAG_SOURCE_KEY = new PluginKey<DecorationSet>(
   'mlvEditorBlockDragSource',
 );
+
+/**
+ * @internal Whether `node` is still the block snapshotted at `dragstart`
+ * (F-D14): the same `blockId` when the block carries one, else the same type
+ * and content.
+ */
+function sameBlock(node: ProseMirrorNode, expected: ProseMirrorNode): boolean {
+  const id = expected.attrs['blockId'];
+  if (typeof id === 'string' && id !== '') return node.attrs['blockId'] === id;
+  return node.type === expected.type && node.eq(expected);
+}
 
 /**
  * @internal Clears a source dim a freshly built plugin view inherited rather
@@ -731,6 +757,12 @@ export const MlvEditorBlockHandle =
       // The plugin view receives an `EditorView`, which carries no command
       // interface; the drop path has to reach `moveBlock` through Tiptap.
       const editor = this.editor;
+      /**
+       * Set by `apply` when a transaction other than a peer's edit changed the
+       * document; read and cleared by the view's `update` (F-D14). Without a
+       * collaboration binding every change is local.
+       */
+      let localDocChange = false;
 
       return [
         new Plugin<DecorationSet>({
@@ -744,9 +776,15 @@ export const MlvEditorBlockHandle =
             // longer be the one on the pointer. That transaction therefore
             // never renders a set built against the previous document, and
             // `update`'s `endDrag` finds nothing left to dispatch.
-            apply: (tr, decorations) =>
-              tr.getMeta(MLV_EDITOR_DRAG_SOURCE_KEY) ??
-              (tr.docChanged ? DecorationSet.empty : decorations),
+            apply: (tr, decorations) => {
+              if (tr.docChanged && !mlvEditorIsRemoteEdit(editor, tr)) {
+                localDocChange = true;
+              }
+              return (
+                tr.getMeta(MLV_EDITOR_DRAG_SOURCE_KEY) ??
+                (tr.docChanged ? DecorationSet.empty : decorations)
+              );
+            },
           },
           props: {
             decorations: (state) => MLV_EDITOR_DRAG_SOURCE_KEY.getState(state),
@@ -844,6 +882,13 @@ export const MlvEditorBlockHandle =
             /** The off-screen element handed to `setDragImage`. */
             let ghost: HTMLElement | null = null;
 
+            /**
+             * While collaborating, the dragged block's start, tracked across
+             * peers' edits, and the block as it was at `dragstart` (F-D14).
+             */
+            let tracked: MlvEditorTrackedPosition | null = null;
+            let sourceNode: ProseMirrorNode | null = null;
+
             /** Gap the indicator currently marks, or null while it is retracted. */
             let gap: number | null = null;
 
@@ -913,6 +958,9 @@ export const MlvEditorBlockHandle =
 
             const endDrag = () => {
               indicator.setAttribute('data-visible', 'false');
+              tracked?.release();
+              tracked = null;
+              sourceNode = null;
               ghost?.remove();
               slots = [];
               gap = null;
@@ -996,6 +1044,40 @@ export const MlvEditorBlockHandle =
               }
             };
 
+            /**
+             * A peer's edit landed during the drag (F-D14): re-finds the
+             * dragged block through its tracked start. When it is intact, the
+             * drag continues with fresh geometry and index; when it was deleted
+             * or changed, the drag is cancelled and announced.
+             */
+            const followRemoteEdit = (): void => {
+              const pos = tracked?.pos ?? null;
+              const doc = view.state.doc;
+              const expected = sourceNode;
+              const $pos =
+                pos === null || pos >= doc.content.size
+                  ? null
+                  : doc.resolve(pos);
+              const node = $pos?.depth === 0 ? $pos.nodeAfter : null;
+              if (!expected || !$pos || !node || !sameBlock(node, expected)) {
+                endDrag();
+                options.announceCollaborationCancel?.();
+                return;
+              }
+              const measured = snapshotBlocks(view, mount);
+              const index = $pos.index(0);
+              if (!measured.some((candidate) => candidate.index === index)) {
+                endDrag();
+                options.announceCollaborationCancel?.();
+                return;
+              }
+              slots = measured;
+              source = index;
+              gap = null;
+              indicator.setAttribute('data-visible', 'false');
+              setSourceDecoration(pos);
+            };
+
             const onDragStart = (event: DragEvent) => {
               // `data-index` is absent until the first successful hover, and a
               // revoked `enabled()` must not start a drag that could never be
@@ -1029,6 +1111,13 @@ export const MlvEditorBlockHandle =
 
               slots = measured;
               source = index;
+              tracked?.release();
+              tracked = null;
+              sourceNode = null;
+              if (mlvEditorCollaborationBindingFor(editor)) {
+                tracked = trackMlvEditorPosition(editor, from);
+                sourceNode = view.state.doc.child(index);
+              }
 
               // Firefox refuses to begin a drag whose dataTransfer carries no
               // data. The payload stays empty on purpose: the reorder replays
@@ -1193,8 +1282,16 @@ export const MlvEditorBlockHandle =
                 // compare would walk the whole document on every keystroke.
                 // The same change has already emptied the source decoration in
                 // plugin state (`apply`), so this `endDrag` dispatches nothing.
+                //
+                // Collaboration (F-D14): a peer's edit is not the user's, and
+                // peers type all the time, so instead of aborting,
+                // `followRemoteEdit` re-finds the block through its tracked
+                // start. Any local change in the same update still aborts.
+                const local = localDocChange;
+                localDocChange = false;
                 if (previous.doc !== updated.state.doc && source !== null) {
-                  endDrag();
+                  if (local) endDrag();
+                  else followRemoteEdit();
                 }
 
                 if (options.enabled()) return;

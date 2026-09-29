@@ -19,6 +19,7 @@
     "@angular/router": "22.1.7",
     "@lucide/angular": "^1.25.0",
     "@tiptap/core": "3.31.3",
+    "@tiptap/extension-collaboration": "3.31.3",
     "@tiptap/extension-file-handler": "3.31.3",
     "@tiptap/extension-highlight": "3.31.3",
     "@tiptap/extension-image": "3.31.3",
@@ -30,14 +31,19 @@
     "@tiptap/markdown": "3.31.3",
     "@tiptap/pm": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
+    "@tiptap/y-tiptap": "3.0.9",
     "fast-equals": "^6.0.0",
     "flag-icons": "^7.5.0",
     "gray-matter": "^4.0.3",
     "intl-messageformat": "^11.2.15",
+    "lib0": "0.2.119",
     "lodash-es": "^4.17.23",
+    "prosemirror-state": "1.4.4",
     "rxjs": "~7.8.0",
     "shiki": "^4.4.3",
-    "sortablejs": "^1.15.7"
+    "sortablejs": "^1.15.7",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "2.7.2",

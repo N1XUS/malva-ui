@@ -26,6 +26,7 @@ describe('editor AI Kit documentation page', () => {
     expect(page?.route.title).toBe('AI Kit | Malva UI');
     expect(editorGroup?.items.map((item) => item.link)).toEqual([
       '/editor-ai',
+      '/editor-collaboration',
       '/editor',
     ]);
 
