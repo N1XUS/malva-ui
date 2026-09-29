@@ -90,7 +90,12 @@ const de: MlvLanguage = {
   compare: {
     ariaLabel: 'Vergleichsregler',
   },
-  copyToClipboard: { copyToClipboard: 'In die Zwischenablage kopieren' },
+  copyToClipboard: {
+    copyToClipboard: 'In die Zwischenablage kopieren',
+    copied: 'In die Zwischenablage kopiert',
+    copyTooltip: 'Kopieren',
+    copiedTooltip: 'Kopiert',
+  },
   dataTable: {
     addRow: 'Zeile hinzufügen',
     addNewRow: 'Neue Zeile hinzufügen',
@@ -129,6 +134,13 @@ const de: MlvLanguage = {
     errorTitle: 'Etwas ist schiefgelaufen',
     errorMessage: 'Die Tabellendaten konnten nicht geladen werden.',
     retry: 'Erneut versuchen',
+    selectRow: 'Zeile {index} auswählen',
+    loadingMore: 'Weitere Zeilen werden geladen',
+    loadingData: 'Tabellendaten werden geladen',
+    noData: 'Keine Daten verfügbar',
+    pinStart: 'Am Anfang fixieren',
+    pinEnd: 'Am Ende fixieren',
+    actionsHeader: 'Aktionen',
   },
   dateRangePicker: {
     selectDateRange: 'Datumsbereich auswählen',
@@ -265,6 +277,7 @@ const de: MlvLanguage = {
       'Vorschlag {index} von {count}: fügt "{newText}" ein',
     aiCurrentSuggestionDelete:
       'Vorschlag {index} von {count}: entfernt "{oldText}"',
+    placeholder: 'Schreiben Sie etwas…',
   },
   fileUpload: {
     selectedFiles: 'Ausgewählte Dateien',
@@ -275,6 +288,8 @@ const de: MlvLanguage = {
     errorSingleFile: 'Es ist nur eine Datei zulässig.',
     errorFileType: 'Dateityp nicht zulässig: {name}',
     errorFileSize: '„{name}“ überschreitet das Limit von {size} MB.',
+    dropFiles: 'Dateien hierher ziehen und ablegen',
+    browseFiles: 'Dateien durchsuchen',
   },
   filter: {
     filters: 'Filter ({count})',
@@ -489,6 +504,39 @@ const de: MlvLanguage = {
     selectedItems: 'Ausgewählte Elemente',
     moreItems:
       '{count, plural, one {+{count} weiteres} other {+{count} weitere}}',
+  },
+  tree: {
+    expandNode: '{label} erweitern',
+    collapseNode: '{label} reduzieren',
+    loadingChildren: 'Untergeordnete Elemente werden geladen',
+    selectNode: '{label} auswählen',
+  },
+  viewVariant: {
+    searchViews: 'Ansichten durchsuchen',
+    newView: 'Neue Ansicht',
+    newTeamView: 'Neue Teamansicht',
+    newPersonalView: 'Neue persönliche Ansicht',
+    retry: 'Erneut versuchen',
+    dismiss: 'Schließen',
+    systemViews: 'System',
+    teamViews: 'Team',
+    personalViews: 'Meine Ansichten',
+    readOnly: 'Schreibgeschützt',
+    moreActions: 'Weitere Aktionen für {name}',
+    variantActions: 'Aktionen für {name}',
+    rename: 'Umbenennen',
+    share: 'Teilen',
+    delete: 'Löschen',
+    noMatches: 'Keine Ansicht entspricht Ihrer Suche.',
+    duplicateView: 'Ansicht duplizieren',
+    resetChanges: 'Änderungen zurücksetzen',
+    updateView: 'Ansicht aktualisieren',
+    saveAsNew: 'Als neue Ansicht speichern',
+    reset: 'Zurücksetzen',
+    readOnlySystemView: 'Diese Systemansicht ist schreibgeschützt',
+    duplicateToSave: 'Duplizieren Sie sie, um Ihre Änderungen zu speichern',
+    unsavedChanges: 'Sie haben ungespeicherte Änderungen an der Ansicht',
+    unsavedView: 'Dies ist eine ungespeicherte Ansicht',
   },
 };
 

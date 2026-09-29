@@ -41,7 +41,7 @@
       [id]="id() + '-title'"
       class="mlv-file-upload__zone-title"
       [class.mlv-file-upload__zone-title--hidden]="compact()"
-      >{{ title() }}</span
+      >{{ _title() }}</span
     >
 
     @if (subtitle() && !compact()) {
@@ -89,7 +89,7 @@
         "
         (click)="$event.stopPropagation(); openFilePicker()"
       >
-        {{ actionLabel() }}
+        {{ _actionLabel() }}
       </button>
     }
 

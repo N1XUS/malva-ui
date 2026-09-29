@@ -48,16 +48,16 @@ the input then scrolls the `overflow: hidden` body to it).
 
 #### Inputs
 
-| Name          | Type                       | Default                    | Description                                                                    |
-| ------------- | -------------------------- | -------------------------- | ------------------------------------------------------------------------------ |
-| `accept`      | `string`                   | `''`                       | Comma-separated accepted MIME types or file extensions (e.g. `"image/*,.pdf"`) |
-| `maxSize`     | `number`                   | `0`                        | Maximum allowed file size in bytes; `0` = unlimited                            |
-| `multiple`    | `BooleanInput`             | `true`                     | Allow selecting multiple files                                                 |
-| `title`       | `string`                   | `'Drag & drop files here'` | Primary heading in the drop zone                                               |
-| `subtitle`    | `string`                   | `''`                       | Secondary description text                                                     |
-| `actionLabel` | `string`                   | `'Browse files'`           | Label text for the browse button                                               |
-| `compact`     | `BooleanInput`             | `false`                    | Renders a compact single-row drop zone                                         |
-| `previewMode` | `MlvFileUploadPreviewMode` | `'list'`                   | `'cover'` lets a single selected image fill the zone (see **Cover preview**)   |
+| Name          | Type                       | Default                                                   | Description                                                                    |
+| ------------- | -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `accept`      | `string`                   | `''`                                                      | Comma-separated accepted MIME types or file extensions (e.g. `"image/*,.pdf"`) |
+| `maxSize`     | `number`                   | `0`                                                       | Maximum allowed file size in bytes; `0` = unlimited                            |
+| `multiple`    | `BooleanInput`             | `true`                                                    | Allow selecting multiple files                                                 |
+| `title`       | `string \| undefined`      | `undefined` → i18n `dropFiles` ("Drag & drop files here") | Primary heading in the drop zone; a bound string wins                          |
+| `subtitle`    | `string`                   | `''`                                                      | Secondary description text                                                     |
+| `actionLabel` | `string \| undefined`      | `undefined` → i18n `browseFiles` ("Browse files")         | Label text (and accessible name) of the browse button; a bound string wins     |
+| `compact`     | `BooleanInput`             | `false`                                                   | Renders a compact single-row drop zone                                         |
+| `previewMode` | `MlvFileUploadPreviewMode` | `'list'`                                                  | `'cover'` lets a single selected image fill the zone (see **Cover preview**)   |
 
 #### Outputs
 
@@ -120,7 +120,7 @@ the browser never dispatches `drop` at all.
   - Fixed 2026-09 (#313): the check read `_files().length + newFiles.length >= 1`, true whenever a file was present, so every second file was refused with "Only one file is allowed." and the replace branch plus its revoke never ran. Patch, not breaking — it restores what `apps/docs` examples 1 and 7, the `errorSingleFile` i18n JSDoc ("more than one file is dropped") and the `replaceFile` key already documented.
 - Validation errors stored in `_errors` signal and rendered in `[role=alert]` list with `aria-live="assertive"`.
 - **Rejection messages are translated** (2026-08). Each `MlvFileValidationError.message` is resolved from `MLV_FILE_UPLOAD_I18N` through `MlvI18nResolverService`, not hard-coded English: `errorSingleFile` (count), `errorFileType` (`{name}`), `errorFileSize` (`{name}`, `{size}` in MB, one decimal). Consumers reading `error.message` get the active language pack's string.
-- Still English-by-default and **not** i18n-routed: the `title`, `subtitle` and `actionLabel` inputs, whose defaults are public API. Override them per application (or set them from your own i18n) until they gain pack-backed defaults.
+- **`title` / `actionLabel` defaults are pack-backed (#371).** Both are now `string | undefined` (default `undefined`) and resolve input → optional `MLV_FILE_UPLOAD_I18N` key (`dropFiles` / `browseFiles`) → English fallback (`OPTIONAL_MESSAGE_FALLBACKS`, byte-identical to the old defaults). Translated in all 14 packs; a live switch re-renders both (`file-upload-i18n.spec.ts`). Minor (row 115); a read typed `string` (`const t: string = upload.title()`) now fails TS2322 — add `?? ''`. `subtitle` keeps its `''` default (nothing to translate). The per-item "Uploading …" loader label is still English — #393.
 - **`replaceFile`** was added to `MlvFileUploadI18n` (and `MLV_FILE_UPLOAD_I18N_CONTEXT`) for the cover toolbar's replace button, and is translated in all fourteen packs. `MlvFileUploadI18n` now has 8 keys.
 - **No native tooltip from `title`.** `title` names the zone's heading, but written as a static attribute (`title="Image"`) it also lands in the DOM and gives the whole zone a browser tooltip repeating that heading. The host therefore binds `'[attr.title]': 'null'` to strip it. Regression-tested in `file-upload-cover.spec.ts`.
 - No `aria-required`: the drop zone's focus target is a `<button>`, and ARIA does not allow `aria-required` on `button`. The inherited `required` input therefore has no ARIA effect on `mlv-file-upload` — express the requirement in the surrounding `mlv-form-field` / label copy instead.

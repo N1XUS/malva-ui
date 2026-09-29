@@ -42,6 +42,8 @@ import type { MlvTileI18n } from './tokens/tile';
 import type { MlvTimePickerI18n } from './tokens/time-picker';
 import type { MlvToastI18n } from './tokens/toast';
 import type { MlvTokenizerI18n } from './tokens/tokenizer';
+import type { MlvTreeI18n } from './tokens/tree';
+import type { MlvViewVariantI18n } from './tokens/view-variant';
 
 /** Aggregate of all component i18n interfaces, keyed by component name. */
 export interface MlvLanguage {
@@ -109,6 +111,18 @@ export interface MlvLanguage {
   timePicker: MlvTimePickerI18n;
   toast: MlvToastI18n;
   tokenizer: MlvTokenizerI18n;
+  /**
+   * `mlv-tree` names. Optional so a hand-written or older pack still
+   * type-checks: without it the tree speaks English. Every shipped pack
+   * declares it.
+   */
+  tree?: MlvTreeI18n;
+  /**
+   * `mlv-view-variant-list` / `mlv-view-variant-status` copy. Optional so a
+   * hand-written or older pack still type-checks: without it both components
+   * speak English. Every shipped pack declares it.
+   */
+  viewVariant?: MlvViewVariantI18n;
 }
 
 /**

@@ -96,6 +96,9 @@ const pl: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Kopiuj do schowka',
+    copied: 'Skopiowano do schowka',
+    copyTooltip: 'Kopiuj',
+    copiedTooltip: 'Skopiowano',
   },
   dataTable: {
     addRow: 'Dodaj wiersz',
@@ -135,6 +138,13 @@ const pl: MlvLanguage = {
     errorTitle: 'Coś poszło nie tak',
     errorMessage: 'Nie udało się załadować danych tabeli.',
     retry: 'Spróbuj ponownie',
+    selectRow: 'Zaznacz wiersz {index}',
+    loadingMore: 'Ładowanie kolejnych wierszy',
+    loadingData: 'Ładowanie danych tabeli',
+    noData: 'Brak danych',
+    pinStart: 'Przypnij na początku',
+    pinEnd: 'Przypnij na końcu',
+    actionsHeader: 'Akcje',
   },
   dateRangePicker: {
     selectDateRange: 'Wybierz zakres dat',
@@ -273,6 +283,7 @@ const pl: MlvLanguage = {
     aiCurrentSuggestionInsert:
       'Sugestia {index} z {count}: wstawia "{newText}"',
     aiCurrentSuggestionDelete: 'Sugestia {index} z {count}: usuwa "{oldText}"',
+    placeholder: 'Napisz coś…',
   },
   fileUpload: {
     selectedFiles: 'Wybrane pliki',
@@ -283,6 +294,8 @@ const pl: MlvLanguage = {
     errorSingleFile: 'Dozwolony jest tylko jeden plik.',
     errorFileType: 'Nieobsługiwany typ pliku: {name}',
     errorFileSize: '„{name}” przekracza limit {size} MB.',
+    dropFiles: 'Przeciągnij i upuść pliki tutaj',
+    browseFiles: 'Przeglądaj pliki',
   },
   filter: {
     filters: 'Filtry ({count})',
@@ -515,6 +528,39 @@ const pl: MlvLanguage = {
     selectedItems: 'Wybrane elementy',
     moreItems:
       '{count, plural, one {+ jeszcze {count}} few {+ jeszcze {count}} many {+ jeszcze {count}} other {+ jeszcze {count}}}',
+  },
+  tree: {
+    expandNode: 'Rozwiń {label}',
+    collapseNode: 'Zwiń {label}',
+    loadingChildren: 'Ładowanie elementów podrzędnych',
+    selectNode: 'Zaznacz {label}',
+  },
+  viewVariant: {
+    searchViews: 'Szukaj widoków',
+    newView: 'Nowy widok',
+    newTeamView: 'Nowy widok zespołu',
+    newPersonalView: 'Nowy widok osobisty',
+    retry: 'Spróbuj ponownie',
+    dismiss: 'Zamknij',
+    systemViews: 'Systemowe',
+    teamViews: 'Zespołowe',
+    personalViews: 'Moje widoki',
+    readOnly: 'Tylko do odczytu',
+    moreActions: 'Więcej akcji dla {name}',
+    variantActions: 'Akcje dla {name}',
+    rename: 'Zmień nazwę',
+    share: 'Udostępnij',
+    delete: 'Usuń',
+    noMatches: 'Żaden widok nie pasuje do wyszukiwania.',
+    duplicateView: 'Duplikuj widok',
+    resetChanges: 'Resetuj zmiany',
+    updateView: 'Zaktualizuj widok',
+    saveAsNew: 'Zapisz jako nowy',
+    reset: 'Resetuj',
+    readOnlySystemView: 'Ten widok systemowy jest tylko do odczytu',
+    duplicateToSave: 'Zduplikuj go, aby zapisać zmiany',
+    unsavedChanges: 'Masz niezapisane zmiany widoku',
+    unsavedView: 'To jest niezapisany widok',
   },
 };
 

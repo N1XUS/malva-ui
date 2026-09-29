@@ -258,13 +258,13 @@ describe('MlvDataTable presentation state', () => {
     pinButton.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    const pinRight = Array.from(
+    const pinEnd = Array.from(
       document.querySelectorAll<HTMLButtonElement>(
         '.mlv-data-table__pin-popup-item',
       ),
-    ).find((item) => item.textContent?.includes('Pin right'));
-    if (!pinRight) throw new Error('Expected the Pin right action');
-    pinRight.click();
+    ).find((item) => item.textContent?.includes('Pin to end'));
+    if (!pinEnd) throw new Error('Expected the Pin to end action');
+    pinEnd.click();
     fixture.detectChanges();
     expect(changed).toHaveBeenCalledTimes(3);
 

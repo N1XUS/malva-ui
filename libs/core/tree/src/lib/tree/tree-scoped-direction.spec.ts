@@ -2,6 +2,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { LucideFile, LucideFolder, provideLucideIcons } from '@lucide/angular';
+import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
 import { MlvRtlService } from '@malva-ui/cdk/utils';
 import { MlvTree } from './tree';
 import type { MlvTreeNode } from './tree-node';
@@ -49,11 +50,10 @@ describe('MlvTree — scoped [dir] keyboard', () => {
   let rtl: MlvRtlService;
 
   beforeEach(async () => {
-    const { provideMlvI18n } = await import('@malva-ui/i18n');
     await TestBed.configureTestingModule({
       imports: [ScopedDirectionHost],
       providers: [
-        provideMlvI18n(() => import('@malva-ui/i18n/en')),
+        provideMlvI18nTesting(),
         provideLucideIcons(LucideFolder, LucideFile),
       ],
     }).compileComponents();

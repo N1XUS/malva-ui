@@ -18,6 +18,20 @@ export interface MlvFileUploadI18n {
   errorFileType: string;
   /** Rejection message for a file over `maxSize`. ICU template with `{name}` and `{size}` (megabytes) placeholders. */
   errorFileSize: string;
+  /**
+   * Drop-zone title, unless `title` is bound.
+   *
+   * Optional so a hand-written or older pack still type-checks;
+   * `mlv-file-upload` falls back to English when it is missing. Every shipped
+   * pack declares it.
+   */
+  dropFiles?: string;
+  /**
+   * Drop-zone browse button text, unless `actionLabel` is bound.
+   *
+   * Optional, with an English fallback in `mlv-file-upload`.
+   */
+  browseFiles?: string;
 }
 
 export const MLV_FILE_UPLOAD_I18N = new InjectionToken<
@@ -72,5 +86,16 @@ export const MLV_FILE_UPLOAD_I18N_CONTEXT: Record<
     usage: 'message',
     description:
       'Rejection message for a file larger than the configured limit. `{name}` is the file name and `{size}` the limit in megabytes; both must be preserved in the translation.',
+  },
+  dropFiles: {
+    component: 'mlv-file-upload',
+    usage: 'message',
+    description:
+      'Title of the drop zone, inviting the user to drag files onto it',
+  },
+  browseFiles: {
+    component: 'mlv-file-upload',
+    usage: 'button-text',
+    description: 'Button in the drop zone that opens the file picker',
   },
 };

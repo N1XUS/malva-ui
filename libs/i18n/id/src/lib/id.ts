@@ -93,6 +93,9 @@ const id: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Salin ke papan klip',
+    copied: 'Disalin ke papan klip',
+    copyTooltip: 'Salin',
+    copiedTooltip: 'Disalin',
   },
   dataTable: {
     addRow: 'Tambah baris',
@@ -132,6 +135,13 @@ const id: MlvLanguage = {
     errorTitle: 'Terjadi kesalahan',
     errorMessage: 'Data tabel tidak dapat dimuat.',
     retry: 'Coba lagi',
+    selectRow: 'Pilih baris {index}',
+    loadingMore: 'Memuat baris lainnya',
+    loadingData: 'Memuat data tabel',
+    noData: 'Tidak ada data',
+    pinStart: 'Sematkan di awal',
+    pinEnd: 'Sematkan di akhir',
+    actionsHeader: 'Tindakan',
   },
   dateRangePicker: {
     selectDateRange: 'Pilih rentang tanggal',
@@ -268,6 +278,7 @@ const id: MlvLanguage = {
       'Saran {index} dari {count}: menyisipkan "{newText}"',
     aiCurrentSuggestionDelete:
       'Saran {index} dari {count}: menghapus "{oldText}"',
+    placeholder: 'Tulis sesuatu…',
   },
   fileUpload: {
     selectedFiles: 'Berkas yang dipilih',
@@ -278,6 +289,8 @@ const id: MlvLanguage = {
     errorSingleFile: 'Hanya satu berkas yang diizinkan.',
     errorFileType: 'Tipe berkas tidak didukung: {name}',
     errorFileSize: '"{name}" melebihi batas {size} MB.',
+    dropFiles: 'Seret & lepas berkas di sini',
+    browseFiles: 'Telusuri berkas',
   },
   filter: {
     filters: 'Filter ({count})',
@@ -508,6 +521,39 @@ const id: MlvLanguage = {
     selectedItems: 'Item yang dipilih',
     moreItems:
       '{count, plural, one {+{count} lainnya} other {+{count} lainnya}}',
+  },
+  tree: {
+    expandNode: 'Perluas {label}',
+    collapseNode: 'Ciutkan {label}',
+    loadingChildren: 'Memuat item turunan',
+    selectNode: 'Pilih {label}',
+  },
+  viewVariant: {
+    searchViews: 'Cari tampilan',
+    newView: 'Tampilan baru',
+    newTeamView: 'Tampilan tim baru',
+    newPersonalView: 'Tampilan pribadi baru',
+    retry: 'Coba lagi',
+    dismiss: 'Tutup',
+    systemViews: 'Sistem',
+    teamViews: 'Tim',
+    personalViews: 'Tampilan saya',
+    readOnly: 'Hanya baca',
+    moreActions: 'Tindakan lain untuk {name}',
+    variantActions: 'Tindakan untuk {name}',
+    rename: 'Ganti nama',
+    share: 'Bagikan',
+    delete: 'Hapus',
+    noMatches: 'Tidak ada tampilan yang cocok dengan pencarian Anda.',
+    duplicateView: 'Duplikasi tampilan',
+    resetChanges: 'Atur ulang perubahan',
+    updateView: 'Perbarui tampilan',
+    saveAsNew: 'Simpan sebagai baru',
+    reset: 'Atur ulang',
+    readOnlySystemView: 'Tampilan sistem ini hanya baca',
+    duplicateToSave: 'Duplikasi untuk menyimpan perubahan Anda',
+    unsavedChanges: 'Ada perubahan tampilan yang belum disimpan',
+    unsavedView: 'Ini adalah tampilan yang belum disimpan',
   },
 };
 

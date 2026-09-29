@@ -3,6 +3,7 @@ import {
   Component,
   ViewEncapsulation,
   computed,
+  inject,
   input,
   model,
   output,
@@ -15,12 +16,14 @@ import { MlvButton } from '@malva-ui/core/button';
 import { MlvInput } from '@malva-ui/core/input';
 import { MlvListItem } from '@malva-ui/core/list';
 import { MlvMenu, MlvMenuItem, MlvMenuTrigger } from '@malva-ui/core/menu';
+import { MlvI18nResolverService } from '@malva-ui/i18n';
 import type {
   MlvViewVariant,
   MlvViewVariantBusyAction,
   MlvViewVariantGroupLabels,
   MlvViewVariantScope,
 } from '../view-variant.types';
+import { injectViewVariantMessages } from '../view-variant-i18n';
 
 /** One labelled, scope-specific group rendered by {@link MlvViewVariantList}. */
 interface MlvViewVariantListGroup<TState> {
@@ -28,12 +31,6 @@ interface MlvViewVariantListGroup<TState> {
   readonly label: string;
   readonly variants: readonly MlvViewVariant<TState>[];
 }
-
-const DEFAULT_GROUP_LABELS: MlvViewVariantGroupLabels = {
-  system: 'System',
-  team: 'Team',
-  personal: 'My views',
-};
 
 /**
  * Controlled searchable navigation for generic, consumer-owned saved views.
@@ -90,8 +87,16 @@ export class MlvViewVariantList<TState> {
     readonly Exclude<MlvViewVariantScope, 'system'>[]
   >(['personal']);
 
-  /** Labels for the fixed System, Team, and Personal group order. */
-  readonly groupLabels = input<MlvViewVariantGroupLabels>(DEFAULT_GROUP_LABELS);
+  /**
+   * Labels for the fixed System, Team, and Personal group order.
+   *
+   * Unset (the default), they are the active pack's `viewVariant.systemViews`
+   * / `teamViews` / `personalViews` (`MLV_VIEW_VARIANT_I18N`), else "System" /
+   * "Team" / "My views". A bound object wins.
+   */
+  readonly groupLabels = input<MlvViewVariantGroupLabels | undefined>(
+    undefined,
+  );
 
   /** Operation currently pending in the host, if any. */
   readonly busyAction = input<MlvViewVariantBusyAction | null>(null);
@@ -120,6 +125,45 @@ export class MlvViewVariantList<TState> {
   /** Emits when the user dismisses the displayed host error. */
   readonly dismissError = output<void>();
 
+  /**
+   * @protected Every message, from the active pack or the English fallbacks.
+   * Works with no `provideMlvI18n()` at all.
+   */
+  protected readonly _messages = injectViewVariantMessages();
+
+  /** @private Formats the ICU names in the active pack's locale. */
+  private readonly _resolver = inject(MlvI18nResolverService);
+
+  /** @protected Create button text for one scope when several are offered. */
+  protected _createLabel(
+    scope: Exclude<MlvViewVariantScope, 'system'>,
+  ): string {
+    const messages = this._messages();
+    return scope === 'team' ? messages.newTeamView : messages.newPersonalView;
+  }
+
+  /** @protected aria-label of a view's overflow menu button. */
+  protected _moreActionsLabel(variant: MlvViewVariant<TState>): string {
+    return this._named('moreActions', variant);
+  }
+
+  /** @protected Accessible name of a view's overflow menu. */
+  protected _variantActionsLabel(variant: MlvViewVariant<TState>): string {
+    return this._named('variantActions', variant);
+  }
+
+  /** @private Resolves one `{name}` message for `variant`. */
+  private _named(
+    key: 'moreActions' | 'variantActions',
+    variant: MlvViewVariant<TState>,
+  ): string {
+    return this._resolver.resolve(
+      this._messages() as unknown as Record<string, string>,
+      key,
+      { name: variant.name },
+    );
+  }
+
   /** @protected Fixed-order, query-filtered groups that have at least one item. */
   protected readonly _groups = computed<
     readonly MlvViewVariantListGroup<TState>[]
@@ -127,7 +171,12 @@ export class MlvViewVariantList<TState> {
     const query = normalizeForMatch(this.query().trim());
     const matches = (variant: MlvViewVariant<TState>): boolean =>
       !query || normalizeForMatch(variant.name).includes(query);
-    const labels = this.groupLabels();
+    const messages = this._messages();
+    const labels = this.groupLabels() ?? {
+      system: messages.systemViews,
+      team: messages.teamViews,
+      personal: messages.personalViews,
+    };
     const variants = this.variants();
 
     const groups: readonly Pick<

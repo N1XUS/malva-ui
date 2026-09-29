@@ -33,7 +33,7 @@ Exported from `libs/core/copy-to-clipboard/src/index.ts`:
 | `value`           | `string \| undefined`    | `undefined`                                                | Explicit text to copy. When omitted, the component falls back to the trimmed `textContent` of the projected default slot.                                                                                                              |
 | `copiedDuration`  | `number`                 | `2000`                                                     | Milliseconds the copied state remains active after a successful write.                                                                                                                                                                 |
 | `ariaLabel`       | `string \| undefined`    | `undefined` → i18n `copyToClipboard` ("Copy to clipboard") | Base of the accessible name; the copied text is always appended after a colon — see _Accessible name_. Not a replacement name. An empty string counts as unset. A static host `aria-label` is not honoured (overwritten) — use this.   |
-| `copiedAriaLabel` | `string`                 | `'Copied to clipboard'`                                    | Announced via the visually hidden `aria-live="polite"` region after a successful copy.                                                                                                                                                 |
+| `copiedAriaLabel` | `string \| undefined`    | `undefined` → i18n `copied` ("Copied to clipboard")        | Announced via the visually hidden `aria-live="polite"` region after a successful copy. A bound string wins (an empty string included). Widened from `string` in #371 — a read typed `string` needs `?? ''`.                            |
 | `disabled`        | `BooleanInput` (coerced) | `false`                                                    | Disables the copy action, sets `aria-disabled`, and removes the host from the tab order.                                                                                                                                               |
 | `id`              | `string \| undefined`    | `undefined` → generated `mlv-copy-to-clipboard-N`          | Host id; the self-referencing `aria-labelledby` follows it. Set by a static `id="…"`, a bound `[id]` (per-row in `@for` too) or `id="{{…}}"`. Empty counts as unset. `[attr.id]` bypasses it and races the host binding — bind `[id]`. |
 
@@ -105,14 +105,14 @@ Both resolved from `ariaLabel` (default i18n "Copy to clipboard"):
 <span #content class="mlv-copy-to-clipboard__content" [id]="_contentId">
   <ng-content />
 </span>
-<span class="mlv-copy-to-clipboard__indicator" [mlvTooltip]="isCopied() ? 'Copied' : 'Copy'" tooltipPlacement="top" aria-hidden="true">
+<span class="mlv-copy-to-clipboard__indicator" [mlvTooltip]="isCopied() ? _messages().copiedTooltip : _messages().copyTooltip" tooltipPlacement="top" aria-hidden="true">
   <svg lucideCopy class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--idle" [size]="12" />
   <svg lucideCheck class="mlv-copy-to-clipboard__icon mlv-copy-to-clipboard__icon--success" [size]="12" />
 </span>
-<span class="mlv-copy-to-clipboard__live" aria-live="polite"> @if (isCopied()) { {{ copiedAriaLabel() }} } </span>
+<span class="mlv-copy-to-clipboard__live" aria-live="polite"> @if (isCopied()) { {{ _copiedAnnouncement() }} } </span>
 ```
 
-The indicator icon stack is decorated with `[mlvTooltip]` from `@malva-ui/core/tooltip` so the small icon gets a discoverable "Copy" label on hover, flipping to "Copied" in the success state.
+The indicator icon stack is decorated with `[mlvTooltip]` from `@malva-ui/core/tooltip` so the small icon gets a discoverable "Copy" label on hover, flipping to "Copied" in the success state. Both come from the optional i18n keys `copyTooltip` / `copiedTooltip` (#371; they were hard-coded English), with English fallbacks in `OPTIONAL_MESSAGE_FALLBACKS`.
 
 ---
 
@@ -151,7 +151,7 @@ The component follows Emil Kowalski's motion principles:
 - Host has `role="button"`, `tabindex="0"` (or `-1` when disabled) and an accessible name that always ends in the copied text — see _Accessible name_.
 - Activation is supported via mouse click, `Enter`, and `Space`. `Space` calls `preventDefault()` to suppress page scroll.
 - The two absolutely-positioned icons are wrapped in a single `aria-hidden="true"` container, so screen readers do not see the "Copy/Check" SVGs as extra content.
-- A visually hidden `aria-live="polite"` region exposes the `copiedAriaLabel()` text for the duration of the copied state, giving screen-reader users an unambiguous confirmation.
+- A visually hidden `aria-live="polite"` region exposes `copiedAriaLabel() ?? i18n copied` for the duration of the copied state (localized and live-switch aware since #371), giving screen-reader users an unambiguous confirmation.
 - `:focus-visible` shows an outline using `--mlv-border-focus` and reveals the hover tint so keyboard users see the same affordance as hover users.
 - When `disabled`, the host reflects `aria-disabled="true"` and copy is a no-op.
 

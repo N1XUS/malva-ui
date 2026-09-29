@@ -401,7 +401,21 @@ export const ROLLOUT_PENDING = [
       'error + `description` + `message`',
     ],
   },
-  'core-tree',
+  {
+    // #371 swept `selectMode="multi"` collapsed, then expanded with a lazy
+    // node's loading spinner, under the German pack.
+    project: 'core-tree',
+    owes: [
+      'the default selectMode="none"',
+      'a checked row in multi mode',
+      'single selection with a selected row',
+      'navigation mode (`nav`, `aria-current`)',
+      'a disabled node',
+      'a `[mlvTreeNodeDef]` custom template',
+      'connector lines',
+      'a scoped `[dir="rtl"]`',
+    ],
+  },
 ];
 
 /** Longest sweep root reported verbatim before it is elided. */

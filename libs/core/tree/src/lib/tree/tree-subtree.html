@@ -29,9 +29,7 @@
           [class.mlv-tree__toggle--expanded]="item.expanded()"
           type="button"
           tabindex="-1"
-          [attr.aria-label]="
-            item.expanded() ? 'Collapse ' + node.label : 'Expand ' + node.label
-          "
+          [attr.aria-label]="_toggleLabel(node, item.expanded())"
           (click)="tree._onToggle(node, item, $event)"
         >
           @if (!tree._isLoading(node.id)) {
@@ -51,7 +49,7 @@
             variant="circle"
             [size]="16"
             [indeterminate]="true"
-            ariaLabel="Loading children"
+            [ariaLabel]="_messages().loadingChildren"
           />
         </span>
       }
@@ -63,7 +61,7 @@
           [checked]="tree._isSelected(node.id)"
           [disabled]="!!node.disabled"
           [tabbable]="false"
-          [ariaLabel]="'Select ' + node.label"
+          [ariaLabel]="_selectLabel(node)"
         />
       }
 

@@ -96,6 +96,9 @@ const uk: MlvLanguage = {
   },
   copyToClipboard: {
     copyToClipboard: 'Копіювати в буфер обміну',
+    copied: 'Скопійовано в буфер обміну',
+    copyTooltip: 'Копіювати',
+    copiedTooltip: 'Скопійовано',
   },
   dataTable: {
     addRow: 'Додати рядок',
@@ -135,6 +138,13 @@ const uk: MlvLanguage = {
     errorTitle: 'Щось пішло не так',
     errorMessage: 'Не вдалося завантажити дані таблиці.',
     retry: 'Повторити',
+    selectRow: 'Вибрати рядок {index}',
+    loadingMore: 'Завантаження наступних рядків',
+    loadingData: 'Завантаження даних таблиці',
+    noData: 'Немає даних',
+    pinStart: 'Закріпити на початку',
+    pinEnd: 'Закріпити в кінці',
+    actionsHeader: 'Дії',
   },
   dateRangePicker: {
     selectDateRange: 'Вибрати діапазон дат',
@@ -274,6 +284,7 @@ const uk: MlvLanguage = {
       'Пропозиція {index} з {count}: вставляє "{newText}"',
     aiCurrentSuggestionDelete:
       'Пропозиція {index} з {count}: вилучає "{oldText}"',
+    placeholder: 'Напишіть щось…',
   },
   fileUpload: {
     selectedFiles: 'Вибрані файли',
@@ -284,6 +295,8 @@ const uk: MlvLanguage = {
     errorSingleFile: 'Дозволено лише один файл.',
     errorFileType: 'Тип файлу не підтримується: {name}',
     errorFileSize: '«{name}» перевищує ліміт {size} МБ.',
+    dropFiles: 'Перетягніть файли сюди',
+    browseFiles: 'Вибрати файли',
   },
   filter: {
     filters: 'Фільтри ({count})',
@@ -518,6 +531,39 @@ const uk: MlvLanguage = {
     selectedItems: 'Вибрані елементи',
     moreItems:
       '{count, plural, one {+ ще {count}} few {+ ще {count}} many {+ ще {count}} other {+ ще {count}}}',
+  },
+  tree: {
+    expandNode: 'Розгорнути {label}',
+    collapseNode: 'Згорнути {label}',
+    loadingChildren: 'Завантаження дочірніх елементів',
+    selectNode: 'Вибрати {label}',
+  },
+  viewVariant: {
+    searchViews: 'Пошук подань',
+    newView: 'Нове подання',
+    newTeamView: 'Нове подання команди',
+    newPersonalView: 'Нове особисте подання',
+    retry: 'Повторити',
+    dismiss: 'Закрити',
+    systemViews: 'Системні',
+    teamViews: 'Командні',
+    personalViews: 'Мої подання',
+    readOnly: 'Лише для читання',
+    moreActions: 'Інші дії для {name}',
+    variantActions: 'Дії для {name}',
+    rename: 'Перейменувати',
+    share: 'Поділитися',
+    delete: 'Видалити',
+    noMatches: 'Жодне подання не відповідає вашому пошуку.',
+    duplicateView: 'Дублювати подання',
+    resetChanges: 'Скинути зміни',
+    updateView: 'Оновити подання',
+    saveAsNew: 'Зберегти як нове',
+    reset: 'Скинути',
+    readOnlySystemView: 'Це системне подання доступне лише для читання',
+    duplicateToSave: 'Створіть копію, щоб зберегти зміни',
+    unsavedChanges: 'У поданні є незбережені зміни',
+    unsavedView: 'Це незбережене подання',
   },
 };
 

@@ -28,7 +28,9 @@ changes; hosts supply those values and respond to the emitted requests.
 
 Required input: `variants`. Models: `activeId` (default `null`) and `query`
 (default empty). Inputs: `canCreate` (default `false`), `createScopes`
-(default `['personal']`), `groupLabels` (System, Team, My views defaults),
+(default `['personal']`), `groupLabels` (`MlvViewVariantGroupLabels | undefined`,
+default `undefined` — an override; unset, the three group headings come from
+the i18n `systemViews` / `teamViews` / `personalViews` keys, #371),
 `busyAction`, `errorMessage`, and `deferSelection` (default `false`).
 
 Outputs: `variantSelect`, `createRequest`, `renameRequest`, `deleteRequest`,
@@ -55,6 +57,26 @@ no status band. The other modes expose only allowed actions: update requires a
 dirty update-capable active view, clone requires clone capability, and create
 requires `canCreate`. Only the matching pending action becomes busy. Errors are
 polite `role="status"` content with retry and dismiss requests.
+
+### Localized strings (#371)
+
+- Both components inject the new optional `MLV_VIEW_VARIANT_I18N` slice
+  (`MlvViewVariantI18n` in `@malva-ui/i18n`, `MlvLanguage.viewVariant?`) through
+  the internal `injectViewVariantMessages()` (`view-variant-i18n.ts`, not
+  exported): a `computed` merging the defined keys over English
+  `OPTIONAL_MESSAGE_FALLBACKS`, so an app without the slice renders the old
+  English byte for byte.
+- 25 keys, all optional: list — `searchViews`, `newView`, `newTeamView`,
+  `newPersonalView`, `retry`, `dismiss`, `systemViews`, `teamViews`,
+  `personalViews`, `readOnly`, `moreActions` / `variantActions` (`{name}`),
+  `rename`, `share`, `delete`, `noMatches`; status — `duplicateView`,
+  `resetChanges`, `updateView`, `saveAsNew`, `reset`, `readOnlySystemView`,
+  `duplicateToSave`, `unsavedChanges`, `unsavedView`.
+- `groupLabels` stays an override (owner decision); an app that bound it for
+  translation can drop the binding once it ships the slice.
+- Every shipped pack translates the slice; `retry` / `dismiss` / `reset` equal
+  the pack's `dataTable.retry` / `notification.dismiss` / `filter.reset`
+  (pinned by `locale-contract.spec.ts`). Live switch: `view-variant-i18n.spec.ts`.
 
 ### `mlvViewStateEqual()`
 

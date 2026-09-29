@@ -107,6 +107,13 @@ export interface MlvEditorI18n {
   /** Current-suggestion description for a replacement. ICU with `index`, `count`, `oldText`, `newText`. */ aiCurrentSuggestionReplace: string;
   /** Current-suggestion description for an insertion. ICU with `index`, `count`, `newText`. */ aiCurrentSuggestionInsert: string;
   /** Current-suggestion description for a removal. ICU with `index`, `count`, `oldText`. */ aiCurrentSuggestionDelete: string;
+  /**
+   * Placeholder of an empty editor, unless `placeholder` is bound.
+   *
+   * Optional so a hand-written or older pack still type-checks; `mlv-editor`
+   * falls back to English when it is missing. Every shipped pack declares it.
+   */
+  placeholder?: string;
 }
 
 /** Signal token for the rich-text editor's translated copy. */
@@ -337,12 +344,12 @@ export const MLV_EDITOR_I18N_CONTEXT: Record<
   rowActions: {
     component: 'mlv-editor-table-controls',
     usage: 'aria-label',
-    description: 'Row grip opening the hovered row\'s table commands',
+    description: "Row grip opening the hovered row's table commands",
   },
   columnActions: {
     component: 'mlv-editor-table-controls',
     usage: 'aria-label',
-    description: 'Column grip opening the hovered column\'s table commands',
+    description: "Column grip opening the hovered column's table commands",
   },
   tableActions: {
     component: 'mlv-editor-table-controls',
@@ -665,5 +672,11 @@ export const MLV_EDITOR_I18N_CONTEXT: Record<
     icuParams: ['index', 'count', 'oldText'],
     description:
       'Non-visual description of the current AI delete suggestion. `index` is one-based, `count` is the pending total, `oldText` is the removed text.',
+  },
+  placeholder: {
+    component: 'mlv-editor',
+    usage: 'placeholder',
+    description:
+      'Placeholder shown in an empty rich-text editor, inviting the user to write',
   },
 };

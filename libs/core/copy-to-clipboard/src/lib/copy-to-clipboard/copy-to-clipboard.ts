@@ -26,6 +26,28 @@ import { LucideCheck, LucideCopy } from '@lucide/angular';
 import { MlvResizeObserverService, mlvNextId } from '@malva-ui/cdk/utils';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 import { MLV_COPY_TO_CLIPBOARD_I18N } from '@malva-ui/i18n';
+import type { MlvCopyToClipboardI18n } from '@malva-ui/i18n';
+
+/** `MlvCopyToClipboardI18n` keys a hand-written or older pack may omit. */
+type MlvCopyToClipboardOptionalMessageKey = {
+  [K in keyof MlvCopyToClipboardI18n]-?: undefined extends MlvCopyToClipboardI18n[K]
+    ? K
+    : never;
+}[keyof MlvCopyToClipboardI18n];
+
+/**
+ * @private English fallbacks for the optional i18n keys, used when the active
+ * pack omits one. Keyed by every optional key of the interface, so a new
+ * optional key does not compile without one (the `mlv-filter` pattern). The
+ * strings are the English pack's and the old literals'.
+ */
+const OPTIONAL_MESSAGE_FALLBACKS: Readonly<
+  Record<MlvCopyToClipboardOptionalMessageKey, string>
+> = {
+  copied: 'Copied to clipboard',
+  copyTooltip: 'Copy',
+  copiedTooltip: 'Copied',
+};
 
 /**
  * Inline copy-to-clipboard component.
@@ -124,9 +146,11 @@ export class MlvCopyToClipboard {
    * Text announced via the visually-hidden `aria-live="polite"` region
    * immediately after a successful clipboard write.
    *
-   * @default 'Copied to clipboard'
+   * Unset (the default), it is the active pack's `copyToClipboard.copied`
+   * (`MLV_COPY_TO_CLIPBOARD_I18N`), else `'Copied to clipboard'`. A bound
+   * string wins.
    */
-  readonly copiedAriaLabel = input<string>('Copied to clipboard');
+  readonly copiedAriaLabel = input<string | undefined>(undefined);
 
   /**
    * When true, disables the copy action, removes the host from the tab order,
@@ -165,6 +189,30 @@ export class MlvCopyToClipboard {
 
   /** @protected The component's i18n strings signal. */
   protected readonly _i18n = inject(MLV_COPY_TO_CLIPBOARD_I18N);
+
+  /**
+   * @protected The optional messages, from the active pack or the English
+   * fallbacks, so the template never reads an `undefined` key.
+   */
+  protected readonly _messages = computed<
+    Required<Pick<MlvCopyToClipboardI18n, MlvCopyToClipboardOptionalMessageKey>>
+  >(() => {
+    const i18n = this._i18n();
+    return {
+      copied: i18n.copied ?? OPTIONAL_MESSAGE_FALLBACKS.copied,
+      copyTooltip: i18n.copyTooltip ?? OPTIONAL_MESSAGE_FALLBACKS.copyTooltip,
+      copiedTooltip:
+        i18n.copiedTooltip ?? OPTIONAL_MESSAGE_FALLBACKS.copiedTooltip,
+    };
+  });
+
+  /**
+   * @protected The live-region announcement: {@link copiedAriaLabel}, else the
+   * pack's `copied`, else English.
+   */
+  protected readonly _copiedAnnouncement = computed(
+    () => this.copiedAriaLabel() ?? this._messages().copied,
+  );
 
   /**
    * @private Generated id: the host's own when {@link id} is unset or empty,

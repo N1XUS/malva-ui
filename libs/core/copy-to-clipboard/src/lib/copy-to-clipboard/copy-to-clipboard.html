@@ -10,7 +10,9 @@
 </span>
 <span
   class="mlv-copy-to-clipboard__indicator"
-  [mlvTooltip]="isCopied() ? 'Copied' : 'Copy'"
+  [mlvTooltip]="
+    isCopied() ? _messages().copiedTooltip : _messages().copyTooltip
+  "
   tooltipPlacement="top"
   aria-hidden="true"
 >
@@ -25,6 +27,6 @@
 </span>
 <span class="mlv-copy-to-clipboard__live" aria-live="polite">
   @if (isCopied()) {
-    {{ copiedAriaLabel() }}
+    {{ _copiedAnnouncement() }}
   }
 </span>
