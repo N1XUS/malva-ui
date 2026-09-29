@@ -1,0 +1,35 @@
+---
+title: Split view over an in-page relay
+---
+
+`MlvEditorCollaboration` from `@malva-ui/editor/collaboration` turns an
+`mlv-editor` into a live collaborator. The library owns everything Yjs: the
+shared document, the sync handshake, presence and remote carets. The host
+supplies one thing, a **transport** — a class extending
+`MlvEditorCollaborationTransport` whose `connect(context)` returns an
+Observable of connection and message events and sends every frame of
+`context.outbound`. Authentication, reconnection and backoff stay with the
+host; the library performs no network request of its own.
+
+The two editors here share an in-page relay that forwards each frame to the
+other side after a short simulated latency. A relay holds no Yjs state, so the
+transport sets `relay = true` and each client pushes its full state when it
+connects. Against a stateful server (y-websocket, Hocuspocus) leave it
+`false`.
+
+Both editors pass the same `collaborationInitialContent`. The seed is applied
+deterministically, so two clients that seed at once converge on one
+document instead of duplicating it.
+
+`mlv-editor-presence`, projected into `mlvEditorStatus`, lists the other
+people in the document and the connection status. Bind it through the
+directive's `exportAs` (`#collab="mlvEditorCollaboration"`). Turn a switch off
+to take that side offline: it keeps editing, its presence reports the offline
+state, and its changes merge when it comes back. Each status change is
+announced politely by the directive itself, so it reaches screen readers even
+without the presence component.
+
+Remote carets are decorations inside the content, hidden from assistive
+technology and never serialized into the value. AI transforms are
+**unsupported** while collaborating: the AI menu disables itself and a direct
+stream settles without writing.

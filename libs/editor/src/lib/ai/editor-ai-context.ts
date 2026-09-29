@@ -10,6 +10,7 @@ import type { Signal } from '@angular/core';
 import type { Editor } from '@tiptap/core';
 import type {} from '@tiptap/markdown';
 import { MLV_EDITOR_I18N, MlvI18nResolverService } from '@malva-ui/i18n';
+import { mlvEditorCollaborationBlocksAi } from '../editor/editor-collaboration.contract';
 import { MLV_EDITOR_TOOLBAR_CONTEXT } from '../editor-toolbar-context';
 import {
   mlvEditorAiReplaceRange,
@@ -238,6 +239,12 @@ export class MlvEditorAiContext {
         this._status() === 'reviewing'
           ? 'An AI review is pending for this editor: resolve the suggestions before starting another transform.'
           : 'An AI transform is already running for this editor.',
+      );
+      return;
+    }
+    if (mlvEditorCollaborationBlocksAi(this._toolbar.editor())) {
+      this._reportConfiguration(
+        'AI transforms are not supported while collaborating (yet)',
       );
       return;
     }

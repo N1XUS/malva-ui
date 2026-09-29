@@ -292,6 +292,25 @@ const de: MlvLanguage = {
     copyHeadingLink: 'Link zur Überschrift kopieren',
     headingLinkCopied: 'Link kopiert',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Verbindung wird hergestellt…',
+    collaborationSyncing: 'Wird synchronisiert…',
+    collaborationSynced: 'Alle Änderungen synchronisiert',
+    collaborationOffline:
+      'Offline. Änderungen werden synchronisiert, sobald die Verbindung wieder besteht.',
+    collaborationClosed:
+      'Zusammenarbeit beendet. Das Dokument ist schreibgeschützt.',
+    collaborationFailed:
+      'Zusammenarbeit fehlgeschlagen. Das Dokument ist schreibgeschützt.',
+    collaborationPeers:
+      '{count, plural, one {# weitere Person hier} other {# weitere Personen hier}}',
+    collaborationPresenceLabel: 'Mitwirkende',
+    collaborationViewing: '{name} (schaut zu)',
+    collaborationAnonymous: 'Anonym',
+    collaborationMoveCancelled:
+      'Verschieben abgebrochen: Jemand anderes hat das Dokument geändert.',
+    collaborationBackOnline: 'Wieder online. Änderungen synchronisiert.',
+    collaborationSyncTimeout:
+      'Das Dokument ist noch nicht synchronisiert. Bearbeiten ist möglich, sobald es synchronisiert ist.',
   },
   fileUpload: {
     selectedFiles: 'Ausgewählte Dateien',

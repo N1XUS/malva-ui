@@ -289,6 +289,24 @@ const ja: MlvLanguage = {
     copyHeadingLink: '見出しへのリンクをコピー',
     headingLinkCopied: 'リンクをコピーしました',
     styleValue: '{label}: {value}',
+    collaborationConnecting: '接続中…',
+    collaborationSyncing: '同期中…',
+    collaborationSynced: 'すべての変更を同期しました',
+    collaborationOffline: 'オフラインです。再接続すると変更が同期されます。',
+    collaborationClosed:
+      '共同編集は終了しました。ドキュメントは読み取り専用です。',
+    collaborationFailed:
+      '共同編集に失敗しました。ドキュメントは読み取り専用です。',
+    collaborationPeers:
+      '{count, plural, one {ほかに # 人が参加中} other {ほかに # 人が参加中}}',
+    collaborationPresenceLabel: '共同編集者',
+    collaborationViewing: '{name}（閲覧中）',
+    collaborationAnonymous: '匿名',
+    collaborationMoveCancelled:
+      '別のユーザーがドキュメントを変更したため、ブロックの移動をキャンセルしました。',
+    collaborationBackOnline: 'オンラインに戻りました。変更を同期しました。',
+    collaborationSyncTimeout:
+      'ドキュメントはまだ同期されていません。同期が完了すると編集できます。',
   },
   fileUpload: {
     selectedFiles: '選択したファイル',

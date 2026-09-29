@@ -33,6 +33,7 @@ import {
   MLV_EDITOR_TOOLBAR_CONTEXT,
 } from '../editor-toolbar-context';
 import type { MlvEditorOverlayRegistry } from '../editor-toolbar-context';
+import { mlvEditorCollaborationBlocksAi } from '../editor/editor-collaboration.contract';
 import { MlvEditorToolbarWidget } from '../toolbar/editor-toolbar-widget';
 import { mlvEditorAiDefaultActions } from './editor-ai-actions';
 import { MLV_EDITOR_AI_CONTEXT } from './editor-ai-context';
@@ -217,9 +218,16 @@ export class MlvEditorAiMenu {
     () => this._context.disabled() || this._context.readonly(),
   );
 
-  /** @protected Whether menu items cannot currently start a transform. */
+  /**
+   * @protected Whether menu items cannot currently start a transform: one is
+   * running or pending review, the editor is readonly or disabled, or it
+   * collaborates (F-D15: AI is unsupported while collaborating).
+   */
   protected readonly _itemsDisabled = computed(
-    () => (this._ai?.status() ?? 'idle') !== 'idle' || this._disabled(),
+    () =>
+      (this._ai?.status() ?? 'idle') !== 'idle' ||
+      this._disabled() ||
+      mlvEditorCollaborationBlocksAi(this._context.editor()),
   );
 
   /** @protected Whether the apply action cannot submit the custom prompt. */

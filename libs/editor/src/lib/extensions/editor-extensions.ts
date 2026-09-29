@@ -1,4 +1,11 @@
-import { Extension, type Editor, type Extensions } from '@tiptap/core';
+import {
+  Extension,
+  mergeAttributes,
+  ResizableNodeView,
+  type Editor,
+  type Extensions,
+  type NodeViewRendererProps,
+} from '@tiptap/core';
 import {
   FileHandlePlugin,
   type FileHandlerOptions,
@@ -10,16 +17,21 @@ import { Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
 import { CharacterCount, Placeholder } from '@tiptap/extensions';
 import type { PlaceholderOptions } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
-import type {
-  MlvEditorFormat,
-  MlvEditorImageUploadSource,
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
+import type { NodeView } from '@tiptap/pm/view';
+import {
+  mlvEditorDefaultImageUrlPolicy,
+  type MlvEditorFormat,
+  type MlvEditorImageUploadSource,
+  type MlvEditorImageUrlPolicy,
 } from '../editor.types';
 import {
   MlvEditorBlockHandle,
   type MlvEditorBlockHandleOptions,
 } from './editor-block-handle';
 import { MlvEditorUploadPlaceholder } from './editor-upload-placeholder';
+import { MlvEditorCollaborationCharacterLimit } from './editor-collaboration-limit';
 import {
   MlvEditorBlockId,
   type MlvEditorBlockIdOptions,
@@ -153,6 +165,32 @@ export const MlvEditorFileHandler = Extension.create<FileHandlerOptions>({
   },
 });
 
+/**
+ * Makes the default preset collaboration-safe. `mlv-editor` passes it
+ * whenever an `mlvEditorCollaboration` binding is active; a consumer
+ * composing its own set passes `isChangeOrigin` from
+ * `@tiptap/extension-collaboration`.
+ */
+export interface MlvEditorPresetCollaborationOptions {
+  /** Whether a transaction was applied from the shared document. */
+  readonly isChangeOrigin: (tr: Transaction) => boolean;
+
+  /**
+   * The image sources a collaborating editor renders (F-D23). A peer's image
+   * reaches the shared document without passing the upload coordinator, so
+   * an image whose `src` fails this shows in the editing DOM without a
+   * source, marked `data-mlv-editor-image-blocked`, and is never fetched.
+   * Only the rendered view changes: the shared document, `getHTML()`, the
+   * `value` and the clipboard keep the `src`. Called with the node's `src`
+   * as stored; `mlv-editor` passes a policy that resolves it against the
+   * document's `baseURI` first, then applies `imageUploadOptions.urlPolicy`
+   * (default `mlvEditorDefaultImageUrlPolicy`) to the absolute href.
+   * Defaults to `mlvEditorDefaultImageUrlPolicy`, which refuses a relative
+   * `src`. A policy that throws refuses.
+   */
+  readonly imageUrlPolicy?: MlvEditorImageUrlPolicy;
+}
+
 /** Options used to configure formatting extensions in a Malva editor preset. */
 export interface MlvEditorFormattingExtensionOptions {
   /** Node types that accept text alignment. Defaults to headings and paragraphs. */
@@ -162,6 +200,13 @@ export interface MlvEditorFormattingExtensionOptions {
    * (`setBlockLineHeight`). Defaults to headings and paragraphs.
    */
   readonly lineHeightTypes?: readonly string[];
+
+  /**
+   * Collaboration mode: StarterKit's `undoRedo` is left out, because the
+   * collaboration extension supplies a per-user Y undo manager and two undo
+   * systems diverge. Unset keeps the output byte-identical.
+   */
+  readonly collaboration?: MlvEditorPresetCollaborationOptions;
 }
 
 /** Options used to configure task-list support. */
@@ -234,6 +279,113 @@ export interface MlvEditorImageExtensionOptions {
 
   /** Callback invoked for pasted and dropped files. */
   readonly onFiles?: (event: MlvEditorFileHandlerEvent) => void;
+
+  /**
+   * Collaboration mode: the editing DOM shows an image's `src` only when it
+   * passes `imageUrlPolicy` (F-D23); serialization is unchanged. Unset keeps
+   * the output byte-identical.
+   */
+  readonly collaboration?: MlvEditorPresetCollaborationOptions;
+}
+
+/** @private Marks an image whose source a collaborating editor withheld. */
+const MLV_EDITOR_IMAGE_BLOCKED_ATTRIBUTE = 'data-mlv-editor-image-blocked';
+
+/**
+ * @private Whether `node`'s `src` may be shown: absent, or accepted by
+ * `policy`. A policy that throws refuses, as on the upload path: this runs
+ * while ProseMirror builds the view, where a throw would abort the update
+ * and leave the image and every node after it out of the editing DOM.
+ */
+function imageSourceAllowed(
+  node: ProseMirrorNode,
+  policy: MlvEditorImageUrlPolicy,
+): boolean {
+  const src: unknown = node.attrs['src'];
+  if (src === null || src === undefined || src === '') return true;
+  if (typeof src !== 'string') return false;
+  try {
+    return policy(src);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @private The image extension of a collaborating editor (F-D23): the
+ * editing DOM shows `src` only when it passes `policy`. Serialization is
+ * untouched — `renderHTML` also drives `getHTML()`, the HTML `value` and
+ * ProseMirror's clipboard, so a source withheld there would be lost on
+ * copy, cut, paste, drag and save. The node view polices instead: it wraps
+ * Tiptap's resizable view (handing it the node with `src` cleared, at
+ * creation and on every update) or, with resizing off, renders a plain
+ * `<img>`. Either way a refused source is never assigned to an element, so
+ * it is never fetched; the `<img>` is marked `data-mlv-editor-image-blocked`
+ * and shown, so its `alt` text reads in place of the picture.
+ */
+function policedImage(policy: MlvEditorImageUrlPolicy): typeof Image {
+  return Image.extend({
+    addNodeView() {
+      const resizable = this.parent?.() ?? null;
+      const htmlAttributes = this.options.HTMLAttributes;
+      if (typeof document === 'undefined') return resizable;
+      return (props: NodeViewRendererProps): NodeView => {
+        const withheld = (node: ProseMirrorNode): ProseMirrorNode =>
+          imageSourceAllowed(node, policy)
+            ? node
+            : node.type.create({ ...node.attrs, src: null }, null, node.marks);
+        const mark = (img: HTMLElement, node: ProseMirrorNode): void => {
+          img.toggleAttribute(
+            MLV_EDITOR_IMAGE_BLOCKED_ATTRIBUTE,
+            !imageSourceAllowed(node, policy),
+          );
+        };
+
+        if (!resizable) {
+          const img = document.createElement('img');
+          const merged = mergeAttributes(htmlAttributes, props.HTMLAttributes);
+          for (const [key, value] of Object.entries(merged)) {
+            if (value === null || value === undefined || key === 'src')
+              continue;
+            img.setAttribute(key, String(value));
+          }
+          if (imageSourceAllowed(props.node, policy) && merged['src']) {
+            img.setAttribute('src', String(merged['src']));
+          }
+          mark(img, props.node);
+          const node = props.node;
+          // Any change rebuilds the view, re-running the policy: an `<img>`
+          // is cheap, and a rebuild never assigns a refused source.
+          return { dom: img, update: (next) => next.sameMarkup(node) };
+        }
+
+        const allowed = imageSourceAllowed(props.node, policy);
+        const view = resizable({
+          ...props,
+          node: withheld(props.node),
+          HTMLAttributes: allowed
+            ? props.HTMLAttributes
+            : { ...props.HTMLAttributes, src: null },
+        });
+        if (!(view instanceof ResizableNodeView)) return view;
+        const img = view.element;
+        mark(img, props.node);
+        if (!allowed) {
+          // Tiptap reveals the view on the image's `load` / `error`, which a
+          // sourceless `<img>` never fires.
+          view.dom.style.visibility = '';
+          view.dom.style.pointerEvents = '';
+        }
+        const update = view.update.bind(view);
+        view.update = (node, decorations, innerDecorations) => {
+          const kept = update(withheld(node), decorations, innerDecorations);
+          if (kept) mark(img, node);
+          return kept;
+        };
+        return view;
+      };
+    },
+  });
 }
 
 /** Options used to configure editor utility extensions. */
@@ -247,6 +399,13 @@ export interface MlvEditorUtilityExtensionOptions {
 
   /** Maximum character count, or null for no limit. */
   readonly characterLimit?: number | null;
+
+  /**
+   * Collaboration mode: `CharacterCount` counts with no limit and the limit
+   * is re-applied to local transactions only, since a remote change cannot be
+   * cancelled. Unset keeps the output byte-identical.
+   */
+  readonly collaboration?: MlvEditorPresetCollaborationOptions;
 }
 
 /**
@@ -332,6 +491,7 @@ export function mlvEditorFormattingExtensions(
         openOnClick: false,
         HTMLAttributes: { target: null, rel: null },
       },
+      ...(options.collaboration ? { undoRedo: false as const } : {}),
     }),
     createMarkdownCompatibleTextStyle(),
     withAbsentStyleAsNull(Color.configure({})),
@@ -430,8 +590,13 @@ export function mlvEditorImageExtensions(
       }
     : { allowedMimeTypes };
 
+  const image = options.collaboration
+    ? policedImage(
+        options.collaboration.imageUrlPolicy ?? mlvEditorDefaultImageUrlPolicy,
+      )
+    : Image;
   return [
-    Image.configure({
+    image.configure({
       resize: {
         enabled: options.resizable ?? true,
         // Both must be finite; see MLV_EDITOR_IMAGE_MIN_SIZE for why omitting
@@ -462,9 +627,19 @@ export function mlvEditorUtilityExtensions(
       placeholder: options.placeholder ?? 'Write something…',
     }),
     CharacterCount.configure({
-      limit: normalizeMlvEditorCharacterLimit(options.characterLimit),
+      limit: options.collaboration
+        ? null
+        : normalizeMlvEditorCharacterLimit(options.characterLimit),
       wordCounter: countMlvEditorWords,
     }),
+    ...(options.collaboration
+      ? [
+          MlvEditorCollaborationCharacterLimit.configure({
+            limit: normalizeMlvEditorCharacterLimit(options.characterLimit),
+            isChangeOrigin: options.collaboration.isChangeOrigin,
+          }),
+        ]
+      : []),
   ];
 }
 
@@ -507,6 +682,56 @@ export function mlvEditorMarkdownExtensions(
 }
 
 /**
+ * @private A transaction filter that also skips change-origin transactions,
+ * keeping a consumer's own filter.
+ */
+function localOnlyFilter(
+  collaboration: MlvEditorPresetCollaborationOptions,
+  own: ((tr: Transaction) => boolean) | null | undefined,
+): (tr: Transaction) => boolean {
+  return (tr) => !collaboration.isChangeOrigin(tr) && (own ? own(tr) : true);
+}
+
+/**
+ * @private Block-ID options for collaboration: remote, seed, first-render and
+ * Y-undo transactions never mint or dedupe, and nothing is assigned until
+ * `ensureBlockIds()` runs after the first sync (F-D16).
+ */
+function collaborativeBlockIdOptions(
+  options: Partial<MlvEditorBlockIdOptions>,
+  collaboration: MlvEditorPresetCollaborationOptions | undefined,
+): Partial<MlvEditorBlockIdOptions> {
+  if (!collaboration) return options;
+  return {
+    ...options,
+    filterTransaction: localOnlyFilter(
+      collaboration,
+      options.filterTransaction,
+    ),
+    assignOnCreate: false,
+  };
+}
+
+/**
+ * @private Heading-anchor options for collaboration: anchors are derived from
+ * text, so recomputing them on a remote transaction would make every peer
+ * write the same attribute (F-D16).
+ */
+function collaborativeHeadingAnchorOptions(
+  options: Partial<MlvEditorHeadingAnchorOptions>,
+  collaboration: MlvEditorPresetCollaborationOptions | undefined,
+): Partial<MlvEditorHeadingAnchorOptions> {
+  if (!collaboration) return options;
+  return {
+    ...options,
+    filterTransaction: localOnlyFilter(
+      collaboration,
+      options.filterTransaction,
+    ),
+  };
+}
+
+/**
  * Creates Malva's complete default extension preset.
  *
  * Every call creates new arrays and extension instances. Passing a custom extension
@@ -529,14 +754,20 @@ export function mlvEditorDefaultExtensions(
     ...(options.blockIds
       ? [
           MlvEditorBlockId.configure(
-            options.blockIds === true ? {} : options.blockIds,
+            collaborativeBlockIdOptions(
+              options.blockIds === true ? {} : options.blockIds,
+              options.collaboration,
+            ),
           ),
         ]
       : []),
     ...(options.headingAnchors
       ? [
           MlvEditorHeadingAnchors.configure(
-            options.headingAnchors === true ? {} : options.headingAnchors,
+            collaborativeHeadingAnchorOptions(
+              options.headingAnchors === true ? {} : options.headingAnchors,
+              options.collaboration,
+            ),
           ),
         ]
       : []),

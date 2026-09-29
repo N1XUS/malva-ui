@@ -293,6 +293,22 @@ const en: MlvLanguage = {
     copyHeadingLink: 'Copy link to heading',
     headingLinkCopied: 'Link copied',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Connecting…',
+    collaborationSyncing: 'Syncing…',
+    collaborationSynced: 'All changes synced',
+    collaborationOffline: 'Offline. Changes will sync when you reconnect.',
+    collaborationClosed: 'Collaboration ended. The document is read-only.',
+    collaborationFailed: 'Collaboration failed. The document is read-only.',
+    collaborationPeers:
+      '{count, plural, one {# other person here} other {# other people here}}',
+    collaborationPresenceLabel: 'Collaborators',
+    collaborationViewing: '{name} (viewing)',
+    collaborationAnonymous: 'Anonymous',
+    collaborationMoveCancelled:
+      'Block move cancelled: someone else changed the document.',
+    collaborationBackOnline: 'Back online. Changes synced.',
+    collaborationSyncTimeout:
+      'The document has not synced yet. Editing starts once it does.',
   },
   fileUpload: {
     selectedFiles: 'Selected files',

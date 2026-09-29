@@ -293,6 +293,23 @@ const id: MlvLanguage = {
     copyHeadingLink: 'Salin tautan ke judul',
     headingLinkCopied: 'Tautan disalin',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Menghubungkan…',
+    collaborationSyncing: 'Menyinkronkan…',
+    collaborationSynced: 'Semua perubahan telah disinkronkan',
+    collaborationOffline:
+      'Offline. Perubahan akan disinkronkan saat Anda terhubung kembali.',
+    collaborationClosed: 'Kolaborasi berakhir. Dokumen hanya dapat dibaca.',
+    collaborationFailed: 'Kolaborasi gagal. Dokumen hanya dapat dibaca.',
+    collaborationPeers:
+      '{count, plural, one {# orang lain di sini} other {# orang lain di sini}}',
+    collaborationPresenceLabel: 'Kolaborator',
+    collaborationViewing: '{name} (melihat)',
+    collaborationAnonymous: 'Anonim',
+    collaborationMoveCancelled:
+      'Pemindahan blok dibatalkan: orang lain mengubah dokumen.',
+    collaborationBackOnline: 'Kembali online. Perubahan telah disinkronkan.',
+    collaborationSyncTimeout:
+      'Dokumen belum tersinkron. Pengeditan dimulai setelah tersinkron.',
   },
   fileUpload: {
     selectedFiles: 'Berkas yang dipilih',

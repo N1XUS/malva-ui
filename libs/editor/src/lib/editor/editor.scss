@@ -273,6 +273,54 @@
       }
     }
 
+    // Remote carets (F-D18, `@malva-ui/editor/collaboration` only): a bar in
+    // the peer's colour with an always-visible name label, both `aria-hidden`
+    // widgets inside the content. No blink and no transition, so reduced
+    // motion needs nothing. The label extends toward inline-end, so it
+    // mirrors in RTL; its foreground is black or white, whichever contrasts
+    // more with the peer colour (always >= 4.5:1).
+    &__caret {
+      position: relative;
+      margin-inline: calc(var(--mlv-stroke-width-medium) / -2);
+      border-inline-start: var(--mlv-stroke-width-medium) solid
+        var(--mlv-editor-caret-color);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    &__caret-label {
+      position: absolute;
+      inset-block-end: 100%;
+      inset-inline-start: 0;
+      padding: var(--mlv-spacing-0-5) var(--mlv-spacing-1);
+      border-radius: var(--mlv-radius-xs);
+      border-end-start-radius: 0;
+      background-color: var(--mlv-editor-caret-color);
+      color: var(--mlv-editor-caret-label-color);
+      font-size: var(--mlv-typography-body-s-size);
+      font-weight: var(--mlv-typography-body-s-weight);
+      line-height: var(--mlv-typography-body-s-line-height);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    // On the first line the label would sit above the content, where a capped
+    // viewport's `overflow: clip` cuts it: it flips below the line there.
+    &__content .ProseMirror > :first-child .#{$block}__caret-label {
+      inset-block: 100% auto;
+      border-start-start-radius: 0;
+      border-end-start-radius: var(--mlv-radius-xs);
+    }
+
+    // Lighter than y-tiptap's own `${color}70`, so the text stays AA.
+    &__caret-selection {
+      background-color: color-mix(
+        in srgb,
+        var(--mlv-editor-caret-color) 25%,
+        transparent
+      );
+    }
+
     // The block on the cursor stays in place, dimmed, so its origin is never in
     // doubt. Applied as a ProseMirror node decoration, which survives the
     // redraws a drag triggers; nothing reflows around it.
@@ -950,6 +998,15 @@
         display: none;
       }
 
+      // Remote carets and selections are screen presence, not document text.
+      &__caret {
+        display: none;
+      }
+
+      &__caret-selection {
+        background-color: transparent;
+      }
+
       // The navigation outline is a screen affordance; printed review state
       // keeps the insertion tint but not the focus ring.
       &__ai-suggestion-current {
@@ -1070,6 +1127,31 @@
 
     &.ProseMirror-focused .#{$block}__heading--caret .#{$block}__heading-link {
       opacity: 1;
+    }
+  }
+
+  // Forced colours drop the peer colours: the caret and a label inverted to
+  // the system pair still mark where a peer is; the selection keeps an
+  // underline, since a system highlight would read as the user's own.
+  @media (forced-colors: active) {
+    .#{$block} {
+      &__caret {
+        forced-color-adjust: none;
+        border-inline-start-color: CanvasText;
+      }
+
+      &__caret-label {
+        forced-color-adjust: none;
+        border: var(--mlv-stroke-width) solid Canvas;
+        background-color: CanvasText;
+        color: Canvas;
+      }
+
+      &__caret-selection {
+        background-color: transparent;
+        text-decoration: underline;
+        text-decoration-color: CanvasText;
+      }
     }
   }
 

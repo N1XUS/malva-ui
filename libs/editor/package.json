@@ -35,6 +35,7 @@
     "@malva-ui/core": "0.0.0-malva-ui-package-version",
     "@malva-ui/i18n": "0.0.0-malva-ui-package-version",
     "@tiptap/core": "0.0.0-tiptap-package-version",
+    "@tiptap/extension-collaboration": "0.0.0-tiptap-package-version",
     "@tiptap/extension-file-handler": "0.0.0-tiptap-package-version",
     "@tiptap/extension-highlight": "0.0.0-tiptap-package-version",
     "@tiptap/extension-image": "0.0.0-tiptap-package-version",
@@ -46,9 +47,16 @@
     "@tiptap/markdown": "0.0.0-tiptap-package-version",
     "@tiptap/pm": "0.0.0-tiptap-package-version",
     "@tiptap/starter-kit": "0.0.0-tiptap-package-version",
+    "@tiptap/y-tiptap": "^3.0.9",
     "prosemirror-model": "^1.25.12",
+    "prosemirror-state": "^1.4.4",
     "prosemirror-view": "^1.42.5",
-    "rxjs": "0.0.0-rxjs-package-version"
+    "rxjs": "0.0.0-rxjs-package-version",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33"
+  },
+  "dependencies": {
+    "lib0": "^0.2.100"
   },
   "sideEffects": false
 }

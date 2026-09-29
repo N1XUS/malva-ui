@@ -15,7 +15,7 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     include: [
-      '{src,ai,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      '{src,ai,collaboration,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
     ],
     setupFiles: [
       '../../scripts/testing/setup-strip-css-layers.js',

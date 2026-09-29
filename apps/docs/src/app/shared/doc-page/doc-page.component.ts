@@ -43,6 +43,7 @@ const DOCS_HEADER_TO_CANONICAL_PATH: Readonly<Record<string, string>> = {
   Dialog: 'dialog',
   Drawer: 'drawer',
   'AI Kit': 'editor-ai',
+  Collaboration: 'editor-collaboration',
   Editor: 'editor',
   'Editor AI': 'editor-ai',
   'File Upload': 'file-upload',

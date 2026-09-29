@@ -8,6 +8,7 @@ import { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { EditorState, Transaction } from '@tiptap/pm/state';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { mlvEditorCollaborationBlocksAi } from '../editor/editor-collaboration.contract';
 import type { MlvEditorErrorCode } from '../editor.types';
 import type { MlvEditorAiOutputMode } from './editor-ai.types';
 
@@ -548,7 +549,9 @@ export function runMlvEditorAiStream(
     }
   };
 
-  if (editor.isDestroyed) {
+  // A collaborating editor refuses AI writes (F-D15): the same settled,
+  // write-free handle a destroyed editor gets.
+  if (editor.isDestroyed || mlvEditorCollaborationBlocksAi(editor)) {
     settled = true;
     closeIterator();
     resolveDone({ status: 'abandoned', error: null, aborted: true, text: '' });

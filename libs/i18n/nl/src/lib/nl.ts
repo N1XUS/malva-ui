@@ -294,6 +294,24 @@ const nl: MlvLanguage = {
     copyHeadingLink: 'Koppeling naar kop kopiëren',
     headingLinkCopied: 'Koppeling gekopieerd',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Verbinden…',
+    collaborationSyncing: 'Synchroniseren…',
+    collaborationSynced: 'Alle wijzigingen gesynchroniseerd',
+    collaborationOffline:
+      'Offline. Wijzigingen worden gesynchroniseerd zodra je weer verbinding hebt.',
+    collaborationClosed:
+      'Samenwerking beëindigd. Het document is alleen-lezen.',
+    collaborationFailed: 'Samenwerking mislukt. Het document is alleen-lezen.',
+    collaborationPeers:
+      '{count, plural, one {# andere persoon hier} other {# andere personen hier}}',
+    collaborationPresenceLabel: 'Medewerkers',
+    collaborationViewing: '{name} (kijkt mee)',
+    collaborationAnonymous: 'Anoniem',
+    collaborationMoveCancelled:
+      'Verplaatsen van blok geannuleerd: iemand anders heeft het document gewijzigd.',
+    collaborationBackOnline: 'Weer online. Wijzigingen gesynchroniseerd.',
+    collaborationSyncTimeout:
+      'Het document is nog niet gesynchroniseerd. Bewerken kan zodra dat gebeurd is.',
   },
   fileUpload: {
     selectedFiles: 'Geselecteerde bestanden',

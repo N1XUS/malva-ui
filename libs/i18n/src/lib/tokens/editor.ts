@@ -214,6 +214,97 @@ export interface MlvEditorI18n {
    * to English when it is missing. Every shipped pack declares it.
    */
   styleValue?: string;
+  /**
+   * Collaboration status while the transport connects (`mlv-editor-presence`).
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationConnecting?: string;
+  /**
+   * Collaboration status while the first sync of a connection runs.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationSyncing?: string;
+  /**
+   * Collaboration status once the document is in sync.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationSynced?: string;
+  /**
+   * Collaboration status while disconnected; also announced when a synced session goes offline.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationOffline?: string;
+  /**
+   * Collaboration status, and announcement, once the host ended the session.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationClosed?: string;
+  /**
+   * Collaboration status, and announcement, once the session failed.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationFailed?: string;
+  /**
+   * Visually hidden count of the other people in the document. ICU plural with `count`.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationPeers?: string;
+  /**
+   * Accessible name of the `mlv-editor-presence` group.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationPresenceLabel?: string;
+  /**
+   * A peer who can only view the document. ICU with `name`.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationViewing?: string;
+  /**
+   * Name shown for a peer, or the local user, with no name.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationAnonymous?: string;
+  /**
+   * Announcement when a peer's edit cancels an in-progress block drag.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationMoveCancelled?: string;
+  /**
+   * Announcement when an offline session is back in sync.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationBackOnline?: string;
+  /**
+   * Announcement when the first sync did not arrive in time.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  collaborationSyncTimeout?: string;
 }
 
 /** Signal token for the rich-text editor's translated copy. */
@@ -856,5 +947,84 @@ export const MLV_EDITOR_I18N_CONTEXT: Record<
     description:
       'Name of the font family, font size and line-height menu triggers: the menu label followed by the value the trigger shows; keep the value last so the visible text stays part of the name',
     icuParams: ['label', 'value'],
+  },
+  collaborationConnecting: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description:
+      'Collaboration status while the connection to the shared document is being set up',
+  },
+  collaborationSyncing: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description:
+      'Collaboration status while the shared document is being synchronised after connecting',
+  },
+  collaborationSynced: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description:
+      'Collaboration status once every change is synchronised with the other people',
+  },
+  collaborationOffline: {
+    component: 'mlv-editor-presence',
+    usage: 'live-announcement',
+    description:
+      'Collaboration status while offline, also announced politely when a synchronised session loses its connection; local edits keep working and sync later',
+  },
+  collaborationClosed: {
+    component: 'mlv-editor-presence',
+    usage: 'live-announcement',
+    description:
+      'Collaboration status, also announced politely, once the host application ended the shared session; the document becomes read-only',
+  },
+  collaborationFailed: {
+    component: 'mlv-editor-presence',
+    usage: 'live-announcement',
+    description:
+      'Collaboration status, also announced politely, once the shared session failed; the document becomes read-only',
+  },
+  collaborationPeers: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description:
+      'Visually hidden count of the other people currently in the document',
+    icuParams: ['count'],
+  },
+  collaborationPresenceLabel: {
+    component: 'mlv-editor-presence',
+    usage: 'aria-label',
+    description:
+      'Accessible name of the group listing the people in a shared document and the connection status',
+  },
+  collaborationViewing: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description:
+      'Name of a person who can only view, not edit, the shared document',
+    icuParams: ['name'],
+  },
+  collaborationAnonymous: {
+    component: 'mlv-editor-presence',
+    usage: 'label',
+    description: 'Name shown for a person in a shared document who has no name',
+  },
+  collaborationMoveCancelled: {
+    component: 'mlv-editor',
+    usage: 'live-announcement',
+    description:
+      'Polite announcement when someone else changed the document while the user was dragging a block, so the move was cancelled',
+  },
+  collaborationBackOnline: {
+    component: 'mlv-editor',
+    usage: 'live-announcement',
+    description:
+      'Polite announcement when an offline shared document is connected and synchronised again',
+  },
+  collaborationSyncTimeout: {
+    component: 'mlv-editor',
+    usage: 'live-announcement',
+    description:
+      'Polite announcement when the shared document did not synchronise in time; editing starts once it does',
   },
 };

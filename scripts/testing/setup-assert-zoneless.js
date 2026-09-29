@@ -90,6 +90,13 @@ function collectZoneProblems() {
 }
 
 beforeAll(() => {
+  // A spec file that opts into Vitest's `node` environment
+  // (`// @vitest-environment node`) runs with no DOM on purpose — it proves a
+  // helper works on a server. `BrowserTestingModule` cannot be instantiated
+  // there (its `DOCUMENT` factory reads the `document` global), and such a
+  // file mounts no Angular view, so there is no change detection to pin.
+  if (typeof document === 'undefined') return;
+
   let problems;
   try {
     problems = collectZoneProblems();

@@ -299,6 +299,25 @@ const ro: MlvLanguage = {
     copyHeadingLink: 'Copiază legătura către titlu',
     headingLinkCopied: 'Legătură copiată',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Se conectează…',
+    collaborationSyncing: 'Se sincronizează…',
+    collaborationSynced: 'Toate modificările au fost sincronizate',
+    collaborationOffline:
+      'Offline. Modificările se vor sincroniza când vă reconectați.',
+    collaborationClosed:
+      'Colaborarea s-a încheiat. Documentul este doar în citire.',
+    collaborationFailed: 'Colaborarea a eșuat. Documentul este doar în citire.',
+    collaborationPeers:
+      '{count, plural, one {Încă # persoană aici} few {Încă # persoane aici} other {Încă # de persoane aici}}',
+    collaborationPresenceLabel: 'Colaboratori',
+    collaborationViewing: '{name} (vizualizează)',
+    collaborationAnonymous: 'Anonim',
+    collaborationMoveCancelled:
+      'Mutarea blocului a fost anulată: altcineva a modificat documentul.',
+    collaborationBackOnline:
+      'Din nou online. Modificările au fost sincronizate.',
+    collaborationSyncTimeout:
+      'Documentul nu este încă sincronizat. Editarea va fi posibilă după sincronizare.',
   },
   fileUpload: {
     selectedFiles: 'Fișiere selectate',

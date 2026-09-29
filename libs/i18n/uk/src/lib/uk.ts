@@ -299,6 +299,25 @@ const uk: MlvLanguage = {
     copyHeadingLink: 'Копіювати посилання на заголовок',
     headingLinkCopied: 'Посилання скопійовано',
     styleValue: '{label}: {value}',
+    collaborationConnecting: 'Підключення…',
+    collaborationSyncing: 'Синхронізація…',
+    collaborationSynced: 'Усі зміни синхронізовано',
+    collaborationOffline:
+      'Офлайн. Зміни синхронізуються, щойно з’єднання відновиться.',
+    collaborationClosed:
+      'Спільну роботу завершено. Документ доступний лише для читання.',
+    collaborationFailed:
+      'Помилка спільної роботи. Документ доступний лише для читання.',
+    collaborationPeers:
+      '{count, plural, one {Ще # особа тут} few {Ще # особи тут} many {Ще # осіб тут} other {Ще # особи тут}}',
+    collaborationPresenceLabel: 'Учасники',
+    collaborationViewing: '{name} (переглядає)',
+    collaborationAnonymous: 'Анонім',
+    collaborationMoveCancelled:
+      'Переміщення блоку скасовано: хтось інший змінив документ.',
+    collaborationBackOnline: 'Знову онлайн. Зміни синхронізовано.',
+    collaborationSyncTimeout:
+      'Документ ще не синхронізовано. Редагування стане доступним після синхронізації.',
   },
   fileUpload: {
     selectedFiles: 'Вибрані файли',

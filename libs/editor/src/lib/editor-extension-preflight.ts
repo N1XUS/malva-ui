@@ -73,6 +73,30 @@ function supportsMarkdown(extension: AnyExtension): boolean {
 }
 
 /**
+ * @internal Why an extension set cannot collaborate, or `null` when it can.
+ *
+ * Fails closed where upstream only warns: StarterKit's `undoRedo` beside the
+ * collaboration undo manager gives two diverging undo systems, and a limited
+ * `CharacterCount` would reject remote transactions, which cannot be
+ * cancelled without desynchronising ProseMirror from Yjs.
+ */
+function collaborationConflict(
+  flattened: readonly AnyExtension[],
+): string | null {
+  if (flattened.some((extension) => extension.name === 'undoRedo')) {
+    return 'Collaboration replaces undo history: remove the undoRedo extension (StarterKit undoRedo: false).';
+  }
+  const limited = flattened.some((extension) => {
+    if (extension.name !== 'characterCount') return false;
+    const limit: unknown = (extension.options as { limit?: unknown }).limit;
+    return typeof limit === 'number' && limit !== 0;
+  });
+  return limited
+    ? 'Collaboration applies the character limit to local input only: configure CharacterCount without a limit and use characterLimit.'
+    : null;
+}
+
+/**
  * @internal Flattens and validates the exact extension set before Tiptap can
  * warn, create schema state, or publish an editor instance.
  *
@@ -83,6 +107,7 @@ function supportsMarkdown(extension: AnyExtension): boolean {
 export function preflightMlvEditorExtensions(
   extensions: Extensions,
   initialFormat: MlvEditorFormat,
+  collaborating = false,
 ): MlvEditorExtensionPreflightResult {
   try {
     const flattened = flattenExtensions(extensions);
@@ -111,6 +136,13 @@ export function preflightMlvEditorExtensions(
             'Initial Markdown content requires the official Tiptap Markdown extension.',
           recoverable: false,
         },
+      };
+    }
+    const conflict = collaborating ? collaborationConflict(flattened) : null;
+    if (conflict) {
+      return {
+        ok: false,
+        error: { code: 'configuration', message: conflict, recoverable: false },
       };
     }
     return { ok: true };

@@ -35,6 +35,14 @@ export * from './lib/ai/editor-ai.types';
 export { MLV_EDITOR_TOOLBAR_CONTEXT } from './lib/editor-toolbar-context';
 export type { MlvEditorToolbarContext } from './lib/editor-toolbar-context';
 export * from './lib/editor/editor';
+// `@internal`: the contract `@malva-ui/editor/collaboration` (same package,
+// same version) implements. Not a consumer extension point; outside semver.
+// The editor registry and the position tracker stay unexported.
+export { MLV_EDITOR_COLLABORATION } from './lib/editor/editor-collaboration.contract';
+export type {
+  MlvEditorCollaborationAttachContext,
+  MlvEditorCollaborationBinding,
+} from './lib/editor/editor-collaboration.contract';
 export * from './lib/editor/editor-heading-links';
 export * from './lib/extensions/block-id/editor-block-id';
 export * from './lib/extensions/editor-block-handle';

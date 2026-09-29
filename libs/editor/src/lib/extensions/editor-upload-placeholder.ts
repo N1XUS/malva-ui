@@ -1,6 +1,14 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import {
+  mlvEditorCollaborationBindingFor,
+  mlvEditorIsChangeOrigin,
+} from '../editor/editor-collaboration.contract';
+import {
+  trackMlvEditorPosition,
+  type MlvEditorTrackedPosition,
+} from './editor-position-tracker';
 
 /** A rendered, temporary image-upload placeholder tracked by its stable identifier. */
 export interface MlvEditorUploadPlaceholderItem {
@@ -298,6 +306,41 @@ export const MlvEditorUploadPlaceholder = Extension.create<
 
   addProseMirrorPlugins() {
     const storage = this.storage as MlvEditorMutableUploadPlaceholderStorage;
+    const editor = this.editor;
+    /**
+     * F-D13: while collaborating, each placeholder's position is tracked. A
+     * change-origin transaction replaces the whole document, so mapping the
+     * widgets would drop every one of them on any peer keystroke; they are
+     * rebuilt from the tracked positions instead. Empty without a binding.
+     */
+    const tracked = new Map<string, MlvEditorTrackedPosition>();
+    const release = (id: string): void => {
+      tracked.get(id)?.release();
+      tracked.delete(id);
+    };
+    /** Whether `transaction` (or the one it was appended to) came from the shared document. */
+    const isRemote = (transaction: Transaction): boolean =>
+      transaction.docChanged && mlvEditorIsChangeOrigin(editor, transaction);
+    /** The placeholders of `decorations`, rebuilt at their tracked positions. */
+    const rebuild = (
+      decorations: DecorationSet,
+      transaction: Transaction,
+    ): DecorationSet => {
+      const kept: Decoration[] = [];
+      for (const decoration of decorations.find()) {
+        const spec =
+          decoration.spec as MlvEditorUploadPlaceholderDecorationSpec;
+        const pos = tracked.get(spec.id)?.pos ?? null;
+        // A lost anchor: a peer deleted the host block. The upload settles
+        // through the coordinator's existing "no placeholder" path.
+        if (pos === null || pos > transaction.doc.content.size) {
+          release(spec.id);
+          continue;
+        }
+        kept.push(createPlaceholderDecoration(pos, spec.id, spec.progress));
+      }
+      return DecorationSet.create(transaction.doc, kept);
+    };
 
     return [
       new Plugin<DecorationSet>({
@@ -312,12 +355,30 @@ export const MlvEditorUploadPlaceholder = Extension.create<
             const metadata = transaction.getMeta(
               MLV_EDITOR_UPLOAD_PLACEHOLDER_KEY,
             ) as MlvEditorUploadPlaceholderMetadata | undefined;
-            let next = decorations.map(transaction.mapping, transaction.doc);
+            let next = isRemote(transaction)
+              ? rebuild(decorations, transaction)
+              : decorations.map(transaction.mapping, transaction.doc);
+            if (tracked.size > 0 && transaction.docChanged) {
+              for (const id of [...tracked.keys()]) {
+                if (findPlaceholderDecorations(next, id).length === 0) {
+                  release(id);
+                }
+              }
+            }
 
             if (
               metadata?.type === 'insert' &&
               metadata.position !== undefined
             ) {
+              // Created only for the insert meta, a transaction that changes
+              // no content, so ProseMirror and Yjs agree on the position.
+              if (mlvEditorCollaborationBindingFor(editor)) {
+                release(metadata.id);
+                tracked.set(
+                  metadata.id,
+                  trackMlvEditorPosition(editor, metadata.position, -1),
+                );
+              }
               next = next.add(transaction.doc, [
                 createPlaceholderDecoration(
                   metadata.position,
@@ -341,6 +402,7 @@ export const MlvEditorUploadPlaceholder = Extension.create<
 
             if (metadata?.type === 'remove') {
               next = next.remove(findPlaceholderDecorations(next, metadata.id));
+              release(metadata.id);
             }
 
             synchronizeStorage(storage, next);
@@ -351,6 +413,11 @@ export const MlvEditorUploadPlaceholder = Extension.create<
           decorations: (state) =>
             MLV_EDITOR_UPLOAD_PLACEHOLDER_KEY.getState(state),
         },
+        view: () => ({
+          destroy: () => {
+            for (const id of [...tracked.keys()]) release(id);
+          },
+        }),
       }),
     ];
   },
