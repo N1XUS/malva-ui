@@ -16,9 +16,14 @@ exactly one copy of each; check with `npm ls prosemirror-view prosemirror-model`
 Upgrading from Tiptap 3.29 or 3.30 is covered by the
 [Tiptap 3.31 migration](https://github.com/N1XUS/malva-ui/blob/main/docs/migrations/2026-09-editor-tiptap-3-31.md).
 
-The default toolbar order is undo/redo, view-only zoom, heading, list,
-inline marks, text color, highlight, alignment, link, table, block inserts, and
-image upload. Narrow layouts move eligible commands into an overflow menu.
+The default toolbar order is undo/redo, view-only zoom, heading, list, font
+family and size, inline marks (bold, italic, strike, underline, inline code,
+subscript, superscript), text color, highlight, Clear formatting, alignment,
+line height, link, table, block inserts, and image upload. The docked bar, the
+selection bubble and the standalone `mlv-editor-toolbar` render the same
+groups. Narrow layouts move font family, font size, the inline marks, Clear
+formatting, alignment, line height and the block inserts into the "More
+formatting" menu, with the three text styles as submenus.
 
 Give the editable region an accessible name with `label`, `ariaLabel`, or
 `ariaLabelledBy`. The toolbar supports roving arrow-key navigation, Home/End,

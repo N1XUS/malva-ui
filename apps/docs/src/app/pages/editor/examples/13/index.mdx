@@ -1,0 +1,51 @@
+---
+title: Text styles and heading links
+---
+
+The toolbar sets a **font**, a **font size** and a block **line height**,
+each from a menu whose first item, "Default", removes the value. A trigger
+names the current value ("Font size: 16"). **Subscript** and **superscript**
+(`Mod-,` / `Mod-.`) exclude each other; **inline code** sits beside them; and
+**Clear formatting** removes every mark in the selection except links,
+leaving the block type, alignment and line height alone. Below 640 px the
+three menus move into "More formatting" as submenus.
+
+Font and size are stored as a `<span style>` in HTML and Markdown, line
+height as a `style` on the paragraph or heading (Markdown keeps that block as
+HTML), and scripts as `<sub>` / `<sup>`. Pasted HTML that sets these styles
+inline keeps them. Replace the menus' option lists with
+`provideMlvEditorTextStyles()`; a list you leave out keeps its default:
+
+```ts
+providers: [
+  provideMlvEditorTextStyles({
+    fontSizes: ['14px', '16px', '20px', '28px'],
+    lineHeights: ['1.2', '1.5', '1.8'],
+  }),
+],
+```
+
+`fontFamilies: null`, the default, shows the localized Sans serif, Serif and
+Monospace system stacks.
+
+`blockIds` gives every block a stable ID, stored as `attrs.blockId` in JSON
+and `data-block-id` in HTML (Markdown drops it and regenerates it on load). A
+new block gets its ID in the same edit that creates it; a pasted copy gets a
+fresh one while the original keeps its own. IDs assigned while a value loads
+are not emitted — the stored value gains them with the next edit.
+
+`headingAnchors` derives an `id` for every heading from its text,
+deduplicated in document order (the second "Getting started" becomes
+`getting-started-1`). Each heading shows a copy-link button on hover, on focus
+and while the caret is in it. It is a tab stop in a readonly editor, like the
+preview here; in an editable editor, like the first one, the heading menu's
+**Copy link to heading** item is the keyboard path, and the button is hidden
+from assistive technology so the heading is announced by its text alone. The
+link is built by `MLV_EDITOR_HEADING_LINKS` — provide
+`provideMlvEditorHeadingLinks()` for a canonical document URL — and "Link
+copied" is announced politely.
+
+Both inputs are read once, when the editor is created, and both extensions
+are also exported (`MlvEditorBlockId`, `MlvEditorHeadingAnchors`) for a
+custom `extensions` array. Give each editor on a page its own anchor
+`idPrefix` there, or two headings with the same text render the same `id`.

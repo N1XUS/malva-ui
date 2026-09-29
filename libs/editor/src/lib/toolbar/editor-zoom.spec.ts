@@ -783,20 +783,30 @@ describe('MlvEditor responsive toolbar', () => {
         item.textContent?.trim(),
       ),
     ).toEqual([
+      'Font',
+      'Font size',
       'Bold',
       'Italic',
       'Strike-through',
       'Underline',
+      'Inline code',
+      'Subscript',
+      'Superscript',
+      'Clear formatting',
       'Align left',
       'Align center',
       'Align right',
       'Justify',
+      'Line height',
       'Blockquote',
       'Code block',
       'Horizontal rule',
     ]);
     const chain = vi.spyOn(editor, 'chain');
-    (menu.querySelectorAll('[role="menuitem"]')[0] as HTMLElement).click();
+    const bold = Array.from(
+      menu.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ).find((item) => item.textContent?.trim() === 'Bold');
+    bold?.click();
     fixture.detectChanges();
     expect(chain).toHaveBeenCalledTimes(1);
     expect(editor.isActive('bold')).toBe(true);
@@ -902,7 +912,7 @@ describe('MlvEditor responsive toolbar', () => {
       Array.from(menu.querySelectorAll('[role="menuitem"]')).map((item) =>
         item.textContent?.trim(),
       ),
-    ).toEqual(['Italic']);
+    ).toEqual(['Italic', 'Inline code']);
     (menu.querySelector('[role="menuitem"]') as HTMLElement).click();
     await finishDetachedOverlays(fixture);
   });
@@ -975,6 +985,13 @@ describe('MlvEditor responsive toolbar', () => {
       blockquote: 'Quote',
       codeBlock: 'Code',
       horizontalRule: 'Divider',
+      fontFamily: 'Typeface',
+      fontSize: 'Text size',
+      inlineCode: 'Monospace text',
+      subscript: 'Lowered',
+      superscript: 'Raised',
+      clearFormatting: 'Plain text',
+      lineHeight: 'Leading',
     }));
     fixture.detectChanges();
 
@@ -993,19 +1010,26 @@ describe('MlvEditor responsive toolbar', () => {
         item.textContent?.trim(),
       ),
     ).toEqual([
+      'Typeface',
+      'Text size',
       'Strong',
       'Emphasis',
       'Cross out',
       'Underline text',
+      'Monospace text',
+      'Lowered',
+      'Raised',
+      'Plain text',
       'Flush left',
       'Centre',
       'Flush right',
       'Fill line',
+      'Leading',
       'Quote',
       'Code',
       'Divider',
     ]);
-    (menu.querySelectorAll('[role="menuitem"]')[0] as HTMLElement).click();
+    (menu.querySelectorAll('[role="menuitem"]')[2] as HTMLElement).click();
     await new Promise((resolve) => setTimeout(resolve));
     for (const panel of document.querySelectorAll('.mlv-popup--leave')) {
       panel.dispatchEvent(new Event('animationend', { bubbles: true }));

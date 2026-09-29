@@ -21,12 +21,18 @@
     gap: var(--mlv-spacing-1);
   }
 
+  // The shared default groups (N1-D11) stay flex items of the row.
+  .mlv-editor-default-toolbar-groups {
+    display: contents;
+  }
+
   mlv-editor-zoom,
   mlv-editor-heading,
   mlv-editor-list,
   mlv-editor-text-color,
   mlv-editor-highlight,
   mlv-editor-alignment,
+  mlv-editor-clear-formatting,
   mlv-editor-link,
   mlv-editor-table,
   mlv-editor-image-upload {
@@ -998,11 +1004,99 @@
     }
   }
 
+  // Heading copy-link button (`MlvEditorHeadingAnchors`): a ProseMirror widget
+  // at the heading's inline end, so it inherits the heading's font. Sized in
+  // rem to keep a 1.5rem target (WCAG 2.5.8) at every level; the negative
+  // block margin keeps that box from growing a small heading's line. It is
+  // always in the layout and only fades in, so the heading never reflows.
+  .#{$block}__heading-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    margin-block: -0.25rem;
+    margin-inline-start: var(--mlv-spacing-2);
+    padding: 0;
+    border: 0;
+    border-radius: var(--mlv-radius-s);
+    background-color: transparent;
+    color: var(--mlv-text-secondary);
+    vertical-align: middle;
+    cursor: pointer;
+    opacity: 0;
+    user-select: none;
+    transition:
+      opacity var(--mlv-duration-fast) var(--mlv-ease-default),
+      background-color var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    &:hover {
+      background-color: var(--mlv-background-neutral-1-hover);
+      color: var(--mlv-text-action);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+      outline-offset: var(--mlv-focus-ring-offset);
+    }
+  }
+
+  // The link glyph names no direction, so it is not mirrored in RTL.
+  .#{$block}__heading-link-icon {
+    flex: none;
+    inline-size: 1rem;
+    block-size: 1rem;
+    pointer-events: none;
+  }
+
+  // Shown while the pointer is over the heading, while focus is inside it,
+  // and while the caret sits in it in a focused editor.
+  .#{$block} .ProseMirror {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      &:hover,
+      &:focus-within {
+        .#{$block}__heading-link {
+          opacity: 1;
+        }
+      }
+    }
+
+    &.ProseMirror-focused .#{$block}__heading--caret .#{$block}__heading-link {
+      opacity: 1;
+    }
+  }
+
   // A pointer-only affordance is meaningless without hover; on touch surfaces the
   // Alt+Shift+Arrow keymap remains the reordering path.
   @media (hover: none) {
     .#{$block}__block-handle {
       display: none;
+    }
+
+    // Nothing hovers on touch, and opacity keeps a hidden button hit-testable,
+    // so a tap near a heading's end would copy a link. The readonly button is
+    // a tab stop and is always shown. The editable one is `aria-hidden` and
+    // shows only with the caret in its heading, so it takes taps only then;
+    // otherwise the tap reaches the heading text and places the caret.
+    .#{$block} .ProseMirror[contenteditable='false'] .#{$block}__heading-link {
+      opacity: 1;
+    }
+
+    .#{$block}
+      .ProseMirror[contenteditable='true']:not(.ProseMirror-focused)
+      .#{$block}__heading-link,
+    .#{$block}
+      .ProseMirror[contenteditable='true'].ProseMirror-focused
+      .#{$block}__heading:not(.#{$block}__heading--caret)
+      .#{$block}__heading-link {
+      pointer-events: none;
     }
   }
 
@@ -1011,6 +1105,7 @@
       .mlv-form-control-wrapper__control-container,
       &__block-handle,
       &__drop-indicator,
+      &__heading-link,
       .ProseMirror a {
         transition-duration: var(--mlv-duration-instant);
       }

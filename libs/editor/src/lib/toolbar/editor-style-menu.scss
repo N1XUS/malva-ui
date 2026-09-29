@@ -1,0 +1,34 @@
+// Font-family, font-size and line-height toolbar menus (#514). Shared by the
+// three controls; rendered in the docked bar, the portaled selection bubble
+// and consumer toolbars, so nothing here relies on an editor ancestor.
+@layer mlv.components {
+  $block: mlv-editor-style-menu;
+
+  .#{$block} {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+
+    &[hidden] {
+      display: none;
+    }
+
+    &__trigger {
+      gap: var(--mlv-spacing-1);
+    }
+
+    // A long family name ("Monospace", a consumer's own) truncates rather than
+    // widening the row; the full value stays in the accessible name.
+    &__value {
+      max-inline-size: 6rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__chevron {
+      flex: 0 0 auto;
+      color: var(--mlv-text-secondary);
+    }
+  }
+}
