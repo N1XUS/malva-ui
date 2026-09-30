@@ -305,6 +305,85 @@ export interface MlvEditorI18n {
    * to English when it is missing. Every shipped pack declares it.
    */
   collaborationSyncTimeout?: string;
+
+  // Clean mode (#516)
+  /**
+   * Block-type dropdown trigger name prefix ("Block type: Heading level 2").
+   * Read through `styleValue` as its `label`.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  blockType?: string;
+  /**
+   * Block-type dropdown menu label: converts the selected blocks to another
+   * type.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  turnInto?: string;
+  /**
+   * Clean-mode block inserter: the gutter "+" tooltip, the bubble's insert
+   * button name and the command menu's label.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  insertBlock?: string;
+  /**
+   * Command-menu group label for the AI items.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  insertGroupAi?: string;
+  /**
+   * Command-menu group label for the paragraph, heading, quote and code-block
+   * items.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  insertGroupStyle?: string;
+  /**
+   * Command-menu group label for the bullet, ordered and task list items.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  insertGroupLists?: string;
+  /**
+   * Command-menu group label for the table, divider and image items.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  insertGroupInsert?: string;
+  /**
+   * Command-menu item that opens the AI prompt and writes the answer below
+   * the block.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  askAi?: string;
+  /**
+   * Accessible name of the `nav[mlvEditorToc]` landmark, unless the consumer
+   * names it with `ariaLabel`.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  tableOfContents?: string;
+  /**
+   * Text `nav[mlvEditorToc]` shows while the document has no heading it
+   * lists.
+   *
+   * Optional so a hand-written pack still type-checks; the editor falls back
+   * to English when it is missing. Every shipped pack declares it.
+   */
+  tableOfContentsEmpty?: string;
 }
 
 /** Signal token for the rich-text editor's translated copy. */
@@ -1026,5 +1105,66 @@ export const MLV_EDITOR_I18N_CONTEXT: Record<
     usage: 'live-announcement',
     description:
       'Polite announcement when the shared document did not synchronise in time; editing starts once it does',
+  },
+  // Clean mode (#516)
+  blockType: {
+    component: 'mlv-editor-block-type',
+    usage: 'aria-label',
+    description:
+      'First half of the block-type dropdown trigger name, before the current block type the trigger shows (the label of the styleValue template); a short noun phrase',
+  },
+  turnInto: {
+    component: 'mlv-editor-block-type',
+    usage: 'label',
+    description:
+      'Label of the block-type dropdown menu, whose items convert the selected blocks to a paragraph, heading, list, quote or code block',
+  },
+  insertBlock: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Name of the clean-mode block inserter: the tooltip of the "+" beside a block, the insert button in the selection bubble and the label of the menu of blocks to insert; an imperative verb phrase',
+  },
+  insertGroupAi: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Heading of the insert-menu group holding the AI items; keep the abbreviation "AI" unless the locale has an established short form',
+  },
+  insertGroupStyle: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Heading of the insert-menu group holding the paragraph, heading, quote and code-block items; a short noun phrase such as "Basic blocks"',
+  },
+  insertGroupLists: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Heading of the insert-menu group holding the bullet, numbered and checklist items',
+  },
+  insertGroupInsert: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Heading of the insert-menu group holding the table, divider and image items; a short word for inserting objects',
+  },
+  askAi: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Insert-menu item that opens an AI prompt whose answer is written below the block; ends with an ellipsis because it opens a dialog',
+  },
+  tableOfContents: {
+    component: 'mlv-editor',
+    usage: 'aria-label',
+    description:
+      'Screen-reader name of the navigation landmark listing the headings of the document',
+  },
+  tableOfContentsEmpty: {
+    component: 'mlv-editor',
+    usage: 'label',
+    description:
+      'Text shown in the table of contents while the document has no headings yet',
   },
 };

@@ -1,0 +1,24 @@
+// Clean-appearance "More formatting" menu (#516). The panels are portaled to
+// `<body>`, so nothing here relies on an editor ancestor.
+@layer mlv.components {
+  .mlv-editor-bubble-more {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+
+    // The host hides when no row would render; an author `display` would
+    // otherwise override the UA `[hidden]` rule.
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  // The submenu chevron points toward the inline end: it mirrors in RTL.
+  // Same rule as the bar overflow's, declared here too so the clean bubble
+  // does not depend on that stylesheet having loaded.
+  .mlv-editor-toolbar__submenu-chevron {
+    flex: 0 0 auto;
+    color: var(--mlv-text-tertiary);
+    transform: scaleX(var(--mlv-inline-direction));
+  }
+}

@@ -41,52 +41,16 @@
       (afterClosed)="_onPromptClosed()"
     >
       <ng-template mlvPopupContent>
-        <div #_panel class="mlv-editor-ai-menu__panel">
-          <mlv-input
-            #_instructionInput
-            [label]="_copy().aiCustom"
-            [placeholder]="_copy().aiPromptPlaceholder"
-            [disabled]="_disabled()"
-            [value]="_instruction()"
-            (valueChange)="_instruction.set($event)"
-            (keydown.enter)="_apply()"
-          />
-          <mlv-radio-group
-            class="mlv-editor-ai-menu__output"
-            [label]="_copy().aiOutputMode"
-            [value]="_output()"
-            (valueChange)="_onOutputChange($event)"
-          >
-            <mlv-radio value="replace-selection" [disabled]="_disabled()">
-              {{ _copy().aiReplaceSelection }}
-            </mlv-radio>
-            <mlv-radio value="insert-below" [disabled]="_disabled()">
-              {{ _copy().aiInsertBelow }}
-            </mlv-radio>
-            <mlv-radio value="review" [disabled]="_disabled()">
-              {{ _copy().aiReviewChanges }}
-            </mlv-radio>
-          </mlv-radio-group>
-          <div class="mlv-editor-ai-menu__actions">
-            <button
-              mlvButton
-              type="button"
-              variant="primary"
-              [disabled]="_applyDisabled()"
-              (click)="_apply()"
-            >
-              {{ _copy().aiApply }}
-            </button>
-            <button
-              mlvButton
-              type="button"
-              variant="secondary"
-              (click)="_closePrompt()"
-            >
-              {{ _copy().aiCancel }}
-            </button>
-          </div>
-        </div>
+        <div
+          #_panel
+          mlvEditorAiPromptPanel
+          [(instruction)]="_instruction"
+          [(output)]="_output"
+          [disabled]="_disabled()"
+          [applyBlocked]="_itemsDisabled()"
+          (submitted)="_apply()"
+          (dismissed)="_closePrompt()"
+        ></div>
       </ng-template>
     </mlv-popup>
   </mlv-popup-container>

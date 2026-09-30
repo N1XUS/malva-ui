@@ -62,6 +62,7 @@ import {
   mlvEditorFocusContent,
   type MlvEditorToolbarContext,
 } from '../editor-toolbar-context';
+import { MLV_EDITOR_CLEAN_MODE_FALLBACKS } from '../editor-clean-mode-fallbacks';
 import {
   MLV_EDITOR_DEFAULT_IMAGE_UPLOAD_OPTIONS,
   MLV_EDITOR_IMAGE_UPLOADER,
@@ -113,7 +114,10 @@ import {
 import type { MlvEditorBlockMove } from '../extensions/editor-block-handle';
 import { mlvEditorDefaultExtensions } from '../extensions/editor-extensions';
 import { MLV_EDITOR_CREATE_NORMALIZATION_META } from '../extensions/editor-create-normalization';
-import type { MlvEditorHeadingLink } from '../extensions/heading-anchors/editor-heading-anchors';
+import type {
+  MlvEditorHeadingAnchorOptions,
+  MlvEditorHeadingLink,
+} from '../extensions/heading-anchors/editor-heading-anchors';
 import { MLV_EDITOR_HEADING_LINKS } from './editor-heading-links';
 import {
   createMlvEditorImageUploadCoordinator,
@@ -127,9 +131,23 @@ import {
   MlvEditorToolbarStartDef,
 } from '../toolbar/editor-toolbar.defs';
 import { MlvEditorDefaultToolbarGroups } from '../toolbar/editor-default-toolbar-groups';
+import { MlvEditorBubbleGroups } from '../toolbar/editor-bubble-groups';
+import {
+  MLV_EDITOR_AI_PROMPT,
+  MlvEditorAiPrompt,
+  mlvEditorAiPromptDelegate,
+} from '../ai/editor-ai-prompt';
 import { MlvEditorToolbarOverflow } from '../toolbar/editor-toolbar-overflow';
 import { MlvEditorToolbarRoot } from '../toolbar/editor-toolbar-root';
 import { MlvEditorStatus } from '../status/editor-status';
+import { mlvEditorIsApplePlatform } from '../extensions/editor-block-inserter';
+import {
+  MLV_EDITOR_INSERT_MENU,
+  MlvEditorInsertMenu,
+  mlvEditorInsertMenuDelegate,
+} from '../insert/editor-insert-menu';
+import { mlvEditorDefaultInsertItems } from '../insert/editor-insert-items';
+import type { MlvEditorInsertItem } from '../insert/editor-insert.types';
 
 /**
  * @internal Trailing window in which remote-origin value writes are coalesced
@@ -167,6 +185,9 @@ type MlvEditorPreparedContent =
     MlvToolbar,
     MlvEditorToolbarRoot,
     MlvEditorDefaultToolbarGroups,
+    MlvEditorBubbleGroups,
+    MlvEditorAiPrompt,
+    MlvEditorInsertMenu,
     MlvEditorToolbarOverflow,
     MlvEditorStatus,
     MlvEditorImageUploadStatus,
@@ -223,6 +244,24 @@ type MlvEditorPreparedContent =
       },
     },
     {
+      provide: MLV_EDITOR_AI_PROMPT,
+      useFactory: () => {
+        const owner = inject(
+          forwardRef(() => MlvEditor),
+        ) as unknown as MlvEditor;
+        return mlvEditorAiPromptDelegate(() => owner._aiPrompt());
+      },
+    },
+    {
+      provide: MLV_EDITOR_INSERT_MENU,
+      useFactory: () => {
+        const owner = inject(
+          forwardRef(() => MlvEditor),
+        ) as unknown as MlvEditor;
+        return mlvEditorInsertMenuDelegate(() => owner._insertMenu());
+      },
+    },
+    {
       provide: MLV_EDITOR_IMAGE_UPLOAD_COORDINATOR,
       useFactory: () => {
         const owner = inject(
@@ -258,6 +297,7 @@ type MlvEditorPreparedContent =
     '[class.mlv-editor--toolbar-bar]': 'toolbarAppearance() === "bar"',
     '[class.mlv-editor--toolbar-floating]':
       'toolbarAppearance() === "floating"',
+    '[class.mlv-editor--toolbar-clean]': 'toolbarAppearance() === "clean"',
     '[class.mlv-editor--toolbar-sticky]': '_stickyToolbar()',
     '[class.mlv-editor--collaborative]': '_collaborationActive()',
     '[class.mlv-editor--syncing]': '_collaborationSyncing()',
@@ -343,7 +383,31 @@ export class MlvEditor
    * the editor closes only on the next one. Turning `readonly` on while the
    * bubble is shown hides it and closes its popups.
    *
-   * A `readonly` editor renders **no toolbar in either appearance** (#498):
+   * `'clean'` (#516) is the Notion-style mode: the same selection bubble,
+   * carrying a compact formatting set instead of the full toolbar — AI
+   * Improve (with a selection and an AI provider) or Insert block (with a
+   * caret), a block-type dropdown,
+   * bold / italic / underline / strike-through / inline code, link, text
+   * colour and highlight, and a More menu (alignment, subscript and
+   * superscript, clear formatting, font family / size, line height, copy
+   * heading link). In a narrow editor Improve is icon-only and the marks
+   * shrink to bold and italic, the rest moving to More. A consumer
+   * `[mlvEditorToolbar]` and the start / end slots render in the clean bubble
+   * as in the floating one. The host carries `mlv-editor--toolbar-clean`,
+   * not `--toolbar-floating`. `toolbarPosition` and `toolbarSticky` do not
+   * apply.
+   *
+   * Clean also inserts blocks: a "+" beside the drag handle in the content's
+   * gutter (following the caret's block on touch screens), `Mod+Alt+Enter`
+   * in the content (listed in the content's `aria-keyshortcuts`; a keydown
+   * reporting `AltGraph` is ignored) and the bubble's Insert block button
+   * each open a command menu of `insertItems` for that block. An item
+   * converts an empty paragraph in place, else inserts a paragraph after the
+   * block and runs its command there, as one undo step. While the menu is
+   * open the target is outlined, with no document change. The gutter is two
+   * slots wide in clean (`--mlv-editor-gutter-slot`, one on touch screens).
+   *
+   * A `readonly` editor renders **no toolbar in any appearance** (#498):
    * no `.mlv-editor__toolbar-band`, and no space kept for one. Turning
    * `readonly` on tears the bar down, closes every popup the editor owns and
    * returns focus from the bar or such a popup to the content, with the
@@ -352,6 +416,19 @@ export class MlvEditor
    * `[mlvEditorToolbarEnd]`) is stamped in the same band and goes with it.
    */
   readonly toolbarAppearance = input<MlvEditorToolbarAppearance>('bar');
+
+  /**
+   * Items of the clean appearance's command menu (#516); ignored in `'bar'`
+   * and `'floating'`. `undefined` (the default) uses
+   * `mlvEditorDefaultInsertItems()` with the editor's live i18n copy. A
+   * supplied array **replaces** the defaults: spread
+   * `mlvEditorDefaultInsertItems(inject(MLV_EDITOR_I18N)())` into it to
+   * extend or reorder them. Items render grouped `ai` · `style` · `lists` ·
+   * `insert`, then consumer groups in first-seen order.
+   */
+  readonly insertItems = input<readonly MlvEditorInsertItem[] | undefined>(
+    undefined,
+  );
 
   /**
    * Keeps the docked bar `position: sticky` against the page (or the nearest
@@ -405,9 +482,19 @@ export class MlvEditor
    * link to heading" item). Read once, when the editor is created; ignored
    * when `extensions` replaces the preset. Links are built by
    * `MLV_EDITOR_HEADING_LINKS`.
+   *
+   * An object configures the extension instead of `true`, e.g.
+   * `{ idPrefix: 'guide-' }`: two editors on one page need distinct
+   * prefixes, or a heading with the same text renders the same `id` in both.
    */
-  readonly headingAnchors = input<boolean, BooleanInput>(false, {
-    transform: coerceBooleanProperty,
+  readonly headingAnchors = input<
+    boolean | Partial<MlvEditorHeadingAnchorOptions>,
+    BooleanInput | Partial<MlvEditorHeadingAnchorOptions>
+  >(false, {
+    transform: (value) =>
+      typeof value === 'object' && value !== null
+        ? value
+        : coerceBooleanProperty(value),
   });
 
   /** IDREF(s) naming the editable content region. */
@@ -569,6 +656,18 @@ export class MlvEditor
    */
   private readonly _toolbarBand =
     viewChild<ElementRef<HTMLElement>>('toolbarBand');
+
+  /**
+   * @internal The interim AI prompt (#516), rendered in the clean appearance
+   * only. `MLV_EDITOR_AI_PROMPT` forwards to it; public for that provider.
+   */
+  readonly _aiPrompt = viewChild(MlvEditorAiPrompt);
+
+  /**
+   * @internal The command menu (#516), rendered in the clean appearance only.
+   * `MLV_EDITOR_INSERT_MENU` forwards to it; public for that provider.
+   */
+  readonly _insertMenu = viewChild(MlvEditorInsertMenu);
 
   /** @protected Complete projected toolbar replacement, if the consumer provides one. */
   protected readonly _toolbarDefs = contentChildren(MlvEditorToolbarDef);
@@ -763,6 +862,15 @@ export class MlvEditor
   private readonly _resolvedPlaceholder = computed(
     () =>
       this.placeholder() ?? this._i18n?.().placeholder ?? 'Write something…',
+  );
+
+  /**
+   * @protected Command-menu items (#516): {@link insertItems}, else the
+   * defaults in the live i18n copy.
+   */
+  protected readonly _insertItems = computed(
+    () =>
+      this.insertItems() ?? mlvEditorDefaultInsertItems(this._i18n?.() ?? {}),
   );
 
   constructor() {
@@ -965,6 +1073,19 @@ export class MlvEditor
                   MLV_EDITOR_COLLABORATION_MOVE_CANCELLED_FALLBACK,
                 'polite',
               ),
+            // #516: the "+" and Mod+Alt+Enter, live only in the clean
+            // appearance; `'bar'` / `'floating'` leave the key to the browser.
+            // The same gate as the handle, so a session's write gate (F1)
+            // hides the "+" until the first sync too.
+            insert: {
+              enabled: () =>
+                this.toolbarAppearance() === 'clean' &&
+                this._acceptsLocalMutation(),
+              label: () =>
+                this._i18n?.().insertBlock ??
+                MLV_EDITOR_CLEAN_MODE_FALLBACKS.insertBlock,
+              open: (request) => this._insertMenu()?.open(request),
+            },
           },
         });
       // The binding's extensions carry the shared document; the tracker comes
@@ -1686,13 +1807,19 @@ export class MlvEditor
 
     // The selection bubble stays hidden until a selection exists, so the key
     // that reaches it is the only hint assistive technology gets. Disabled or
-    // `readonly`, the bubble never shows and the key does nothing.
+    // `readonly`, the bubble never shows and the key does nothing. Clean mode
+    // (#516) uses the same bubble and adds the command-menu chord, spelled
+    // with the modifier ProseMirror reads as `Mod` on this platform — only
+    // while the chord acts, so not before a session's first sync (F1).
     if (
-      this.toolbarAppearance() === 'floating' &&
+      this.toolbarAppearance() !== 'bar' &&
       !this.computedDisabled() &&
       !this.readonly()
     ) {
-      attributes['aria-keyshortcuts'] = 'Alt+F10';
+      attributes['aria-keyshortcuts'] =
+        this.toolbarAppearance() === 'clean' && this._collaborationWritable()
+          ? `Alt+F10 ${mlvEditorIsApplePlatform() ? 'Meta' : 'Control'}+Alt+Enter`
+          : 'Alt+F10';
     }
 
     return attributes;

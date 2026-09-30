@@ -318,6 +318,17 @@ const ro: MlvLanguage = {
       'Din nou online. Modificările au fost sincronizate.',
     collaborationSyncTimeout:
       'Documentul nu este încă sincronizat. Editarea va fi posibilă după sincronizare.',
+    // Clean mode (#516)
+    blockType: 'Tip de bloc',
+    turnInto: 'Transformă în',
+    insertBlock: 'Inserează bloc',
+    insertGroupAi: 'AI',
+    insertGroupStyle: 'Blocuri de bază',
+    insertGroupLists: 'Liste',
+    insertGroupInsert: 'Inserează',
+    askAi: 'Întreabă AI…',
+    tableOfContents: 'Cuprins',
+    tableOfContentsEmpty: 'Încă nu există titluri',
   },
   fileUpload: {
     selectedFiles: 'Fișiere selectate',

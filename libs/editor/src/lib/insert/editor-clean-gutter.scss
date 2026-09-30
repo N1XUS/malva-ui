@@ -1,0 +1,111 @@
+// Clean-appearance gutter (#516, U6): the drag handle and the "+" share the
+// content's inline-start gutter, one slot each, "+" first. Scoped under the
+// clean modifier and attached with `mlv-editor-insert-menu`, which renders for
+// the whole clean lifetime (readonly included), so the gutter never jumps on
+// a readonly flip and `'bar'` / `'floating'` receive none of it.
+//
+// Every inset is logical, so the "+" follows the handle to the inline-start
+// side in RTL. The start edge of the text column is the handle's own formula
+// (`editor.scss`, `&__block-handle`), with the gutter now two slots wide.
+@layer mlv.components {
+  .mlv-editor--toolbar-clean.mlv-editor {
+    --mlv-editor-gutter-slot: var(--mlv-spacing-6);
+    --mlv-editor-gutter: calc(2 * var(--mlv-editor-gutter-slot));
+  }
+
+  .mlv-editor--toolbar-clean .mlv-editor__block-handle {
+    inset-inline-start: calc(
+      max(
+          0rem,
+          (100% - 2 * var(--mlv-editor-gutter) - var(--mlv-editor-measure)) / 2
+        ) +
+        var(--mlv-editor-gutter-slot)
+    );
+    inline-size: var(--mlv-editor-gutter-slot);
+  }
+
+  // Pointer affordance only, as the handle is: `aria-hidden`, never focusable.
+  // Keyboard users open the same menu with Mod+Alt+Enter or the bubble's
+  // "Insert block" button.
+  .mlv-editor--toolbar-clean .mlv-editor__block-add {
+    position: absolute;
+    inset-inline-start: calc(
+      max(
+        0rem,
+        (100% - 2 * var(--mlv-editor-gutter) - var(--mlv-editor-measure)) / 2
+      )
+    );
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mlv-editor-gutter-slot);
+    block-size: var(--mlv-height-xs);
+    border-radius: var(--mlv-radius-s);
+    color: var(--mlv-text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--mlv-duration-fast) var(--mlv-ease-default);
+
+    svg {
+      inline-size: var(--mlv-spacing-4);
+      block-size: var(--mlv-spacing-4);
+      fill: none;
+      stroke: currentcolor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:hover {
+      background-color: var(--mlv-background-neutral-1-hover);
+      color: var(--mlv-text-primary);
+    }
+
+    &[data-visible='true'] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  // D-B2: the empty paragraph the menu will convert in place, outlined while
+  // the menu is open. A decoration outside `view.dom`; no document change.
+  .mlv-editor--toolbar-clean .mlv-editor__block-target {
+    position: absolute;
+    inset-inline: calc(
+      max(
+          0rem,
+          (100% - 2 * var(--mlv-editor-gutter) - var(--mlv-editor-measure)) / 2
+        ) +
+        var(--mlv-editor-gutter)
+    );
+    border-radius: var(--mlv-radius-s);
+    outline: var(--mlv-stroke-width-medium) dashed var(--mlv-border-focus);
+    pointer-events: none;
+  }
+
+  // No `(max-width: 40rem)` override: the base narrow query shrinks
+  // `--mlv-editor-gutter` on `.mlv-editor` alone, which the two-class rule
+  // above outranks, so clean slots stay 1.5rem on a narrow window (SC 2.5.8).
+
+  // No hover, so no handle (`editor.scss`): the "+" follows the caret alone,
+  // in one slot wide enough for a 24px touch target (WCAG 2.5.8).
+  @media (hover: none) {
+    .mlv-editor--toolbar-clean.mlv-editor {
+      --mlv-editor-gutter: var(--mlv-editor-gutter-slot);
+    }
+  }
+
+  @media print {
+    .mlv-editor--toolbar-clean .mlv-editor__block-add,
+    .mlv-editor--toolbar-clean .mlv-editor__block-target {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mlv-editor--toolbar-clean .mlv-editor__block-add {
+      transition-duration: var(--mlv-duration-instant);
+    }
+  }
+}

@@ -704,15 +704,23 @@ override `AI Kit`, icon `sparkles`), **Collaboration**
 (`/editor-collaboration`, icon `users`) and **Editor** (`/editor`). The editor
 page is no longer in the Forms group.
 
-The `/editor` page provides twelve live examples from the grouped
+The `/editor` page provides fourteen live examples from the grouped
 `@malva-ui/editor` entry point. It covers nullable direct HTML and
 Markdown values, reactive/template-driven/Signal Forms, deterministic local
 image uploads, readonly/disabled state and events, literal Tiptap extension and
 toolbar replacement, tables, view-only zoom, the structured `json` format,
 in-place switching between all three formats, the page measure with block
-reordering, and layout (example 12, #416: toolbar position, bar or floating
+reordering, layout (example 12, #416: toolbar position, bar / floating / clean
 appearance, an Auto / 240 px / 24 rem maximum height and a sticky switch whose
-offset clears the docs app bar, driven by `libs/editor/e2e/editor-layout.spec.ts`).
+offset clears the docs app bar, driven by `libs/editor/e2e/editor-layout.spec.ts`),
+text styles with block IDs and heading anchors (example 13, #514), and clean
+mode (example 14, #516: the bubble, the gutter "+" and command menu with a
+custom Callout item whose Lucide icon the example registers, a stubbed AI
+provider behind a switch, `nav[mlvEditorToc]` in a sticky side column that
+moves into an `mlv-drawer` below `md`, and a keyboard table rendered with
+`mlv-kbd`; driven by `libs/editor/e2e/editor-clean.spec.ts`). The drawer is
+modal, so it restores the page scroll and focus when it closes; the example
+re-applies both from `afterClosed` after a pick.
 Its upload demo never contacts a
 backend and tears down every timer and abort listener. The JSON example parses
 the model string in the host and renders a structural outline rather than

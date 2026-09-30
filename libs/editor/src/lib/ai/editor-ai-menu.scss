@@ -1,28 +1,17 @@
 @use '../../../../styles/src/lib/mixins' as mixins;
 
 @layer mlv.components {
-$block: mlv-editor-ai-menu;
+  $block: mlv-editor-ai-menu;
 
-.#{$block} {
-  @include mixins.base();
-  display: inline-flex;
-
-  &__anchor {
+  .#{$block} {
+    @include mixins.base();
     display: inline-flex;
-  }
 
-  &__panel {
-    display: grid;
-    width: min(22rem, calc(100vw - 3.5rem));
-    gap: var(--mlv-spacing-1-5);
-    padding: var(--mlv-spacing-2);
-  }
+    &__anchor {
+      display: inline-flex;
+    }
 
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--mlv-spacing-3);
+    // `__panel` and `__actions` are styled by the shared prompt panel
+    // (`editor-ai-prompt-panel.scss`), which renders them.
   }
-}
 }

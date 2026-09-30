@@ -20,6 +20,7 @@ export {
   MLV_EDITOR_AI_SUGGESTION_INSERT_CLASS,
   MlvEditorAiContext,
   mlvEditorAiDefaultActions,
+  MlvEditorAiImprove,
   MlvEditorAiMenu,
   MlvEditorAiReviewBar,
   runMlvEditorAiStream,

@@ -1,0 +1,37 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+// Block-type dropdown (#516). The trigger reuses the toolbar button styles;
+// the label keeps a min / max inline size so the bubble does not jump as the
+// block type changes.
+@layer mlv.components {
+  $block: mlv-editor-block-type;
+
+  .#{$block} {
+    @include mixins.base();
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+
+    // An author `display` overrides the UA `[hidden]` rule, and the host hides
+    // when the extension set registers no block command.
+    &[hidden] {
+      display: none;
+    }
+
+    &__label {
+      min-inline-size: 8rem;
+      max-inline-size: 12rem;
+      overflow: hidden;
+      text-align: start;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // A disclosure glyph, not a direction: it does not mirror in RTL.
+    &__chevron {
+      flex: 0 0 auto;
+      margin-inline-start: var(--mlv-spacing-1);
+      color: var(--mlv-text-secondary);
+    }
+  }
+}

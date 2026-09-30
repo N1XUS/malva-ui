@@ -48,4 +48,6 @@ copied" is announced politely.
 Both inputs are read once, when the editor is created, and both extensions
 are also exported (`MlvEditorBlockId`, `MlvEditorHeadingAnchors`) for a
 custom `extensions` array. Give each editor on a page its own anchor
-`idPrefix` there, or two headings with the same text render the same `id`.
+`idPrefix` — `[headingAnchors]="{ idPrefix: 'draft-' }"`, or the extension's
+options in a custom array — or two headings with the same text render the
+same `id`.

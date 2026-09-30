@@ -6,6 +6,7 @@ import {
   effect,
   ElementRef,
   inject,
+  InjectionToken,
   signal,
   ViewEncapsulation,
 } from '@angular/core';
@@ -28,6 +29,16 @@ import { MLV_EDITOR_I18N, MLV_FILE_UPLOAD_I18N } from '@malva-ui/i18n';
 import { MLV_EDITOR_TOOLBAR_CONTEXT } from '../editor-toolbar-context';
 import { MLV_EDITOR_OVERLAY_REGISTRY } from '../editor-toolbar-context';
 import { MLV_EDITOR_IMAGE_UPLOAD_COORDINATOR } from '../upload/editor-image-upload-coordinator';
+
+/**
+ * @internal Where the dialog's upload lands, resolved at submit time; `null`
+ * falls back to the selection. Provided by the command menu's image item
+ * (#516), which creates no block until an upload starts, so a dismissed
+ * dialog leaves the document untouched.
+ */
+export const MLV_EDITOR_IMAGE_UPLOAD_POSITION = new InjectionToken<
+  () => number | null
+>('MLV_EDITOR_IMAGE_UPLOAD_POSITION');
 
 /**
  * Malva modal content for selecting and uploading one editor image. Renders
@@ -77,6 +88,11 @@ export class MlvEditorImageUploadDialog {
 
   /** @private File-upload copy used for its localized remove action. */
   private readonly _fileI18n = inject(MLV_FILE_UPLOAD_I18N);
+
+  /** @private Caller-chosen insertion point; absent for the toolbar's dialog. */
+  private readonly _position = inject(MLV_EDITOR_IMAGE_UPLOAD_POSITION, {
+    optional: true,
+  });
 
   /** @protected Selected descriptor retained as a single-file list. */
   protected readonly _files = signal<MlvUploadedFile[]>([]);
@@ -279,9 +295,11 @@ export class MlvEditorImageUploadDialog {
     }
     this._altInvalid.set(false);
     const title = this._title().trim();
+    const position = this._position?.() ?? null;
     const ids = this._coordinator.start([selected.file], 'button', {
       alt,
       ...(title ? { title } : {}),
+      ...(position === null ? {} : { position }),
     });
     const id = ids[0];
     if (!id) return;

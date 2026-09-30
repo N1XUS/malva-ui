@@ -32,8 +32,13 @@ composition. Press **Alt+F10** in the content to summon it at the caret and
 move focus into it, and **Escape** to dismiss it with the selection intact.
 `toolbarPosition` and `toolbarSticky` do not apply to it.
 
-A `readonly` editor renders no toolbar in either appearance: no bar, no
-bubble, and no space kept for either.
+`toolbarAppearance="clean"` keeps that bubble and adds a gutter **"+"**
+beside the block under the pointer or caret, which opens an insert menu —
+example 14 walks through it. It has no bar either, so the Sticky switch stays
+disabled.
+
+A `readonly` editor renders no toolbar in any appearance: no bar, no bubble,
+no "+", and no space kept for any of them.
 
 Zoom reflows an uncapped editor, like browser zoom, and magnifies a capped one
 inside its own scroller.

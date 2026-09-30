@@ -307,6 +307,17 @@ const ja: MlvLanguage = {
     collaborationBackOnline: 'オンラインに戻りました。変更を同期しました。',
     collaborationSyncTimeout:
       'ドキュメントはまだ同期されていません。同期が完了すると編集できます。',
+    // Clean mode (#516)
+    blockType: 'ブロックの種類',
+    turnInto: '変換',
+    insertBlock: 'ブロックを挿入',
+    insertGroupAi: 'AI',
+    insertGroupStyle: '基本ブロック',
+    insertGroupLists: 'リスト',
+    insertGroupInsert: '挿入',
+    askAi: 'AIに質問…',
+    tableOfContents: '目次',
+    tableOfContentsEmpty: '見出しはまだありません',
   },
   fileUpload: {
     selectedFiles: '選択したファイル',

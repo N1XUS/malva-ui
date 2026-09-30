@@ -408,6 +408,8 @@ const dutchEnglishMatches = [
   'editor.subscript',
   'editor.superscript',
   'editor.styleValue',
+  // #516: the command menu's AI group heading, the acronym as in English.
+  'editor.insertGroupAi',
   'filter.filters',
   'pagination.items',
   'pagination.itemCount',
@@ -419,12 +421,14 @@ const dutchEnglishMatches = [
 it.each([
   // `editor.styleValue` is `{label}: {value}` — punctuation and ICU
   // arguments only, written the same way in these languages.
-  ['ja', ja, ['editor.styleValue']],
+  // `editor.insertGroupAi` (#516) is the acronym "AI", which these packs
+  // already use in their own AI strings (`aiMenu`, `askAi`).
+  ['ja', ja, ['editor.styleValue', 'editor.insertGroupAi']],
   ['nl', nl, dutchEnglishMatches],
-  ['pl', pl, ['editor.styleValue']],
+  ['pl', pl, ['editor.styleValue', 'editor.insertGroupAi']],
   ['tr', tr, ['editor.styleValue']],
-  ['zh-Hans', zhHans, []],
-  ['id', id, ['editor.styleValue']],
+  ['zh-Hans', zhHans, ['editor.insertGroupAi']],
+  ['id', id, ['editor.styleValue', 'editor.insertGroupAi']],
 ] as const)(
   '%s contains no unexpected English fallback messages',
   (locale, pack, expectedEnglishMatches) => {
@@ -782,5 +786,36 @@ it.each(Object.entries(packs))(
       ).format({ count: 3 }),
       locale,
     ).toContain('3');
+  },
+);
+
+// #516: the clean-mode keys, optional on `MlvEditorI18n` for the same reason.
+// That the English pack words them exactly as the component fallbacks is
+// pinned where those live, `libs/editor/src/lib/editor-clean-mode-fallbacks.spec.ts`:
+// this project cannot import the editor.
+const editorCleanModeKeys = [
+  'blockType',
+  'turnInto',
+  'insertBlock',
+  'insertGroupAi',
+  'insertGroupStyle',
+  'insertGroupLists',
+  'insertGroupInsert',
+  'askAi',
+  'tableOfContents',
+  'tableOfContentsEmpty',
+] as const;
+
+it.each(Object.entries(packs))(
+  '%s declares every optional clean-mode editor key',
+  (locale, pack) => {
+    const editor = pack.editor as Record<string, unknown>;
+    for (const key of editorCleanModeKeys) {
+      expect(typeof editor[key], `${locale}:editor.${key}`).toBe('string');
+      expect(
+        (editor[key] as string).trim().length,
+        `${locale}:editor.${key}`,
+      ).toBeGreaterThan(0);
+    }
   },
 );

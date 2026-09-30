@@ -3,11 +3,13 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import {
   MLV_EDITOR_DEFAULT_IMAGE_UPLOAD_OPTIONS,
   MlvEditor,
+  type MlvEditorAiProvider,
   type MlvEditorError,
   type MlvEditorFormat,
   type MlvEditorImageUploadFailure,
   type MlvEditorImageUploadOptions,
   type MlvEditorImageUploader,
+  type MlvEditorToolbarAppearance,
   type MlvEditorTransactionEvent,
 } from '@malva-ui/editor';
 import { provideMlvI18nTesting } from '@malva-ui/i18n/testing';
@@ -42,6 +44,8 @@ import { MemoryCollaborationHub, type MemoryTopology } from './memory-relay';
       [blockIds]="blockIds()"
       [headingAnchors]="headingAnchors()"
       [extensions]="extensions()"
+      [toolbarAppearance]="toolbarAppearance()"
+      [aiProvider]="aiProvider()"
       [mlvEditorCollaboration]="transport()"
       #collab="mlvEditorCollaboration"
       [collaborationDocumentId]="documentId()"
@@ -75,6 +79,10 @@ export class CollaborationTestEditor {
   readonly blockIds = input(false);
   readonly headingAnchors = input(false);
   readonly extensions = input<Extensions | undefined>(undefined);
+  /** The editor's appearance; `'clean'` for the #516 integration specs. */
+  readonly toolbarAppearance = input<MlvEditorToolbarAppearance>('bar');
+  /** An AI provider, so the AI entry points render (#516). */
+  readonly aiProvider = input<MlvEditorAiProvider | undefined>(undefined);
   readonly imageUploader = input<MlvEditorImageUploader | undefined>(undefined);
   readonly uploadFailures: MlvEditorImageUploadFailure[] = [];
   readonly imageUploadOptions = input<MlvEditorImageUploadOptions>(
@@ -107,6 +115,8 @@ export interface CollaborationTestEditorInputs {
   readonly blockIds?: boolean;
   readonly headingAnchors?: boolean;
   readonly extensions?: Extensions;
+  readonly toolbarAppearance?: MlvEditorToolbarAppearance;
+  readonly aiProvider?: MlvEditorAiProvider;
   readonly imageUploadOptions?: MlvEditorImageUploadOptions;
   readonly imageUploader?: MlvEditorImageUploader;
   readonly presence?: boolean;

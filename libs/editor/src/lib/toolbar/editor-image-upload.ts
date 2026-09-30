@@ -26,7 +26,7 @@ import {
   MLV_EDITOR_IMAGE_UPLOAD_COORDINATOR,
   resolveMlvEditorImageUploadCoordinator,
 } from '../upload/editor-image-upload-coordinator';
-import { MlvEditorImageUploadDialog } from './editor-image-upload-dialog';
+import { openMlvEditorImageUploadDialog } from './editor-image-upload-opener';
 import { MlvEditorToolbarWidget } from './editor-toolbar-widget';
 
 /** Public toolbar entry point for the editor image-upload dialog. */
@@ -140,18 +140,11 @@ export class MlvEditorImageUpload {
       return;
     }
     const trigger = this._trigger().nativeElement;
-    const ref = this._dialogs.open<void>(MlvEditorImageUploadDialog, {
+    const ref = openMlvEditorImageUploadDialog({
+      dialogs: this._dialogs,
+      injector: this._injector,
+      coordinator,
       title: this._copy(),
-      injector: Injector.create({
-        parent: this._injector,
-        providers: [
-          {
-            provide: MLV_EDITOR_IMAGE_UPLOAD_COORDINATOR,
-            useValue: coordinator,
-          },
-        ],
-      }),
-      size: 's',
     });
     this._dialogRef = ref;
     ref.afterClosed().subscribe(() => {

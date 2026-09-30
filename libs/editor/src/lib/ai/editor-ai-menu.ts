@@ -17,7 +17,6 @@ import {
 } from '@angular/core';
 import { LucideCircleStop, LucideSparkles } from '@lucide/angular';
 import { MlvButton, MlvButtonIcon } from '@malva-ui/core/button';
-import { MlvInput } from '@malva-ui/core/input';
 import { MlvListItem } from '@malva-ui/core/list';
 import { MlvMenu, MlvMenuItem, MlvMenuTrigger } from '@malva-ui/core/menu';
 import {
@@ -25,7 +24,6 @@ import {
   MlvPopupContainer,
   MlvPopupContent,
 } from '@malva-ui/core/popup';
-import { MlvRadio, MlvRadioGroup } from '@malva-ui/core/radio';
 import { MlvTooltip } from '@malva-ui/core/tooltip';
 import { MLV_EDITOR_I18N } from '@malva-ui/i18n';
 import {
@@ -37,6 +35,7 @@ import { mlvEditorCollaborationBlocksAi } from '../editor/editor-collaboration.c
 import { MlvEditorToolbarWidget } from '../toolbar/editor-toolbar-widget';
 import { mlvEditorAiDefaultActions } from './editor-ai-actions';
 import { MLV_EDITOR_AI_CONTEXT } from './editor-ai-context';
+import { MlvEditorAiPromptPanel } from './editor-ai-prompt-panel';
 import type {
   MlvEditorAiAction,
   MlvEditorAiOutputMode,
@@ -76,7 +75,6 @@ import type {
     LucideCircleStop,
     LucideSparkles,
     MlvEditorToolbarWidget,
-    MlvInput,
     MlvListItem,
     MlvMenu,
     MlvMenuItem,
@@ -84,8 +82,7 @@ import type {
     MlvPopup,
     MlvPopupContainer,
     MlvPopupContent,
-    MlvRadio,
-    MlvRadioGroup,
+    MlvEditorAiPromptPanel,
   ],
   templateUrl: './editor-ai-menu.html',
   styleUrl: './editor-ai-menu.scss',
@@ -157,12 +154,13 @@ export class MlvEditorAiMenu {
     read: ElementRef,
   }) as Signal<ElementRef<HTMLButtonElement>>;
 
-  /** @protected Instruction field focused when the prompt opens. */
-  protected readonly _instructionInput =
-    viewChild.required<MlvInput>('_instructionInput');
+  /** @private Prompt panel, focused when the prompt opens. */
+  private readonly _promptPanel = viewChild(MlvEditorAiPromptPanel);
 
   /** @private Detached prompt panel queried through Angular rather than selectors. */
-  private readonly _panel = viewChild<ElementRef<HTMLElement>>('_panel');
+  private readonly _panel = viewChild('_panel', { read: ElementRef }) as Signal<
+    ElementRef<HTMLElement> | undefined
+  >;
 
   /** @protected Custom-prompt instruction draft, retained across opens. */
   protected readonly _instruction = signal('');
@@ -186,19 +184,12 @@ export class MlvEditorAiMenu {
     () => this.actions() ?? mlvEditorAiDefaultActions(this._i18n?.()),
   );
 
-  /** @protected Reactive localized copy for the trigger and prompt. */
+  /** @protected Reactive localized copy for the trigger and the prompt popup. */
   protected readonly _copy = computed(() => {
     const copy = this._i18n?.();
     return {
       aiMenu: copy?.aiMenu ?? 'AI assist',
       aiCustom: copy?.aiCustom ?? 'Custom prompt',
-      aiPromptPlaceholder:
-        copy?.aiPromptPlaceholder ?? 'Describe what to do...',
-      aiOutputMode: copy?.aiOutputMode ?? 'Output',
-      aiReplaceSelection: copy?.aiReplaceSelection ?? 'Replace selection',
-      aiInsertBelow: copy?.aiInsertBelow ?? 'Insert below',
-      aiReviewChanges: copy?.aiReviewChanges ?? 'Review changes',
-      aiApply: copy?.aiApply ?? 'Apply',
       aiCancel: copy?.aiCancel ?? 'Cancel',
     };
   });
@@ -317,8 +308,7 @@ export class MlvEditorAiMenu {
     }
     queueMicrotask(() => {
       if (!popup.opened()) return;
-      this._instructionInput().focus();
-      this._instructionInput().select();
+      this._promptPanel()?.focusInstruction();
     });
   }
 
@@ -326,17 +316,6 @@ export class MlvEditorAiMenu {
   protected _onPromptClosed(): void {
     if (!this._disabled() && this._triggerElement().nativeElement.isConnected) {
       this._triggerElement().nativeElement.focus();
-    }
-  }
-
-  /** @protected Narrows the radio group's untyped value to an output mode. */
-  protected _onOutputChange(value: unknown): void {
-    if (
-      value === 'replace-selection' ||
-      value === 'insert-below' ||
-      value === 'review'
-    ) {
-      this._output.set(value);
     }
   }
 
