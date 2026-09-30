@@ -1,0 +1,16 @@
+// Interim "Ask AI…" prompt (#516). The host takes no space; the anchor is a
+// fixed box at the requested viewport rectangle, used only as the popup's
+// overlay origin.
+@layer mlv.components {
+  .mlv-editor-ai-prompt {
+    display: contents;
+  }
+
+  .mlv-editor-ai-prompt__anchor {
+    // physical: `left` / `top` are bound from a `DOMRect`, a viewport
+    // coordinate, so the box stays physical in RTL.
+    position: fixed;
+    display: block;
+    pointer-events: none;
+  }
+}

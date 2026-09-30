@@ -309,6 +309,17 @@ const en: MlvLanguage = {
     collaborationBackOnline: 'Back online. Changes synced.',
     collaborationSyncTimeout:
       'The document has not synced yet. Editing starts once it does.',
+    // Clean mode (#516)
+    blockType: 'Block type',
+    turnInto: 'Turn into',
+    insertBlock: 'Insert block',
+    insertGroupAi: 'AI',
+    insertGroupStyle: 'Basic blocks',
+    insertGroupLists: 'Lists',
+    insertGroupInsert: 'Insert',
+    askAi: 'Ask AI…',
+    tableOfContents: 'Table of contents',
+    tableOfContentsEmpty: 'No headings yet',
   },
   fileUpload: {
     selectedFiles: 'Selected files',

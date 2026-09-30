@@ -1,0 +1,82 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+@use '../../../../styles/src/lib/density' as density;
+
+@layer mlv.components {
+  $block: mlv-editor-toc;
+
+  .#{$block} {
+    @include mixins.base(
+      var(--mlv-typography-family-text),
+      var(--mlv-typography-body-m-size)
+    );
+    --mlv-editor-toc-link-padding: var(--mlv-padding-xs);
+    display: block;
+    line-height: var(--mlv-typography-body-m-line-height);
+
+    // The link's block padding shrinks with density, never below the 24px
+    // target floor (WCAG 2.2 SC 2.5.8) the body line height plus it clears.
+    @include density.density-tight {
+      --mlv-editor-toc-link-padding: var(--mlv-spacing-0-5) var(--mlv-spacing-2);
+    }
+    @include density.density-compact {
+      --mlv-editor-toc-link-padding: var(--mlv-spacing-0-5) var(--mlv-spacing-2);
+    }
+    @include density.density-spacious {
+      --mlv-editor-toc-link-padding: var(--mlv-padding-s);
+    }
+    @include density.density-airy {
+      --mlv-editor-toc-link-padding: var(--mlv-padding-s);
+    }
+
+    &__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+
+      .#{$block}__list {
+        padding-inline-start: var(--mlv-spacing-3);
+      }
+    }
+
+    &__item {
+      margin: 0;
+      padding: 0;
+    }
+
+    &__link {
+      display: block;
+      overflow: hidden;
+      padding: var(--mlv-editor-toc-link-padding);
+      border-inline-start: var(--mlv-stroke-width) solid transparent;
+      color: var(--mlv-text-secondary);
+      text-align: start;
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: var(--mlv-transition-colors);
+
+      &:hover {
+        color: var(--mlv-text-primary);
+      }
+
+      &:focus-visible {
+        outline: var(--mlv-stroke-width-medium) solid var(--mlv-border-focus);
+        outline-offset: var(--mlv-focus-ring-offset);
+      }
+
+      &--active {
+        border-inline-start-color: var(--mlv-border-focus);
+        color: var(--mlv-text-primary);
+        font-weight: var(--mlv-font-weight-medium);
+      }
+    }
+
+    &__empty {
+      margin: 0;
+      padding: var(--mlv-editor-toc-link-padding);
+      color: var(--mlv-text-secondary);
+    }
+  }
+
+  @include mixins.reduced-motion($block);
+}

@@ -8,7 +8,12 @@ import type { MlvEditorHeadingLink } from '../extensions/heading-anchors/editor-
 export interface MlvEditorHeadingLinks {
   /**
    * Returns the absolute or relative URL for one heading. Called at click
-   * time only, never during render, so it may read browser globals.
+   * time and during browser render — `nav[mlvEditorToc]` builds its links
+   * once the first browser render has run — and never on the server, so it
+   * may read browser globals. The TOC calls it once per heading and keeps
+   * the result while the heading is unchanged, so a URL built from the
+   * current location goes stale after in-app navigation that leaves the
+   * editor mounted; the copy-link click reads it fresh.
    *
    * @param link The heading's anchor and its rendered `id` (with `idPrefix`).
    */
@@ -20,8 +25,8 @@ export interface MlvEditorHeadingLinks {
  * old fragment and no credentials) plus `#` and the percent-encoded element
  * `id` — a custom `slugify` may return characters a fragment cannot carry
  * raw, and browsers decode the fragment before matching it to an `id`. Reads
- * the injected `DOCUMENT` at click time, so it is inert under server
- * rendering.
+ * the injected `DOCUMENT` when called (at click time, or while a TOC renders
+ * in the browser), so it is inert under server rendering.
  */
 const locationHeadingLinks = (document: Document): MlvEditorHeadingLinks => ({
   href: ({ id }) => {

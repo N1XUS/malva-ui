@@ -193,6 +193,27 @@ export class MlvEditorAiContext {
   readonly hasProvider = computed(() => this._resolveProvider() !== null);
 
   /**
+   * @internal Whether {@link runTransform} would start a transform now: a
+   * provider resolves, the context is `'idle'` (no transform running, no
+   * review pending) and the editor is editable (created, neither disabled nor
+   * readonly). It mirrors `runTransform`'s refusals, so an entry point bound
+   * to it (`mlv-editor-ai-improve`, the clean-mode prompt) never offers an
+   * action that would be refused.
+   *
+   * F-D15 (#515): AI is disabled while collaborating. The guard lives in
+   * {@link _collaborationAllowsAi}, so every clean-mode AI entry point
+   * (Improve, the bubble's Improve slot, the command menu's Ask AI) picks it
+   * up from this one predicate.
+   */
+  readonly canStart = computed(
+    () =>
+      this.hasProvider() &&
+      this._status() === 'idle' &&
+      this._toolbar.editable() &&
+      this._collaborationAllowsAi(),
+  );
+
+  /**
    * Runs one selection transform through the resolved provider and lands the
    * result according to the output mode: `'replace-selection'` and
    * `'insert-below'` stream into the document, while `'review'` collects the
@@ -646,6 +667,18 @@ export class MlvEditorAiContext {
       }),
       'polite',
     );
+  }
+
+  /**
+   * @private F-D15 hook of {@link canStart}: `false` while the editor is
+   * bound to a collaboration session — F1's "no AI while collaborating"
+   * guard, the predicate {@link runTransform} refuses on — until #738 (F2)
+   * lands a collaboration-safe engine. Reading the editor signal is what
+   * keeps `canStart` reactive: a binding is registered in the step that
+   * publishes the editor and never changes for that editor's lifetime.
+   */
+  private _collaborationAllowsAi(): boolean {
+    return !mlvEditorCollaborationBlocksAi(this._toolbar.editor());
   }
 
   /** @private Resolves the active provider; the input wins over the token. */

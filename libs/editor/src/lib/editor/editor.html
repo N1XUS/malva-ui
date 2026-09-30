@@ -18,8 +18,9 @@
         Declared once and stamped by one outlet: before or after the viewport
         for the docked bar (#416), so the DOM order is always the visual
         order, with no CSS `order`; into the selection bubble's overlay for
-        the floating appearance (#483). Re-stamping re-creates the view, which
-        closes an open toolbar popup; projected slot content is re-attached.
+        the floating and clean appearances (#483, #516). Re-stamping re-creates
+        the view, which closes an open toolbar popup; projected slot content
+        is re-attached.
         Neither stamps anything while `readonly` (#498): no band, no reserved
         space; `_toolbarRendered()` is the one switch.
       -->
@@ -55,10 +56,16 @@
               }
               <div mlvFade class="mlv-editor__toolbar-scroll">
                 <mlv-toolbar>
-                  <mlv-editor-default-toolbar-groups />
+                  @if (toolbarAppearance() === 'clean') {
+                    <mlv-editor-bubble-groups [narrow]="toolbarRoot.narrow()" />
+                  } @else {
+                    <mlv-editor-default-toolbar-groups />
+                  }
                 </mlv-toolbar>
               </div>
-              <mlv-editor-toolbar-overflow />
+              @if (toolbarAppearance() !== 'clean') {
+                <mlv-editor-toolbar-overflow />
+              }
               @for (definition of _toolbarEndDefs(); track definition) {
                 @if (definition.templateRef; as endTemplate) {
                   <ng-container
@@ -86,12 +93,16 @@
       @if (_barRendered() && toolbarPosition() === 'bottom') {
         <ng-container [ngTemplateOutlet]="toolbarTemplate" />
       }
-      @if (toolbarAppearance() === 'floating') {
+      @if (toolbarAppearance() !== 'bar') {
         <ng-template mlvEditorBubble [viewport]="viewport" [capped]="_capped()">
           @if (_toolbarRendered()) {
             <ng-container [ngTemplateOutlet]="toolbarTemplate" />
           }
         </ng-template>
+      }
+      @if (toolbarAppearance() === 'clean') {
+        <mlv-editor-ai-prompt />
+        <mlv-editor-insert-menu [items]="_insertItems()" />
       }
       <mlv-editor-image-upload-status />
     </div>

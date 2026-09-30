@@ -307,6 +307,17 @@ const tr: MlvLanguage = {
     collaborationBackOnline: 'Yeniden çevrimiçi. Değişiklikler eşitlendi.',
     collaborationSyncTimeout:
       'Belge henüz eşitlenmedi. Eşitlendiğinde düzenleyebilirsiniz.',
+    // Clean mode (#516)
+    blockType: 'Blok türü',
+    turnInto: 'Dönüştür',
+    insertBlock: 'Blok ekle',
+    insertGroupAi: 'Yapay zeka',
+    insertGroupStyle: 'Temel bloklar',
+    insertGroupLists: 'Listeler',
+    insertGroupInsert: 'Ekle',
+    askAi: 'Yapay zekaya sor…',
+    tableOfContents: 'İçindekiler',
+    tableOfContentsEmpty: 'Henüz başlık yok',
   },
   fileUpload: {
     selectedFiles: 'Seçili dosyalar',

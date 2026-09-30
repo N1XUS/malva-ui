@@ -60,6 +60,9 @@ export default class EditorLayoutExample {
     if (this.appearance() === 'floating') {
       return 'The floating bubble follows the selection instead.';
     }
+    if (this.appearance() === 'clean') {
+      return 'Clean mode has no bar: its bubble follows the selection.';
+    }
     if (this.maxHeight() !== undefined) {
       return 'No effect under a height cap.';
     }

@@ -315,6 +315,17 @@ const es: MlvLanguage = {
     collaborationBackOnline: 'De nuevo en línea. Cambios sincronizados.',
     collaborationSyncTimeout:
       'El documento aún no se ha sincronizado. Podrás editar cuando termine.',
+    // Clean mode (#516)
+    blockType: 'Tipo de bloque',
+    turnInto: 'Convertir en',
+    insertBlock: 'Insertar bloque',
+    insertGroupAi: 'IA',
+    insertGroupStyle: 'Bloques básicos',
+    insertGroupLists: 'Listas',
+    insertGroupInsert: 'Insertar',
+    askAi: 'Preguntar a la IA…',
+    tableOfContents: 'Índice',
+    tableOfContentsEmpty: 'Aún no hay encabezados',
   },
   fileUpload: {
     selectedFiles: 'Archivos seleccionados',

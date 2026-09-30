@@ -17,6 +17,10 @@ import {
   trackMlvEditorPosition,
   type MlvEditorTrackedPosition,
 } from './editor-position-tracker';
+import {
+  createMlvEditorBlockInserter,
+  mlvEditorBlockInsertPlugin,
+} from './editor-block-inserter';
 
 /** A completed block move, reported so the host can announce it. */
 export interface MlvEditorBlockMove {
@@ -60,6 +64,42 @@ export interface MlvEditorBlockHandleOptions {
    * edit that leaves the block intact keeps the drag, re-measured.
    */
   readonly announceCollaborationCancel?: () => void;
+
+  /**
+   * Block inserter (#516): a "+" beside the handle and the `Mod-Alt-Enter`
+   * chord, both opening `insert.open`. Omitted, no "+" renders and no chord
+   * is claimed. `mlv-editor`'s default preset wires it to its command menu
+   * in the clean appearance.
+   */
+  readonly insert?: MlvEditorBlockHandleInsertOptions;
+}
+
+/** Host-supplied block inserter for {@link MlvEditorBlockHandleOptions.insert}. */
+export interface MlvEditorBlockHandleInsertOptions {
+  /**
+   * Read on every update and pointer move; `false` hides the "+" and leaves
+   * the chord to the browser. `enabled` on the handle still gates the whole
+   * plugin.
+   */
+  readonly enabled: () => boolean;
+
+  /** The "+" `title` (pointer tooltip), read live so locale changes apply. */
+  readonly label: () => string;
+
+  /** Opens the host's insert menu for one top-level block. */
+  readonly open: (request: MlvEditorBlockHandleInsertRequest) => void;
+}
+
+/** One request to open the insert menu, from the "+" or the chord. */
+export interface MlvEditorBlockHandleInsertRequest {
+  /** Document position before the top-level block the menu speaks for. */
+  readonly pos: number;
+
+  /** Viewport rectangle of the "+" slot beside that block: the menu's anchor. */
+  readonly rect: DOMRect;
+
+  /** What opened it: a pointer or touch tap on the "+", or the chord. */
+  readonly via: 'pointer' | 'keyboard';
 }
 
 declare module '@tiptap/core' {
@@ -814,6 +854,18 @@ export const MlvEditorBlockHandle =
             const indicator = createIndicatorElement(ownerDocument);
             mount.appendChild(indicator);
 
+            // The clean-mode "+" (#516): follows the handle, shares the drop
+            // line as its target preview, and owns nothing else here.
+            const inserter = options.insert
+              ? createMlvEditorBlockInserter({
+                  view,
+                  editor,
+                  mount,
+                  indicator,
+                  insert: options.insert,
+                })
+              : null;
+
             /**
              * What the handle currently publishes, or null while it is
              * retracted.
@@ -838,6 +890,7 @@ export const MlvEditorBlockHandle =
             } | null = null;
 
             const hide = () => {
+              inserter?.hide();
               if (published === null) return;
               published = null;
               handle.setAttribute('data-visible', 'false');
@@ -856,6 +909,9 @@ export const MlvEditorBlockHandle =
               const top = `${(hit.top - mountTop) / scale}px`;
               const index = String(hit.index);
               const label = options.label();
+              // Before the early return: a "+" hidden by a deletion comes
+              // back on the next move over the same block.
+              inserter?.publish(top, hit.index);
 
               if (
                 published !== null &&
@@ -1294,6 +1350,9 @@ export const MlvEditorBlockHandle =
                   else followRemoteEdit();
                 }
 
+                // Its own gate, touch placement and target preview (#516).
+                inserter?.update();
+
                 if (options.enabled()) return;
                 hide();
                 // Retracts the preview and drops the in-flight source, so
@@ -1314,6 +1373,7 @@ export const MlvEditorBlockHandle =
                 mount.removeEventListener('dragleave', onDragLeave, true);
                 mount.removeEventListener('drop', onDrop, true);
                 ownerDocument.removeEventListener('keydown', onKeyDown);
+                inserter?.destroy();
                 handle.remove();
                 indicator.remove();
                 // A drag interrupted by teardown leaves its drag image on
@@ -1325,6 +1385,9 @@ export const MlvEditorBlockHandle =
             };
           },
         }),
+        // `Mod-Alt-Enter` (#516): claimed only with an inserter configured,
+        // and even then only while `insert.enabled()`.
+        ...(options.insert ? [mlvEditorBlockInsertPlugin(options.insert)] : []),
       ];
     },
   });

@@ -4,6 +4,7 @@ export * from './lib/editor.types';
 // can provide the per-editor context without a package cycle; the
 // `@malva-ui/editor/ai` barrel re-exports it as the documented surface.
 export * from './lib/ai/editor-ai-actions';
+export * from './lib/ai/editor-ai-improve';
 export {
   MLV_EDITOR_AI_CONTEXT,
   MlvEditorAiContext,
@@ -52,15 +53,20 @@ export * from './lib/extensions/editor-upload-placeholder';
 export * from './lib/extensions/script/editor-script';
 export * from './lib/extensions/text-style/editor-block-line-height';
 export * from './lib/extensions/text-style/editor-reset-formatting';
+export * from './lib/insert/editor-insert-items';
+export * from './lib/insert/editor-insert.types';
 export * from './lib/status/editor-status';
+export * from './lib/toc/editor-toc';
 export * from './lib/toolbar/editor-alignment';
 export * from './lib/toolbar/editor-block-insert';
+export * from './lib/toolbar/editor-block-type';
 export * from './lib/toolbar/editor-clear-formatting';
 export * from './lib/toolbar/editor-font-family';
 export * from './lib/toolbar/editor-font-size';
 export * from './lib/toolbar/editor-heading';
 export * from './lib/toolbar/editor-highlight';
 export * from './lib/toolbar/editor-inline-marks';
+export * from './lib/toolbar/editor-insert-menu-button';
 export * from './lib/toolbar/editor-line-height';
 export * from './lib/toolbar/editor-list';
 export * from './lib/toolbar/editor-link';

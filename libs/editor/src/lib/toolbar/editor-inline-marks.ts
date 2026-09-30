@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  input,
   ViewEncapsulation,
 } from '@angular/core';
 import type { Editor } from '@tiptap/core';
@@ -24,8 +25,23 @@ import { MlvEditorCommandButton } from './editor-command-button';
 import { MlvButtonIcon } from '@malva-ui/core/button';
 
 /**
+ * One inline mark `mlv-editor-inline-marks` can render, in its fixed order:
+ * bold, italic, strike-through, underline, inline code, subscript,
+ * superscript.
+ */
+export type MlvEditorInlineMark =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'code'
+  | 'subscript'
+  | 'superscript';
+
+/**
  * Inline mark toggles: bold, italic, strike-through, underline, inline code,
- * subscript and superscript. Each hides while its extension is absent.
+ * subscript and superscript. Each hides while its extension is absent, and
+ * `marks` narrows the group to a subset without changing the order.
  */
 @Component({
   selector: 'mlv-editor-inline-marks',
@@ -41,68 +57,96 @@ import { MlvButtonIcon } from '@malva-ui/core/button';
     MlvButtonIcon,
   ],
   template: `
-    <mlv-editor-command-button
-      [label]="_copy().bold"
-      [pressed]="_isActive('bold')"
-      [supports]="_canBold"
-      [canCommand]="_canBoldNow"
-      [command]="_bold"
-      ><svg mlvButtonIcon lucideBold
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().italic"
-      [pressed]="_isActive('italic')"
-      [supports]="_canItalic"
-      [canCommand]="_canItalicNow"
-      [command]="_italic"
-      ><svg mlvButtonIcon lucideItalic
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().strike"
-      [pressed]="_isActive('strike')"
-      [supports]="_canStrike"
-      [canCommand]="_canStrikeNow"
-      [command]="_strike"
-      ><svg mlvButtonIcon lucideStrikethrough
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().underline"
-      [pressed]="_isActive('underline')"
-      [supports]="_canUnderline"
-      [canCommand]="_canUnderlineNow"
-      [command]="_underline"
-      ><svg mlvButtonIcon lucideUnderline
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().code"
-      [pressed]="_isActive('code')"
-      [supports]="_canCode"
-      [canCommand]="_canCodeNow"
-      [command]="_code"
-      ><svg mlvButtonIcon lucideCode
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().subscript"
-      [pressed]="_isActive('subscript')"
-      [supports]="_canSubscript"
-      [canCommand]="_canSubscriptNow"
-      [command]="_subscript"
-      ><svg mlvButtonIcon lucideSubscript
-    /></mlv-editor-command-button>
-    <mlv-editor-command-button
-      [label]="_copy().superscript"
-      [pressed]="_isActive('superscript')"
-      [supports]="_canSuperscript"
-      [canCommand]="_canSuperscriptNow"
-      [command]="_superscript"
-      ><svg mlvButtonIcon lucideSuperscript
-    /></mlv-editor-command-button>
+    @if (_shows('bold')) {
+      <mlv-editor-command-button
+        [label]="_copy().bold"
+        [pressed]="_isActive('bold')"
+        [supports]="_canBold"
+        [canCommand]="_canBoldNow"
+        [command]="_bold"
+        ><svg mlvButtonIcon lucideBold
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('italic')) {
+      <mlv-editor-command-button
+        [label]="_copy().italic"
+        [pressed]="_isActive('italic')"
+        [supports]="_canItalic"
+        [canCommand]="_canItalicNow"
+        [command]="_italic"
+        ><svg mlvButtonIcon lucideItalic
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('strike')) {
+      <mlv-editor-command-button
+        [label]="_copy().strike"
+        [pressed]="_isActive('strike')"
+        [supports]="_canStrike"
+        [canCommand]="_canStrikeNow"
+        [command]="_strike"
+        ><svg mlvButtonIcon lucideStrikethrough
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('underline')) {
+      <mlv-editor-command-button
+        [label]="_copy().underline"
+        [pressed]="_isActive('underline')"
+        [supports]="_canUnderline"
+        [canCommand]="_canUnderlineNow"
+        [command]="_underline"
+        ><svg mlvButtonIcon lucideUnderline
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('code')) {
+      <mlv-editor-command-button
+        [label]="_copy().code"
+        [pressed]="_isActive('code')"
+        [supports]="_canCode"
+        [canCommand]="_canCodeNow"
+        [command]="_code"
+        ><svg mlvButtonIcon lucideCode
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('subscript')) {
+      <mlv-editor-command-button
+        [label]="_copy().subscript"
+        [pressed]="_isActive('subscript')"
+        [supports]="_canSubscript"
+        [canCommand]="_canSubscriptNow"
+        [command]="_subscript"
+        ><svg mlvButtonIcon lucideSubscript
+      /></mlv-editor-command-button>
+    }
+    @if (_shows('superscript')) {
+      <mlv-editor-command-button
+        [label]="_copy().superscript"
+        [pressed]="_isActive('superscript')"
+        [supports]="_canSuperscript"
+        [canCommand]="_canSuperscriptNow"
+        [command]="_superscript"
+        ><svg mlvButtonIcon lucideSuperscript
+      /></mlv-editor-command-button>
+    }
   `,
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'mlv-editor-inline-marks', role: 'group' },
 })
 export class MlvEditorInlineMarks {
+  /**
+   * Marks to render, filtering the group; the fixed order above is kept
+   * whatever order the list is written in. `undefined` (the default) renders
+   * all seven. A mark whose extension is absent stays hidden either way, and
+   * an unknown value is ignored.
+   */
+  readonly marks = input<readonly MlvEditorInlineMark[] | undefined>(undefined);
+
+  /** @protected Whether a mark is in the rendered subset. */
+  protected _shows(mark: MlvEditorInlineMark): boolean {
+    const marks = this.marks();
+    return marks === undefined || marks.includes(mark);
+  }
+
   /** @protected Editor command state. */ protected readonly _context = inject(
     MLV_EDITOR_TOOLBAR_CONTEXT,
   );

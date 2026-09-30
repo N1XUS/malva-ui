@@ -1,0 +1,19 @@
+// Custom-prompt panel shared by `mlv-editor-ai-menu` and the interim "Ask
+// AI…" prompt (#516). It keeps the AI menu's BEM element names, which the
+// menu's prompt has always rendered; moved here from `editor-ai-menu.scss`
+// unchanged, so the panel is styled wherever it renders.
+@layer mlv.components {
+  .mlv-editor-ai-menu__panel {
+    display: grid;
+    width: min(22rem, calc(100vw - 3.5rem));
+    gap: var(--mlv-spacing-1-5);
+    padding: var(--mlv-spacing-2);
+  }
+
+  .mlv-editor-ai-menu__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--mlv-spacing-3);
+  }
+}

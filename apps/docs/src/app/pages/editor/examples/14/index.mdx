@@ -1,0 +1,58 @@
+---
+title: Clean mode — bubble, block inserter and table of contents
+---
+
+`toolbarAppearance="clean"` is a Notion-style editor with no toolbar bar.
+Selecting text shows a **bubble** with Improve (when an AI provider is
+connected), the block type, the inline marks, link, text colour, highlight and
+"More"; **Alt+F10** summons it at a bare caret, where it starts with Insert
+block. With no selection, point at a block, or put the caret in it, and a
+**"+"** appears
+in the gutter beside the drag handle. It opens a **command menu** for that
+block: an empty paragraph is converted in place, and anything else gets a new
+block below it. The block that will change is outlined while the menu is open,
+and nothing is inserted until you pick an item, so closing the menu leaves the
+document untouched and a pick is one undo step.
+
+The menu lists `mlvEditorDefaultInsertItems()` unless `insertItems` replaces
+it. Spread the defaults and add your own, as this page does with a
+**Callout**: `chain()` leaves the caret in an empty paragraph, so an item
+chains its block command and calls `.run()`. An item's `icon` is a Lucide
+name; any name the defaults do not use must be registered with
+`provideLucideIcons()`, or the item renders with no icon and warns once in dev
+mode.
+
+```ts
+readonly insertItems: readonly MlvEditorInsertItem[] = [
+  ...mlvEditorDefaultInsertItems(),
+  {
+    id: 'callout',
+    label: 'Callout',
+    group: 'insert',
+    icon: 'lightbulb',
+    run: (context) => context.chain().setBlockquote().insertContent('💡 ').run(),
+  },
+];
+```
+
+The switch connects a stubbed `aiProvider`: Improve in the bubble and
+**Ask AI…** in the menu appear only while a provider is set. The provider here
+streams a canned sentence and never leaves the page.
+
+`nav[mlvEditorToc]` lists the editor's headings. It needs `headingAnchors` —
+this page passes `{ idPrefix: 'guide-' }` so its ids cannot collide with
+another editor's — and renders nothing (with one dev warning) without it. A
+click scrolls the heading to the reading line (below a sticky toolbar band and
+`--mlv-editor-heading-scroll-margin`), moves the caret into it and emits
+`itemClick`; a modified click is left to the browser. The item at the reading
+position is marked `aria-current="location"`. This site's app bar is fixed at
+the top, so the page sets `--mlv-editor-heading-scroll-margin: 5.5rem` on the
+editor: the TOC reads it through each heading's `scroll-margin-block-start`,
+and fragment links land there too. Links get their `href` from
+`MLV_EDITOR_HEADING_LINKS` after the first browser render, so a server render
+lists the headings with no links.
+
+Below `md` the contents move into a drawer that closes from `itemClick`. A
+modal drawer blocks page scrolling and restores the old position and focus
+when it closes, so this page re-applies the scroll and refocuses the content
+from `afterClosed`.

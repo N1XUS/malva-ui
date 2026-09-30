@@ -77,9 +77,17 @@ async function wheelOver(mlv: MlvE2ePage, target: Locator, deltaY: number) {
   await mlv.page.mouse.wheel(0, deltaY);
 }
 
+/**
+ * The `'floating'` bubble's pane. `/editor` example 14's clean editor keeps
+ * its own bubble pane attached too; only the clean one holds the bubble
+ * groups, which tells the two apart.
+ */
+const FLOATING_BUBBLE =
+  '.cdk-overlay-pane.mlv-editor-bubble:not(:has(mlv-editor-bubble-groups))';
+
 /** The selection bubble's CDK overlay pane, portaled to `<body>`. */
 function bubblePane(mlv: MlvE2ePage): Locator {
-  return mlv.page.locator('.cdk-overlay-pane.mlv-editor-bubble');
+  return mlv.page.locator(FLOATING_BUBBLE);
 }
 
 /**
@@ -128,10 +136,8 @@ async function selectParagraph(
  * focus is.
  */
 async function bubbleGeometry(mlv: MlvE2ePage) {
-  return mlv.page.evaluate(async () => {
-    const pane = document.querySelector(
-      '.cdk-overlay-pane.mlv-editor-bubble',
-    ) as HTMLElement;
+  return mlv.page.evaluate(async (selector) => {
+    const pane = document.querySelector(selector) as HTMLElement;
     await Promise.all(
       pane
         .getAnimations()
@@ -158,7 +164,7 @@ async function bubbleGeometry(mlv: MlvE2ePage) {
       windowWidth: window.innerWidth,
       focusInContent: !!document.activeElement?.closest('.ProseMirror'),
     };
-  });
+  }, FLOATING_BUBBLE);
 }
 
 /** ProseMirror's own selection, read off the Tiptap instance on the view DOM. */
@@ -609,7 +615,7 @@ test.describe('Editor layout [/editor]', () => {
     await pick(scope, 'Toolbar appearance', 'Floating');
     // The bubble's toolbar is portaled and hidden until a selection exists,
     // but its view stays attached, so its class is readable throughout.
-    const toolbar = mlv.page.locator('.mlv-editor-bubble .mlv-editor__toolbar');
+    const toolbar = mlv.page.locator(`${FLOATING_BUBBLE} .mlv-editor__toolbar`);
     await scope.getByRole('radio', { name: 'Mobile width' }).click();
     await expect(toolbar).toHaveClass(/mlv-editor-toolbar--narrow/);
     await mlv.page.waitForTimeout(500);

@@ -1,0 +1,13 @@
+// Clean-appearance command menu (#516, U7). The host holds only the hidden
+// trigger and the `mlv-menu` host; the panel is portaled into an overlay, so
+// the icon rule is not scoped under the editor.
+@layer mlv.components {
+  .mlv-editor-insert-menu {
+    display: contents;
+  }
+
+  .mlv-editor-insert-menu__icon {
+    flex: none;
+    color: var(--mlv-text-secondary);
+  }
+}

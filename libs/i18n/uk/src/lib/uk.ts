@@ -318,6 +318,17 @@ const uk: MlvLanguage = {
     collaborationBackOnline: 'Знову онлайн. Зміни синхронізовано.',
     collaborationSyncTimeout:
       'Документ ще не синхронізовано. Редагування стане доступним після синхронізації.',
+    // Clean mode (#516)
+    blockType: 'Тип блоку',
+    turnInto: 'Перетворити на',
+    insertBlock: 'Вставити блок',
+    insertGroupAi: 'ШІ',
+    insertGroupStyle: 'Базові блоки',
+    insertGroupLists: 'Списки',
+    insertGroupInsert: 'Вставлення',
+    askAi: 'Запитати ШІ…',
+    tableOfContents: 'Зміст',
+    tableOfContentsEmpty: 'Ще немає заголовків',
   },
   fileUpload: {
     selectedFiles: 'Вибрані файли',

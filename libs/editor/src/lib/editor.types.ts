@@ -41,8 +41,16 @@ export type MlvEditorToolbarPosition = 'top' | 'bottom';
  * summons it at the caret) and the editor is neither disabled nor `readonly`.
  * It prefers above the selection and flips below at the window's or a capped
  * viewport's edge. `toolbarPosition` and `toolbarSticky` do not apply to it.
+ * `'clean'` follows the bubble's rules, but the bubble carries a compact
+ * formatting set instead of the full toolbar: AI Improve (with a selection and
+ * an AI provider), block type, marks, link, colour and a More menu. A consumer
+ * `[mlvEditorToolbar]` and the start / end slots render in it as in
+ * `'floating'`.
+ *
+ * Widened by `'clean'` (#516): an exhaustive `switch` with a `never` check
+ * over this type needs a `'clean'` branch.
  */
-export type MlvEditorToolbarAppearance = 'bar' | 'floating';
+export type MlvEditorToolbarAppearance = 'bar' | 'floating' | 'clean';
 
 /** Origin of an image file supplied to the editor. */
 export type MlvEditorImageUploadSource = 'button' | 'paste' | 'drop';

@@ -312,6 +312,17 @@ const nl: MlvLanguage = {
     collaborationBackOnline: 'Weer online. Wijzigingen gesynchroniseerd.',
     collaborationSyncTimeout:
       'Het document is nog niet gesynchroniseerd. Bewerken kan zodra dat gebeurd is.',
+    // Clean mode (#516)
+    blockType: 'Bloktype',
+    turnInto: 'Omzetten naar',
+    insertBlock: 'Blok invoegen',
+    insertGroupAi: 'AI',
+    insertGroupStyle: 'Basisblokken',
+    insertGroupLists: 'Lijsten',
+    insertGroupInsert: 'Invoegen',
+    askAi: 'AI vragen…',
+    tableOfContents: 'Inhoudsopgave',
+    tableOfContentsEmpty: 'Nog geen koppen',
   },
   fileUpload: {
     selectedFiles: 'Geselecteerde bestanden',

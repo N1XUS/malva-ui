@@ -303,6 +303,17 @@ const zhHans: MlvLanguage = {
     collaborationMoveCancelled: '已取消移动块：其他人更改了文档。',
     collaborationBackOnline: '已恢复在线。更改已同步。',
     collaborationSyncTimeout: '文档尚未同步。同步完成后即可编辑。',
+    // Clean mode (#516)
+    blockType: '块类型',
+    turnInto: '转换为',
+    insertBlock: '插入块',
+    insertGroupAi: 'AI',
+    insertGroupStyle: '基础块',
+    insertGroupLists: '列表',
+    insertGroupInsert: '插入',
+    askAi: '询问 AI…',
+    tableOfContents: '目录',
+    tableOfContentsEmpty: '暂无标题',
   },
   fileUpload: {
     selectedFiles: '已选文件',

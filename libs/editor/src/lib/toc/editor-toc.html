@@ -1,0 +1,38 @@
+<!--
+  Nothing renders before `ready()` — on the server with no editor, and before
+  the editor mounts — so hydration never flashes the empty state.
+-->
+@if (ready()) {
+  @if (_tree().length) {
+    <ng-container
+      [ngTemplateOutlet]="list"
+      [ngTemplateOutletContext]="{ $implicit: _tree() }"
+    />
+  } @else {
+    <p class="mlv-editor-toc__empty">{{ _copy().tableOfContentsEmpty }}</p>
+  }
+}
+
+<ng-template #list let-nodes>
+  <ol class="mlv-editor-toc__list">
+    @for (node of nodes; track node.item) {
+      <li class="mlv-editor-toc__item">
+        <a
+          class="mlv-editor-toc__link"
+          [class.mlv-editor-toc__link--active]="_isActive(node.item)"
+          [attr.href]="node.item.href"
+          [attr.aria-current]="_isActive(node.item) ? 'location' : null"
+          [style.--mlv-editor-toc-depth]="node.depth"
+          (click)="_onClick($event, node.item)"
+          >{{ node.item.text }}</a
+        >
+        @if (node.children.length) {
+          <ng-container
+            [ngTemplateOutlet]="list"
+            [ngTemplateOutletContext]="{ $implicit: node.children }"
+          />
+        }
+      </li>
+    }
+  </ol>
+</ng-template>

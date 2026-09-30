@@ -1,0 +1,7 @@
+// Clean-appearance bubble groups (#516). The host is transparent to layout,
+// so the groups stay flex items of the enclosing `mlv-toolbar`.
+@layer mlv.components {
+  .mlv-editor-bubble-groups {
+    display: contents;
+  }
+}

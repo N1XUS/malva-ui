@@ -551,6 +551,11 @@
         margin-block: var(--mlv-spacing-6) var(--mlv-spacing-3);
         color: var(--mlv-text-heading);
         font-family: var(--mlv-typography-family-heading);
+        // Where a fragment link and `nav[mlvEditorToc]` land a heading (#516).
+        scroll-margin-block-start: var(
+          --mlv-editor-heading-scroll-margin,
+          var(--mlv-spacing-4)
+        );
       }
 
       @for $level from 1 through 6 {

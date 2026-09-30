@@ -1,0 +1,88 @@
+<div class="demo-col" style="align-items: stretch; gap: 1rem">
+  <div class="demo-row" style="flex-wrap: wrap; gap: 1rem">
+    <mlv-switch
+      [(checked)]="aiEnabled"
+      description="Improve and Ask AI appear only while a provider is connected"
+    >
+      Stubbed AI provider
+    </mlv-switch>
+    @if (narrow()) {
+      <button
+        mlvButton
+        variant="secondary"
+        type="button"
+        (click)="contentsOpen.set(true)"
+      >
+        Contents
+      </button>
+    }
+  </div>
+
+  <div class="docs-clean" [class.docs-clean--wide]="!narrow()">
+    <mlv-editor
+      #doc
+      label="Field guide"
+      hint="Select text for the bubble, or use the gutter “+” to insert a block"
+      toolbarAppearance="clean"
+      [headingAnchors]="anchors"
+      [insertItems]="insertItems"
+      [aiProvider]="aiProvider()"
+      [(value)]="value"
+    />
+
+    @if (!narrow()) {
+      <aside class="docs-clean__aside">
+        <nav mlvEditorToc [context]="doc"></nav>
+      </aside>
+    }
+  </div>
+
+  @if (narrow()) {
+    <mlv-drawer
+      [(opened)]="contentsOpen"
+      position="right"
+      size="20rem"
+      (afterClosed)="_onDrawerClosed()"
+    >
+      <ng-template mlvDrawerContent>
+        <mlv-drawer-header title="Contents" level="4" />
+        <div mlvDrawerBody>
+          <nav
+            mlvEditorToc
+            [context]="doc"
+            (itemClick)="_onDrawerPick($event)"
+          ></nav>
+        </div>
+      </ng-template>
+    </mlv-drawer>
+  }
+
+  <table class="docs-clean__keys">
+    <caption style="text-align: start; padding-block-end: 0.5rem">
+      Clean-mode keyboard map
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Where</th>
+        <th scope="col">Keys</th>
+        <th scope="col">Result</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of keyRows; track $index) {
+        <tr>
+          <td>{{ row.where }}</td>
+          <td>
+            @for (keys of row.keys; track $index; let last = $last) {
+              <mlv-kbd [keys]="keys" />
+              @if (!last) {
+                <span> / </span>
+              }
+            }
+          </td>
+          <td>{{ row.result }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

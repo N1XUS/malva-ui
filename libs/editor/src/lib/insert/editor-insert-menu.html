@@ -1,0 +1,36 @@
+<span
+  hidden
+  [mlvContextMenuTrigger]="_menu"
+  (menuOpened)="_onOpened()"
+  (menuClosed)="_onClosed()"
+></span>
+<mlv-menu #_menu [label]="_copy().insertBlock">
+  @for (group of _groups(); track group.id; let first = $first) {
+    @if (!first) {
+      <mlv-menu-separator />
+    }
+    <mlv-menu-group>
+      @if (group.label; as label) {
+        <span mlvMenuGroupLabel>{{ label }}</span>
+      }
+      @for (entry of group.entries; track entry.item.id) {
+        <mlv-list-item
+          mlvMenuItem
+          [disabled]="!entry.enabled"
+          (itemClick)="_run(entry.item)"
+        >
+          @if (entry.icon; as icon) {
+            <svg
+              mlvListItemPrefix
+              class="mlv-editor-insert-menu__icon"
+              [lucideIcon]="icon"
+              [size]="16"
+              aria-hidden="true"
+            ></svg>
+          }
+          {{ entry.item.label }}
+        </mlv-list-item>
+      }
+    </mlv-menu-group>
+  }
+</mlv-menu>

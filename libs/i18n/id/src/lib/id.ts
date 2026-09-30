@@ -310,6 +310,17 @@ const id: MlvLanguage = {
     collaborationBackOnline: 'Kembali online. Perubahan telah disinkronkan.',
     collaborationSyncTimeout:
       'Dokumen belum tersinkron. Pengeditan dimulai setelah tersinkron.',
+    // Clean mode (#516)
+    blockType: 'Jenis blok',
+    turnInto: 'Ubah menjadi',
+    insertBlock: 'Sisipkan blok',
+    insertGroupAi: 'AI',
+    insertGroupStyle: 'Blok dasar',
+    insertGroupLists: 'Daftar',
+    insertGroupInsert: 'Sisipkan',
+    askAi: 'Tanya AI…',
+    tableOfContents: 'Daftar isi',
+    tableOfContentsEmpty: 'Belum ada judul',
   },
   fileUpload: {
     selectedFiles: 'Berkas yang dipilih',

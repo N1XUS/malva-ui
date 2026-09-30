@@ -1,0 +1,23 @@
+@use '../../../../styles/src/lib/mixins' as mixins;
+
+// AI "Improve writing" button (#516): icon + label, icon-only when compact.
+@layer mlv.components {
+  $block: mlv-editor-ai-improve;
+
+  .#{$block} {
+    @include mixins.base();
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+
+    // The host hides without an AI provider; an author `display` would
+    // otherwise override the UA `[hidden]` rule.
+    &[hidden] {
+      display: none;
+    }
+
+    &__label {
+      white-space: nowrap;
+    }
+  }
+}

@@ -44,8 +44,22 @@ The Editor library provides an SSR-safe Angular shell around a single browser-on
   `MlvEditorClearFormatting`; the option lists `MLV_EDITOR_TEXT_STYLES` /
   `MlvEditorTextStyleOptions` / `MlvEditorFontFamilyOption` /
   `provideMlvEditorTextStyles`. See _Text styles_.
+- Clean appearance (#516): `MlvEditorBlockType` (block-type dropdown),
+  `MlvEditorAiImprove` (also on `@malva-ui/editor/ai`), the
+  `MlvEditorInlineMark` union for `MlvEditorInlineMarks.marks`, and
+  `'clean'` on `MlvEditorToolbarAppearance`. See _Clean: the Notion-style
+  bubble_. Phase B: `MlvEditorInsertMenuButton` (the bubble's Insert block
+  button), the command-menu contract `MlvEditorInsertItem` /
+  `MlvEditorInsertGroup` / `MlvEditorInsertTarget` /
+  `MlvEditorInsertContext` / `MlvEditorInsertCopy`,
+  `mlvEditorDefaultInsertItems()`, and the block-handle "+" options
+  `MlvEditorBlockHandleOptions.insert` /
+  `MlvEditorBlockHandleInsertOptions` / `MlvEditorBlockHandleInsertRequest`.
+  See _Clean: gutter "+" and command menu_. Phase C: `MlvEditorToc`
+  (`nav[mlvEditorToc]`) and `MlvEditorTocItem`. See _Clean: table of
+  contents_.
 - The AI toolkit symbols (provider contract, streaming engine, per-editor
-  context, and `MlvEditorAiMenu`) — exported here for single-module identity
+  context, `MlvEditorAiMenu` and `MlvEditorAiImprove`) — exported here for single-module identity
   and mirrored by the `@malva-ui/editor/ai` facade, which is the documented
   import path. See the AI toolkit section below.
 - Collaboration (#515): `MlvEditorTransactionOrigin` (`'local' | 'remote'`),
@@ -73,13 +87,14 @@ Import `MlvEditor` from `@malva-ui/editor` and render it as
 | Input  | `minHeight`            | `number \| string \| undefined` / `8rem` floor; a cap wins over it        |
 | Input  | `maxHeight`            | `number \| string \| undefined`; grow up to a cap, then scroll            |
 | Input  | `toolbarPosition`      | `MlvEditorToolbarPosition` / `'top'`; docked bar only                     |
-| Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`; `'floating'` = selection bubble   |
+| Input  | `toolbarAppearance`    | `MlvEditorToolbarAppearance` / `'bar'`; `'floating'` / `'clean'` = bubble |
 | Input  | `toolbarSticky`        | `boolean` (`BooleanInput`) / `false`; uncapped `'bar'` only               |
+| Input  | `insertItems`          | `readonly MlvEditorInsertItem[] \| undefined`; clean command menu         |
 | Input  | `extensions`           | `Extensions \| undefined`; a complete replacement                         |
 | Input  | `placeholder`          | `string \| undefined` → i18n `editor.placeholder` → `'Write something…'`  |
 | Input  | `characterLimit`       | `number \| null` / `null`                                                 |
 | Input  | `blockIds`             | `boolean` (`BooleanInput`) / `false`; read at creation                    |
-| Input  | `headingAnchors`       | `boolean` (`BooleanInput`) / `false`; read at creation                    |
+| Input  | `headingAnchors`       | `boolean \| Partial<MlvEditorHeadingAnchorOptions>` / `false`; creation   |
 | Input  | `ariaLabel`            | `string \| undefined`                                                     |
 | Input  | `ariaLabelledBy`       | `string \| undefined`                                                     |
 | Input  | `ariaDescribedBy`      | `string \| undefined`                                                     |
@@ -187,7 +202,8 @@ height: 8 }` defaults and erases them. Every drag then computes
   supplies the `moveBlock`/`moveBlockUp`/`moveBlockDown` commands and the
   `Alt+Shift+ArrowUp`/`Alt+Shift+ArrowDown` keymap for reordering top-level
   blocks. Every `MlvEditorBlockHandleOptions` member (`mount`, `label`,
-  `announceMove`, `enabled`) is host-supplied; omitting them yields an inert
+  `announceMove`, `enabled`, and the optional `insert` — the clean gutter
+  "+" and its chord, #516) is host-supplied; omitting them yields an inert
   handle that never mounts, which is what a bare `mlvEditorDefaultExtensions()`
   call outside the `MlvEditor` shell produces. It is part of the default
   preset; a literal `extensions` replacement omits it, so the gutter handle
@@ -350,7 +366,34 @@ MlvEditorBlockInsert | MlvEditorImageUpload`.
   standalone shell render the same control set.
 - **InlineMarks:** bold, italic, strike, underline, inline code (`toggleCode`,
   `lucideCode`), subscript, superscript — each a command button gated by
-  command presence.
+  command presence. `marks: InputSignal<readonly MlvEditorInlineMark[] |
+undefined>` (#516) filters the group: `undefined` (default) = all seven;
+  the fixed order is kept whatever order the list uses; an unknown value is
+  ignored; a listed mark whose extension is absent stays hidden.
+- **BlockType** (`MlvEditorBlockType`, `mlv-editor-block-type`, #516, not in
+  the default composition): menu-button dropdown naming the caret block
+  (trigger text = current type, `aria-label` = i18n `styleValue`
+  `{label}: {value}` with `blockType` → "Block type: Heading level 2";
+  innermost type wins, so a paragraph in a list reads "Bullet list").
+  - Items: Paragraph, one heading per `levels` entry, bullet / ordered / task
+    list, blockquote, code block; each only when its command is registered
+    (and `clearNodes`); current item `aria-current="true"`, never disabled.
+  - `levels: InputSignal<readonly MlvEditorHeadingLevel[]>` / `[1, 2, 3]`;
+    written order kept, duplicates dropped, levels the Heading extension does
+    not allow dropped.
+  - A choice runs `clearNodes()` + the type command in one `chain().run()`:
+    one transaction, one undo step; converts out of a list or quote instead
+    of nesting (Paragraph appends nothing: `clearNodes` already made one —
+    a trailing `setParagraph()` fails the chain from a list). A list over a
+    multi-paragraph selection in a table cell wraps inside the cell.
+  - Hidden (`[hidden]`) when no item is supported; a readonly editor renders
+    no toolbar (#498).
+- **Clean bubble groups** (internal `MlvEditorBubbleGroups`,
+  `mlv-editor-bubble-groups`, `display: contents`): the clean appearance's
+  group set, rendered by `editor.html` in place of
+  `mlv-editor-default-toolbar-groups`; no overflow menu. Internal
+  `MlvEditorBubbleMore` (`mlv-editor-bubble-more`) is its "More formatting"
+  menu, not `MlvEditorToolbarOverflow`. See _Clean: the Notion-style bubble_.
   Every native built-in trigger is marked with `mlvEditorToolbarWidget`, so the
   composite is one Tab stop; ArrowLeft/ArrowRight, Home, and End move between
   enabled widgets and wrap. Built-in toolbar actions are icon-only Malva buttons
@@ -777,6 +820,31 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
   `aiAllSuggestionsAccepted`/`aiAllSuggestionsRejected`, and
   `aiCurrentSuggestion*` i18n
   keys; failures announce nothing.
+- **`MlvEditorAiImprove`** (`mlv-editor-ai-improve`, #516): one-click
+  "Improve writing" toolbar button, the clean bubble's first control; also
+  projectable into either shell. Click →
+  `runTransform('improve', { output: 'replace-selection' })`, the request the
+  menu's Improve item sends; label = the default `improve` action's
+  (`mlvEditorAiDefaultActions`), so both read the same.
+  - `compact: InputSignal<boolean>` (coerced, default `false`): icon-only,
+    named by `aria-label` + tooltip; otherwise icon + visible label.
+  - `[hidden]` with no provider; disabled unless `canStart()` and the
+    selection is a non-empty `TextSelection` or `AllSelection`. Disabled on
+    a caret (would rewrite the whole document), a `NodeSelection` (image →
+    Markdown text replacing the node) and a `CellSelection` (one cell's
+    text).
+  - An enabled pointer press is `preventDefault()`ed, so focus and the
+    selection stay in the content.
+- **`canStart`** (internal `computed` on `MlvEditorAiContext`, #516): `true`
+  when `runTransform` would start — provider resolves, status `'idle'` (no
+  run, no pending review), editor editable, and not bound to a collaboration
+  session. Every clean-mode AI entry point (Improve in the bubble or a slot,
+  the interim prompt, the command menu's Ask AI) binds it.
+  - **While collaborating, every clean-mode AI entry point is disabled until
+    #738 (F2):** the private `_collaborationAllowsAi()` returns
+    `!mlvEditorCollaborationBlocksAi(editor)`, the predicate `runTransform`
+    refuses on (F-D15, #515). Pinned by
+    `collaboration/src/lib/collaboration-clean-mode.spec.ts`.
 - **`MlvEditorAiMenu`** (`mlv-editor-ai-menu`): optional toolbar command
   group hosts project into either toolbar shell (e.g.
   `<mlv-editor-ai-menu mlvEditorToolbarStart />`); the default toolbar
@@ -784,7 +852,12 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
   (`mlvEditorToolbarWidget`-marked, one roving tab stop) opens a Malva menu of
   the action list plus a
   custom-prompt item opening a modal Malva popup (`MlvInput` instruction,
-  radio output-mode choice, Apply/Cancel). While `status() === 'running'` the
+  radio output-mode choice, Apply/Cancel). Since #516 that popup body is the
+  internal `MlvEditorAiPromptPanel` (`div[mlvEditorAiPromptPanel]`, shared
+  with the clean-mode prompt); the menu's markup, classes
+  (`.mlv-editor-ai-menu__panel` / `__output` / `__actions`) and behaviour are
+  unchanged, and the two rules moved to `editor-ai-prompt-panel.scss`
+  verbatim. While `status() === 'running'` the
   same button becomes a stop affordance (`LucideCircleStop`, `aiCancel` label,
   menu blocked) so cancellation never destroys the focused element. Hides via
   `[hidden]` when no provider resolves; trigger and items disable — without
@@ -912,7 +985,9 @@ string | null` resolves 'Suggestion {index} of {count}' plus the
 
 Both opt-in, both off by default: the preset stays byte-identical without them.
 
-- **Switches:** `MlvEditor` inputs `blockIds` / `headingAnchors` (`BooleanInput`),
+- **Switches:** `MlvEditor` inputs `blockIds` (`BooleanInput`) and
+  `headingAnchors` (`BooleanInput` or `Partial<MlvEditorHeadingAnchorOptions>`,
+  #516 — the object form sets `idPrefix` / `slugify` without a custom array),
   read once at creation like `placeholder`; ignored when `extensions` replaces
   the preset — put the extensions in that array instead.
 - **Preset:** `mlvEditorDefaultExtensions({ blockIds, headingAnchors })` —
@@ -973,8 +1048,9 @@ Both opt-in, both off by default: the preset stays byte-identical without them.
   parsed (a loaded or pasted `id` is ignored). Renders `id="<idPrefix><anchor>"`;
   JSON `attrs.anchor`; Markdown none, recomputed identically on load.
 - **Options** (`MlvEditorHeadingAnchorOptions`):
-  - `idPrefix` — default `''`; give each editor on a page its own, or two
-    headings with the same text render the same `id`;
+  - `idPrefix` — default `''`; give each editor on a page its own
+    (`[headingAnchors]="{ idPrefix: 'doc-' }"`), or two headings with the
+    same text render the same `id`;
   - `slugify` — default: NFKC → locale-free lower case → keep letters, marks,
     numbers, whitespace and `-` → whitespace to `-` → collapse / trim `-`
     (`Getting started` → `getting-started`, `Привет мир` → `привет-мир`); an
@@ -1040,9 +1116,13 @@ Both opt-in, both off by default: the preset stays byte-identical without them.
 - **Links:** `MLV_EDITOR_HEADING_LINKS` (`MlvEditorHeadingLinks.href({ anchor,
 id })`), `provideMlvEditorHeadingLinks(links)`. Root default: `origin +
 pathname + search + '#' + encodeURIComponent(id)` from the injected
-  `DOCUMENT`, read at click time only (SSR-safe; a custom `slugify` may return
-  characters a raw fragment cannot carry, and browsers decode the fragment
-  before matching an `id`).
+  `DOCUMENT`. `href` is called at click time and, for `nav[mlvEditorToc]`,
+  while it builds its links once the first browser render has run (#516,
+  D-B10) — never on the server, so a builder may read browser globals (the
+  default URL-encodes the id: a custom `slugify` may return characters a raw
+  fragment cannot carry, and browsers decode the fragment before matching an
+  `id`). The TOC calls it once per heading and keeps the result while the
+  heading is unchanged (see _Clean: table of contents_ → `href`).
 
 ### Serialization
 
@@ -1075,7 +1155,10 @@ Optional `MlvEditorI18n` keys, in all 14 packs: `copyHeadingLink`,
 `headingLinkCopied` (this section); `inlineCode`, `subscript`, `superscript`,
 `clearFormatting`, `fontFamily`, `fontSize`, `lineHeight`, `defaultStyle`,
 `fontFamilySans`, `fontFamilySerif`, `fontFamilyMono`, `styleValue` (ICU
-`{label}: {value}`, the text-style trigger names) (text-style controls, #514).
+`{label}: {value}`, the text-style trigger names) (text-style controls, #514);
+`blockType` ("Block type", the block-type trigger's `styleValue` label) and
+`turnInto` ("Turn into", the block-type menu name) (#516; English fallbacks in
+the internal `MLV_EDITOR_CLEAN_MODE_FALLBACKS`, pinned equal to the English pack).
 
 ## Text styles (2026-09, #514)
 
@@ -1400,6 +1483,271 @@ overscroll-behavior: contain`. A number is px, a string passes through
     selection bubble" describe in `e2e/editor-layout.spec.ts`.
     `editor-ssr.spec.ts` server-renders a floating editor: no band, no pane,
     no `aria-keyshortcuts`.
+- **Clean: the Notion-style bubble** (`toolbarAppearance="clean"`, #516,
+  phase A). Same `MlvEditorBubble` pane, visibility, placement, keys
+  (Alt+F10, Escape, `aria-keyshortcuts`), readonly and disabled behaviour as
+  floating — every former `=== 'floating'` check is now `!== 'bar'`. Host
+  class `mlv-editor--toolbar-clean` (not `--toolbar-floating`);
+  `toolbarPosition` / `toolbarSticky` do not apply. `editor.scss` is
+  untouched: bar and floating render and style exactly as before.
+  - **Groups** (internal `MlvEditorBubbleGroups`, `[narrow]` from
+    `MlvEditorToolbarRoot.narrow`): AI Improve + divider (only with a
+    non-empty selection **and** a provider), else Insert block + divider
+    (`MlvEditorInsertMenuButton`, only at a caret **and** while
+    `MLV_EDITOR_INSERT_MENU.available()` — so never in bar / floating or the
+    shell, D-B11; `aria-haspopup="menu"`, `aria-expanded` and, while open,
+    `aria-controls` → the menu panel; disabled while `context.editable()` is
+    false, collaboration write gate included) · `MlvEditorBlockType` ·
+    `MlvEditorInlineMarks
+[marks]` bold / italic / underline / strike / code · link · text colour,
+    highlight · More. Start / end slots and a `[mlvEditorToolbar]`
+    replacement render as in floating. The Improve slot swaps with `@if`,
+    so it leaves the roving registry; the selection cannot change while
+    focus is in the bubble.
+  - **Narrow:** Improve icon-only (`compact`), marks shrink to bold +
+    italic, More gains underline / strike / inline code rows. Colour buttons
+    stay: their popovers anchor on their own trigger and cannot open from a
+    menu item (§ 17 item 3 fallback).
+  - **More** (internal `MlvEditorBubbleMore`, circle ellipsis trigger named
+    `moreFormatting`): alignment ×4, the narrow marks, subscript,
+    superscript, clear formatting (`resetFormatting`), font family / size and
+    line-height submenus (`createMlvEditorStyleMenuModel`), then "Copy link
+    to heading" when the caret is in a heading and `copyHeadingLink` exists.
+    Each row gated on its command; the button `[hidden]` when no row would
+    render (the roving registry skips `[hidden]`). Menus register with the
+    overlay registry.
+  - **Ask AI prompt (interim, D-B3):** internal `mlv-editor-ai-prompt`,
+    rendered in clean only, behind internal `MLV_EDITOR_AI_PROMPT`
+    (`open({ anchor: DOMRect, output? })`, `isOpen`). `mlv-editor` provides
+    the token as a stable delegate (`mlvEditorAiPromptDelegate`) to the
+    rendered prompt; in bar / floating `open` does nothing. A modal
+    `mlv-popup` (`panelRole="dialog"`, named `aiCustom`) on a fixed,
+    `pointer-events: none` `mlv-popup-container` placed at the rectangle
+    (physical viewport coordinates; a transformed ancestor would misplace
+    it — interim, C replaces it). Body = the internal
+    `MlvEditorAiPromptPanel` shared with `mlv-editor-ai-menu`; a fixed
+    `output` hides the radio group. Apply / Enter →
+    `runTransform('custom', { instruction, output })`, blocked while
+    `!canStart()`; closing returns focus to the content; readonly / disabled
+    closes it. Phase B's "Ask AI…" command item calls `open()`.
+  - **Tests:** `editor-clean-appearance.spec.ts` (groups vs N1 tag list for
+    bar / floating, slots, replacement, `aria-keyshortcuts`, readonly /
+    disabled, Alt+F10 at a caret focuses block type, axe: selection ±
+    provider, caret, narrow, scoped RTL), `editor-bubble-groups.spec.ts`,
+    `editor-block-type.spec.ts`, `editor-inline-marks.spec.ts`,
+    `editor-ai-improve.spec.ts`, `editor-ai-prompt.spec.ts`,
+    `editor-clean-styles.spec.ts` (every clean rule scoped to its own block;
+    the shared chevron and prompt-panel rules pinned equal to what shipped).
+- **Clean: gutter "+" and command menu** (#516, phase B). Clean only; bar,
+  floating and a consumer `MlvEditorBlockHandle` without `insert` are
+  unchanged (no "+", no chord, no gutter change).
+  - **Gutter "+"** (`MlvEditorBlockHandleOptions.insert`, U6): a second
+    plugin view (internal `editor-block-inserter.ts`) appends one
+    `.mlv-editor__block-add` to the mount; `aria-hidden`, no `tabindex`,
+    `title` = `insert.label()`, `data-visible`. Follows the hovered block
+    (reusing the handle's hit test) or, under `(hover: none)`, the caret's
+    block. `pointerdown` is `preventDefault()`ed so focus stays in the
+    content; a mouse `click` → `insert.open({ pos, rect, via: 'pointer' })`.
+    A touch or pen press opens on `pointerup` instead: WebKit sends no
+    `click` after a prevented touch `pointerdown` (measured, #516 e2e), and
+    a non-passive `touchend` `preventDefault()` stops the compatibility
+    `click` Chromium would send, so the popup's document click listener
+    never dismisses the menu the press opened; a stray click within the
+    750 ms grace is ignored, and a `pointercancel` (pan) opens nothing; nor
+    does a press that travelled more than `MLV_EDITOR_BLOCK_ADD_PRESS_SLOP`
+    (10px, internal) before release — a drag the page claimed with no
+    `pointercancel` — or its click.
+    Focus stays in the content through the tap in Chromium and WebKit
+    (§ 17 item 8; a real device's virtual keyboard is unmeasured); a
+    pointer-opened menu takes no keys, so arrows keep moving the caret.
+    The published block is mapped through every transaction
+    (`mapResult(pos, 1)`), hidden when `deletedAfter` (block deleted,
+    whole-document `setContent`) and republished on the next move — the
+    no-F-tracker fallback. While collaborating that means every remote
+    update hides it: y-tiptap 3.0.9 replaces the whole document on each one
+    (measured: 0 of N top-level nodes reused), so it never points at a
+    wrong block and comes back on the next move; tracking it with F's
+    position tracker is a follow-up (#736). `insert.enabled()` is
+    `_acceptsLocalMutation()` in the clean appearance, the handle's gate, so
+    neither the "+" nor the chord acts before a session's first sync.
+    Touch: the press grace also keeps it visible
+    across a tap's blur. RTL: slot side from a `[dir]` walk on `view.dom`
+    (the plugin has no DI).
+  - **Chord** `Mod-Alt-Enter`: plugin `handleKeyDown`, gated on
+    `insert.enabled()`; a keydown with `AltGraph` is ignored (D-B6), so
+    Firefox, which reports AltGraph for mac Option and Windows Ctrl+Alt,
+    never claims it. Clean content `aria-keyshortcuts` =
+    `Alt+F10 Control+Alt+Enter` (`Meta+Alt+Enter` on Apple platforms);
+    `Alt+F10` alone before a session's first sync; none while readonly /
+    disabled; bar / floating keep theirs.
+  - **Gutter CSS** (`insert/editor-clean-gutter.scss`, attached by
+    `mlv-editor-insert-menu`): every rule under `.mlv-editor--toolbar-clean`;
+    `--mlv-editor-gutter-slot` (1.5rem, never shrunk: SC 2.5.8) × 2 =
+    `--mlv-editor-gutter`; "+" in the outer slot, handle in the inner, both
+    `inset-inline-start`; `(hover: none)` gutter = one slot; print hides the
+    "+" and target.
+  - **Command menu** (internal `MlvEditorInsertMenu`,
+    `mlv-editor-insert-menu`, U7): rendered for the whole clean lifetime,
+    provides internal `MLV_EDITOR_INSERT_MENU` (`open(request)`,
+    `openAtCaret()`, `isOpen`, `available`). An `mlv-menu` opened through
+    `MlvContextMenuTrigger.openAt()` at the slot's inline-end edge
+    (inline-start in RTL), anchored on `view.dom` for the pane direction.
+    Open: `closeOthers()` (bubble etc.), then collapse the selection into
+    the source block — a selection-only, `addToHistory: false` transaction,
+    none when the caret is already there. **D-B2:** no document change on
+    open or dismissal; while open, the target block gets a
+    `.mlv-editor__block-target` outline (empty paragraph) or a gutter
+    indicator (after the block), both outside `view.dom`. Keyboard opens
+    focus the first item one task later (§ 17 item 10); pointer opens keep
+    focus in the content. It follows `context.editable()`, the gate
+    `run()` uses: readonly / disabled / leaving clean, or a collaboration
+    session that has not synced or has failed or closed, closes it and its
+    image dialog, and an item run then writes nothing.
+  - **Items** (`insertItems` input, else `mlvEditorDefaultInsertItems(copy)`):
+    groups `ai` · `style` · `lists` · `insert` (localized labels), consumer
+    groups after them, separator only. Defaults: Ask AI… · Paragraph,
+    Heading 1–3, Blockquote, Code block · Bullet, Ordered, Task list ·
+    Insert table, Horizontal rule, Upload image — each `available` only with
+    its extension / service. Running an item closes the menu, resolves the
+    target from the selection **at run time**, and runs
+    `context.chain()` — a first step that converts an empty source paragraph
+    in place, else inserts an empty paragraph after it — plus the block
+    command: one transaction, one undo step. A throw → `editorError`
+    `'unsupported-command'`, recoverable. `icon`: the default names resolve
+    inside the editor (internal map); any other must be app-registered
+    (`provideLucideIcons`, read from `LUCIDE_ICONS`). An unregistered name
+    renders no icon and warns once per name in dev; the item still renders
+    and runs (#516 phase C — `LucideDynamicIcon` throws for an unknown name,
+    so the menu checks the registry first).
+  - **Ask AI…** → `MLV_EDITOR_AI_PROMPT.open({ anchor, output:
+'insert-below' })`; `available` = `hasProvider()`, `enabled` =
+    `canStart()`.
+  - **Upload image** → the shared upload dialog through internal
+    `openMlvEditorImageUploadDialog()` (`toolbar/editor-image-upload-opener.ts`,
+    D-B9, also used by `MlvEditorImageUpload`); focus returns to the
+    content on close. The item changes nothing when it opens: the dialog
+    receives the insert position as a getter (internal
+    `MLV_EDITOR_IMAGE_UPLOAD_POSITION`, resolved at submit through
+    `mlvEditorInsertPosition()`: inside an empty source paragraph, which the
+    image replaces, else after the source block), so a dismissed dialog
+    leaves the document byte-identical (#516 phase C).
+  - **Tests:** `editor-block-insert-gutter.spec.ts` (render / chord /
+    AltGraph / mapping / touch incl. the drag slop / destroy / preview /
+    scoped RTL),
+    `editor-insert-menu.spec.ts` (groups, conversion vs insert-after, one
+    undo step, run-time target, D-B2 transaction count + doc identity,
+    errors, custom items, Ask AI, image dialog, keyboard path, Insert
+    block `aria-expanded` / `aria-controls`, bar / floating inert, scoped
+    RTL, axe: menu ± provider, custom item, "+", RTL),
+    `editor-clean-mode-fallbacks.spec.ts` (fallbacks = English pack),
+    `editor-clean-styles.spec.ts` § _clean gutter_,
+    `editor-clean-appearance.spec.ts` (keyshortcuts, caret summon →
+    Insert block), `editor-bubble-groups.spec.ts`, `editor-ssr.spec.ts`
+    (clean server-renders no bubble, "+", panel or keyshortcuts).
+- **Clean: table of contents** (`MlvEditorToc`, `nav[mlvEditorToc]`,
+  `exportAs: 'mlvEditorToc'`, #516 phase C, U9, `toc/`). Works beside any
+  appearance and lives outside the editor:
+  `<nav mlvEditorToc [context]="doc">` next to `<mlv-editor #doc headingAnchors>`.
+  - **Inputs:** `context` (required, `MlvEditorToolbarContext`); `levels`
+    (`readonly MlvEditorHeadingLevel[]`, default `[1, 2, 3]`); `ariaLabel`
+    (else i18n `tableOfContents`; two TOCs on a page need distinct names,
+    axe `landmark-unique`). Density host directive (`mlvDensity`, element
+    `editor-toc`). **Output:** `itemClick: MlvEditorTocItem`, after the
+    scroll starts (close a drawer holding it).
+  - **Signals:** `items` (`MlvEditorTocItem`: `anchor`, `id`, `level`,
+    `text`, `href: string | null`), `activeAnchor` (`string | null`),
+    `ready` (an editor with `headingAnchors` is connected).
+  - **Requires `headingAnchors` (D-B7).** Without the extension: `ready`
+    false, no items, nothing rendered inside the nav, one dev warning.
+    `idPrefix` is read from the extension's options.
+  - **Derivation:** an `effect` on `context.editor()` subscribes
+    `editor.on('transaction')` (released in `onCleanup`) and re-reads on
+    `docChanged`, local or remote. Per top-level block memo (`WeakMap` on
+    node identity); a paragraph / code block / leaf is never walked; nested
+    headings (blockquote, list item) found through `descendants`. Headings
+    with no anchor, or outside `levels`, are skipped; text is trimmed and
+    whitespace-collapsed. An entry-wise equal list keeps the previous
+    reference (typing in a paragraph notifies nothing); unchanged entries
+    keep their item object. While collaborating the memo misses every block
+    on each remote update (y-tiptap rebuilds every node; ProseMirror keeps
+    the DOM): two synced peers, 2 000 blocks, one remote keystroke = 2 000
+    misses (a local one = 1), `items` reference kept. A cold walk measured
+    in jsdom at 0.15 ms for 2 000 blocks and 0.67 ms for 10 000, against
+    0.03 / 0.16 ms warm.
+  - **`href` after the first browser render only (D-B10):** built through
+    `MLV_EDITOR_HEADING_LINKS` for new / changed entries; `null` until
+    `afterNextRender`, so a server render lists items with no `href` (no
+    `href` attribute) and hydration adds them. No `history.replaceState`
+    on click (D-B8). Resolved **once per item**, against the location at
+    build time, and kept while its id / level / text are unchanged: in-app
+    navigation that keeps the editor mounted does not rebuild it, so a
+    builder reading the current URL keeps the old one until the heading
+    changes (no router dependency; follow-up filed).
+  - **Markup:** `@if (ready())` → nested `ol.mlv-editor-toc__list` (level
+    stack: a skipped level nests one step, no empty wrapper `li`) of
+    `li.mlv-editor-toc__item` > `a.mlv-editor-toc__link` (`--active` +
+    `aria-current="location"`; inline `--mlv-editor-toc-depth` = nesting
+    depth, a styling hook — the indent itself is the nested list's
+    `padding-inline-start`), or
+    `p.mlv-editor-toc__empty` (i18n `tableOfContentsEmpty`). Recursion via
+    `ng-template` + `NgTemplateOutlet`.
+  - **Reading line:** scroller client top (`0` for the page) + ProseMirror's
+    live `scrollMargin.top` (the sticky band's clearance, else 5) + the
+    heading's computed `scroll-margin-block-start` — content headings carry
+    `var(--mlv-editor-heading-scroll-margin, var(--mlv-spacing-4))` (in
+    `editor.scss`; also where fragment links land them).
+  - **Scroller:** a capped editor's `.mlv-editor__viewport`, else the
+    nearest overflowing `overflow-y: auto | scroll | overlay` ancestor, else
+    `document.scrollingElement`.
+  - **Active tracking:** document `scroll` (capture, passive) + window
+    `resize` on the injected `DOCUMENT`, bound in `afterNextRender`, → at
+    most one pending rAF, also after `items` changes. Binary search over
+    heading tops (≤ ⌈log₂(n + 1)⌉ rect reads when every heading is laid
+    out, + 1 for a nested scroller) for the last top ≤ line + 1; when the
+    scroller overflows and is at its end, the last top above its bottom
+    wins (short final sections). None above the line → `null`. An unplaced
+    heading — missing, or an all-zero rect (`display: none`, e.g. inside a
+    collapsed block), whose top of 0 would read as passed — takes the next
+    placed heading's top (`Infinity` past the last), so the tops stay
+    non-decreasing and an unplaced heading is never active. Heading elements are looked up inside this editor's
+    content by `CSS.escape`d id, cached per `items` generation.
+  - **Click:** a modified click, a non-primary button, an already cancelled
+    click or an unrendered heading is left native. Else `preventDefault()`,
+    scroll the scroller by `top − line` (`smooth`, `auto` under reduced
+    motion; a capped viewport is first brought into view with
+    `scrollIntoView({ block: 'nearest' })`), then — unless disabled — a
+    selection-only transaction puts the caret at the heading start
+    (`addToHistory: false`, no `scrollIntoView`) and the content is focused
+    with `preventScroll` (`mlvEditorFocusContent`: `view.focus()` alone
+    moves no focus in a non-editable view, § 17 item 14), then
+    `itemClick`. A readonly editor gets the caret too.
+  - **CSS** (`toc/editor-toc.scss`): logical only; inline-start border marks
+    the active link; link padding follows density
+    (`--mlv-editor-toc-link-padding`); Form A focus ring; reduced motion.
+  - **i18n:** `tableOfContents`, `tableOfContentsEmpty` — with phase A/B's
+    `blockType`, `turnInto`, `insertBlock`, `insertGroupAi`,
+    `insertGroupStyle`, `insertGroupLists`, `insertGroupInsert`, `askAi`,
+    the ten optional `MlvEditorI18n` keys #516 adds. Their English fallbacks
+    are one internal record, `MLV_EDITOR_CLEAN_MODE_FALLBACKS`
+    (`editor-clean-mode-fallbacks.ts`, not barrel-exported), which every
+    control reads; `editor-clean-mode-fallbacks.spec.ts` pins it equal to
+    `enLanguage`.
+  - **Modal drawer caveat:** a TOC inside `mlv-drawer` scrolls a page the
+    drawer's block scroll strategy has frozen; closing restores the old
+    position and focus. `/editor` example 14 re-applies both from
+    `afterClosed`.
+  - **Tests:** `toc/editor-toc.spec.ts` (items, a heading inside a list
+    item, levels, idPrefix + links, no anchors and one warning across a
+    context switch, empty state, reference stability, remote transaction,
+    click / modified / disabled / readonly, active tracking incl. the
+    bottom rule and a heading that is not laid out, one pending frame and its cancel when the TOC is destroyed
+    beside a live editor, injected `DOCUMENT`, axe: empty,
+    populated, active, beside readonly, scoped RTL),
+    `toc/editor-toc-perf.spec.ts` (§ 13 work counts: one block walked per
+    keystroke at 2,000 blocks / 200 headings; ≤ ⌈log₂ n⌉ + 2 rect reads per
+    frame), `editor-ssr.spec.ts` (items without `href`; an `mlv-editor`
+    TOC is a named nav only), `editor-clean-styles.spec.ts` § _table of
+    contents_.
 - **Sticky** (`toolbarSticky`). Applies to an **uncapped `'bar'`** only: the
   host stamps `.mlv-editor--toolbar-sticky` from `_stickyToolbar` =
   `toolbarSticky && _barRendered() && !capped`, so not while `readonly`, when
